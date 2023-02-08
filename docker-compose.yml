@@ -6,11 +6,14 @@ services:
     ports: 
       - "3000:3000"
     depends_on:
-      - db
+      - cache
 
-  db:
-    build: db
+
+  cache:
+    image: redis:6.2
+    restart: always
     ports:
-      - "6379:6379"
+      - '6379:6379'
+    command: redis-server --loglevel warning
     volumes:
-      - .data:/data
+      - ./cache:/data

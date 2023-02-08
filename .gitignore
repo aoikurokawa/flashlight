@@ -2,4 +2,4 @@
 .env
 
 # Data
-/data
+/cache

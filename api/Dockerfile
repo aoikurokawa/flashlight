@@ -1,17 +1,16 @@
+# multistage docker build. This redices the size of the final docker image.
+# stage 1 to build the app
 FROM golang:alpine as builder
 
-WORKDIR /build
+RUN mkdir /build 
 
-COPY go.mod ./
-COPY go.sum ./
+ADD . /build/
 
-RUN go mod download
+WORKDIR /build 
 
-COPY *.go ./
+RUN go build -o shorten-url .
 
-RUN go build -o /shorten-url
-
-# stage 2
+# stage 2 deploys the app built in stage 1
 FROM alpine
 
 RUN adduser -S -D -H -h /app appuser
@@ -26,4 +25,4 @@ WORKDIR /app
 
 EXPOSE 3000
 
-CMD [ "/shorten-url" ]
+CMD ["./shorten-url"]
