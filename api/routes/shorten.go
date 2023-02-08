@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -38,6 +39,8 @@ func ShortenURL(c *fiber.Ctx) error {
 	r2 := database.CreateClient(1)
 	defer r2.Close()
 	val, err := r2.Get(database.Ctx, c.IP()).Result()
+	fmt.Printf("Database val: %s", val)
+	fmt.Printf("Database val: %v", err)
 	if err == redis.Nil {
 		_ = r2.Set(database.Ctx, c.IP(), os.Getenv("API_QUOTA"), 30*60*time.Second).Err()
 	} else {
