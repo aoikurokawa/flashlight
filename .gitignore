@@ -1,8 +1,2 @@
-# Environment variable
-.env
-
-# Data
-/cache
-
-# vscode
-.vscode
+/target
+/Cargo.lock
