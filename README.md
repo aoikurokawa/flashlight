@@ -1,9 +1,9 @@
-# Shorten URL Project
+# Hacker Rank in Rust
 
-## Getting started
+## TABLE
 
-1. Send a request `/api/v1`
-2. Resolve a URL `/{url}`
+1. [Simple Array Sum](https://www.hackerrank.com/challenges/simple-array-sum/problem?isFullScreen=true) 
+2. 
 
 ## Libraries
 
