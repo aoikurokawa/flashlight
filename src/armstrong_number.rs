@@ -10,22 +10,24 @@ pub fn is_armstrong_number(num: u32) -> bool {
 
     digits.reverse();
 
-    let mut sum = 0;
+    let mut sum: u64 = 0;
+    let mut prev_sum = 0;
     let mut count = 1;
     loop {
         for digit in digits.iter() {
-            sum += digit.pow(count);
+            sum += digit.pow(count) as u64;
         }
 
-        if sum == num {
+        if sum == num as u64 {
             return true;
         }
 
-        if sum > num {
+        if sum > num as u64 || prev_sum == sum {
             break;
         }
 
         count += 1;
+        prev_sum = sum;
         sum = 0;
     }
 
@@ -55,5 +57,12 @@ mod tests {
         let num = 153;
         let is_valid = is_armstrong_number(num);
         assert!(is_valid);
+    }
+
+    #[test]
+    fn test_armstrong_number_3_999_999_999() {
+        let num = 3_999_999_999;
+        let is_not_valid = is_armstrong_number(num);
+        assert!(is_not_valid == false);
     }
 }
