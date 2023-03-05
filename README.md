@@ -1,15 +1,12 @@
-# Hacker Rank in Rust
+# Exercism in Rust
 
 ## TABLE
 
-1. [Simple Array Sum](https://www.hackerrank.com/challenges/simple-array-sum/problem?isFullScreen=true) 
+1. [Armstrong Numbers](https://exercism.org/tracks/rust/exercises/armstrong-numbers/edit) 
 2. 
 
 ## Libraries
 
-- [godotenv](https://github.com/joho/godotenv)
-- [gofiber](https://gofiber.io/)
+## REFERENCES
+- [homepage](https://exercism.org)
 
-## Database
-
-- redis
