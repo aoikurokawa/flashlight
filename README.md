@@ -8,5 +8,5 @@
 ## Libraries
 
 ## REFERENCES
-- [homepage](https://exercism.org)
+- [Overview](https://exercism.org/tracks/rust)
 
