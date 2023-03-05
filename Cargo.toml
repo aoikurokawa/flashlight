@@ -1,5 +1,5 @@
 [package]
-name = "hacker-rank-rust"
+name = "exercism-rust"
 version = "0.1.0"
 edition = "2021"
 
