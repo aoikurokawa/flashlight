@@ -16,9 +16,13 @@ pub fn encode(key: &str, s: &str) -> Option<String> {
 
     for (val_index, val_ch) in s.as_bytes().iter().enumerate() {
         for (index, alpha) in ALPHABET.iter().enumerate() {
-            if alpha == val_ch {
-                encoded = format!("{}{}", encoded, ALPHABET[index + gaps[val_index]] as char);
-            }
+             if alpha == val_ch {
+                encoded = format!(
+                    "{}{}",
+                    encoded,
+                    ALPHABET[(index + gaps[val_index]) % 26] as char
+                );
+             }
         }
     }
 
@@ -40,7 +44,11 @@ pub fn decode(key: &str, s: &str) -> Option<String> {
     for (val_index, val_ch) in s.as_bytes().iter().enumerate() {
         for (index, alpha) in ALPHABET.iter().enumerate() {
             if alpha == val_ch {
-                decoded = format!("{}{}", decoded, ALPHABET[index - gaps[val_index]] as char);
+                decoded = format!(
+                    "{}{}",
+                    decoded,
+                    ALPHABET[(index - gaps[val_index % key.len()]) % 26] as char
+                );
             }
         }
     }
@@ -79,5 +87,27 @@ mod tests {
     #[test]
     fn cipher_can_decode_with_given_key() {
         assert_eq!(decode(KEY, "abcdefghij"), Some("aaaaaaaaaa".to_string()));
+    }
+
+    #[test]
+    fn cipher_can_double_shift_encode() {
+        let plain_text = "iamapandabear";
+        assert_eq!(
+            encode(plain_text, plain_text),
+            Some("qayaeaagaciai".to_string())
+        );
+    }
+
+    #[test]
+    fn cipher_can_wrap_encode() {
+        assert_eq!(encode(KEY, "zzzzzzzzzz"), Some("zabcdefghi".to_string()));
+    }
+
+    #[test]
+    fn cipher_is_reversible_given_key() {
+        assert_eq!(
+            decode(KEY, &encode(KEY, PLAIN_TEXT).unwrap()),
+            Some(PLAIN_TEXT.to_string())
+        );
     }
 }
