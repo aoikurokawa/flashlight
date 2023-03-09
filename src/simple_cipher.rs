@@ -40,7 +40,7 @@ pub fn decode(key: &str, s: &str) -> Option<String> {
     for (val_index, val_ch) in s.as_bytes().iter().enumerate() {
         for (index, alpha) in ALPHABET.iter().enumerate() {
             if alpha == val_ch {
-                decoded = format!("{}{}", decoded, ALPHABET[index - gaps[val_index]]);
+                decoded = format!("{}{}", decoded, ALPHABET[index - gaps[val_index]] as char);
             }
         }
     }
@@ -74,5 +74,10 @@ mod tests {
     #[test]
     fn cipher_can_encode_with_given_key() {
         assert_eq!(encode(KEY, "aaaaaaaaaa"), Some(KEY.to_string()));
+    }
+
+    #[test]
+    fn cipher_can_decode_with_given_key() {
+        assert_eq!(decode(KEY, "abcdefghij"), Some("aaaaaaaaaa".to_string()));
     }
 }
