@@ -2,38 +2,23 @@ use rand::Rng;
 
 const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 
+fn check_key(key: &u8) -> bool {
+    return key.is_ascii_lowercase();
+}
+
 pub fn encode(key: &str, s: &str) -> Option<String> {
     let mut gaps = vec![];
     let mut encoded = String::new();
 
-    for key_ch in key.as_bytes().iter() {
-        for (index, alpha) in ALPHABET.iter().enumerate() {
-            if alpha == key_ch {
-                gaps.push(index);
-            }
-        }
+    if key.is_empty() {
+        return None;
     }
 
-    for (val_index, val_ch) in s.as_bytes().iter().enumerate() {
-        for (index, alpha) in ALPHABET.iter().enumerate() {
-             if alpha == val_ch {
-                encoded = format!(
-                    "{}{}",
-                    encoded,
-                    ALPHABET[(index + gaps[val_index]) % 26] as char
-                );
-             }
-        }
-    }
-
-    Some(encoded)
-}
-
-pub fn decode(key: &str, s: &str) -> Option<String> {
-    let mut gaps = vec![];
-    let mut decoded = String::new();
-
     for key_ch in key.as_bytes().iter() {
+        if !check_key(key_ch) {
+            return None;
+        }
+
         for (index, alpha) in ALPHABET.iter().enumerate() {
             if alpha == key_ch {
                 gaps.push(index);
@@ -44,11 +29,40 @@ pub fn decode(key: &str, s: &str) -> Option<String> {
     for (val_index, val_ch) in s.as_bytes().iter().enumerate() {
         for (index, alpha) in ALPHABET.iter().enumerate() {
             if alpha == val_ch {
-                decoded = format!(
-                    "{}{}",
-                    decoded,
-                    ALPHABET[(index - gaps[val_index % key.len()]) % 26] as char
-                );
+                let pos = (26 + index + gaps[val_index % key.len()]) % 26;
+                encoded = format!("{}{}", encoded, ALPHABET[pos] as char);
+            }
+        }
+    }
+
+    Some(encoded)
+}
+
+pub fn decode(key: &str, s: &str) -> Option<String> {
+    let mut gaps = vec![];
+    let mut decoded = String::new();
+
+    if key.is_empty() {
+        return None;
+    }
+
+    for key_ch in key.as_bytes().iter() {
+        if !check_key(key_ch) {
+            return None;
+        }
+
+        for (index, alpha) in ALPHABET.iter().enumerate() {
+            if alpha == key_ch {
+                gaps.push(index);
+            }
+        }
+    }
+
+    for (val_index, val_ch) in s.as_bytes().iter().enumerate() {
+        for (index, alpha) in ALPHABET.iter().enumerate() {
+            if alpha == val_ch {
+                let pos = (26 + index as isize - gaps[val_index % key.len()] as isize).abs() % 26;
+                decoded = format!("{}{}", decoded, ALPHABET[pos as usize] as char);
             }
         }
     }
@@ -57,7 +71,7 @@ pub fn decode(key: &str, s: &str) -> Option<String> {
 }
 
 pub fn encode_random(s: &str) -> (String, String) {
-    let s_len = s.len();
+    let s_len = 100;
     let mut rng = rand::thread_rng();
 
     let random_str: String = (0..s_len)
