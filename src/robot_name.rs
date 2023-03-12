@@ -5,7 +5,6 @@ use once_cell::sync::Lazy;
 use rand::Rng;
 
 const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const ROBOT_NAME_LEN: usize = 5;
 
 static SET: Lazy<Mutex<HashSet<Robot>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
