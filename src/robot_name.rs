@@ -39,7 +39,9 @@ impl Robot {
 
             let temp_name = format!("{}{}{}{}", letter, num1, num2, num3);
 
-            if SET.lock().unwrap().insert(Robot { name: temp_name.clone() }) {
+            if SET.lock().unwrap().insert(Robot {
+                name: temp_name.clone(),
+            }) {
                 self.name = temp_name;
                 break;
             }
