@@ -1,31 +1,60 @@
+use std::collections::HashMap;
+
+#[derive(Default)]
 pub struct CodonsInfo<'a> {
-    // We fake using 'a here, so the compiler does not complain that
-    // "parameter `'a` is never used". Delete when no longer needed.
-    phantom: std::marker::PhantomData<&'a ()>,
+    info: HashMap<&'a str, Vec<&'a str>>,
 }
 
 impl<'a> CodonsInfo<'a> {
     pub fn name_for(&self, codon: &str) -> Option<&'a str> {
-        match codon {
-            "AUG" => Some("Methionine"),
-            "UUU" | "UUC" => Some("Phenylalanine"),
-            "UUA" | "UUG" => Some("Leucine"),
-            "UCU" | "UCC" | "UCA" | "UCG" => Some("Serine"),
-            "UAU" | "UAC" => Some("Tyrosine"),
-            "UGU" | "UGC" => Some("Cysteine"),
-            "UGG" => Some("Tryptophan"),
-            "UAA" | "UAG" | "UGA" => Some("STOP"),
-            _ => None,
+        for (key, values) in self.info.iter() {
+            for val in values {
+                if val == &codon {
+                    return Some(key);
+                }
+            }
         }
+
+        return None;
     }
 
     pub fn of_rna(&self, rna: &str) -> Option<Vec<&'a str>> {
-        unimplemented!("Return a list of protein names that correspond to the '{rna}' RNA string or None if the RNA string is invalid");
+        let mut proteins = vec![];
+
+        let rnas = rna
+            .chars()
+            .enumerate()
+            .map(|(index, _ch)| {
+                if index % 3 == 0 {
+                    rna.split_at(index + 1).0
+                } else {
+                    ""
+                }
+            })
+            .collect::<Vec<&str>>();
+
+        for (key, values) in self.info.iter() {
+            for rna_val in rnas.iter() {
+                if values.contains(rna_val) {
+                    proteins.push(*key);
+                }
+            }
+        }
+
+        return Some(proteins);
     }
 }
 
 pub fn parse<'a>(pairs: Vec<(&'a str, &'a str)>) -> CodonsInfo<'a> {
-    unimplemented!("Construct a new CodonsInfo struct from given pairs: {pairs:?}");
+    let mut map: HashMap<&str, Vec<&str>> = HashMap::new();
+
+    for (codon, rna) in pairs {
+        map.entry(rna)
+            .and_modify(|codons| codons.push(codon))
+            .or_insert(vec![codon]);
+    }
+
+    CodonsInfo { info: map }
 }
 
 #[cfg(test)]
@@ -37,63 +66,64 @@ mod tests {
         let info = proteins::parse(make_pairs());
         assert_eq!(info.name_for("AUG"), Some("methionine"));
     }
+
     #[test]
     fn test_cysteine_tgt() {
         let info = proteins::parse(make_pairs());
         assert_eq!(info.name_for("UGU"), Some("cysteine"));
     }
+
     #[test]
-    #[ignore]
     fn test_stop() {
         let info = proteins::parse(make_pairs());
         assert_eq!(info.name_for("UAA"), Some("stop codon"));
     }
+
     #[test]
-    #[ignore]
     fn test_valine() {
         let info = proteins::parse(make_pairs());
         assert_eq!(info.name_for("GUU"), Some("valine"));
     }
+
     #[test]
-    #[ignore]
     fn test_isoleucine() {
         let info = proteins::parse(make_pairs());
         assert_eq!(info.name_for("AUU"), Some("isoleucine"));
     }
+
     #[test]
-    #[ignore]
     fn test_arginine_name() {
         let info = proteins::parse(make_pairs());
         assert_eq!(info.name_for("CGA"), Some("arginine"));
         assert_eq!(info.name_for("AGA"), Some("arginine"));
         assert_eq!(info.name_for("AGG"), Some("arginine"));
     }
+
     #[test]
-    #[ignore]
     fn empty_is_invalid() {
         let info = proteins::parse(make_pairs());
         assert!(info.name_for("").is_none());
     }
+
     #[test]
-    #[ignore]
     fn x_is_not_shorthand_so_is_invalid() {
         let info = proteins::parse(make_pairs());
         assert!(info.name_for("VWX").is_none());
     }
+
     #[test]
-    #[ignore]
     fn too_short_is_invalid() {
         let info = proteins::parse(make_pairs());
         assert!(info.name_for("AU").is_none());
     }
+
     #[test]
-    #[ignore]
     fn too_long_is_invalid() {
         let info = proteins::parse(make_pairs());
         assert!(info.name_for("ATTA").is_none());
     }
+
     #[test]
-    #[ignore]
     fn test_translates_rna_strand_into_correct_protein() {
         let info = proteins::parse(make_pairs());
         assert_eq!(
@@ -101,8 +131,8 @@ mod tests {
             Some(vec!["methionine", "phenylalanine", "tryptophan"])
         );
     }
+
     #[test]
-    #[ignore]
     fn test_stops_translation_if_stop_codon_present() {
         let info = proteins::parse(make_pairs());
         assert_eq!(
@@ -110,8 +140,8 @@ mod tests {
             Some(vec!["methionine", "phenylalanine"])
         );
     }
+
     #[test]
-    #[ignore]
     fn test_stops_translation_of_longer_strand() {
         let info = proteins::parse(make_pairs());
         assert_eq!(
@@ -119,8 +149,8 @@ mod tests {
             Some(vec!["tryptophan", "cysteine", "tyrosine"])
         );
     }
+
     #[test]
-    #[ignore]
     fn test_invalid_codons() {
         let info = proteins::parse(make_pairs());
         assert!(info.of_rna("CARROT").is_none());
