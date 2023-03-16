@@ -1,78 +1,30 @@
 use std::collections::HashMap;
+use std::str;
+
+const STOP: &'static str = "stop codon";
 
 #[derive(Default)]
 pub struct CodonsInfo<'a> {
-    info: HashMap<&'a str, Vec<&'a str>>,
+    info: HashMap<&'a str, &'a str>,
 }
 
 impl<'a> CodonsInfo<'a> {
     pub fn name_for(&self, codon: &str) -> Option<&'a str> {
-        for (key, values) in self.info.iter() {
-            for val in values {
-                if val == &codon {
-                    return Some(key);
-                }
-            }
-        }
-
-        return None;
+        return self.info.get(codon).cloned();
     }
 
     pub fn of_rna(&self, rna: &str) -> Option<Vec<&'a str>> {
-        let mut proteins: Vec<&str> = vec![];
-        let mut rnas = vec![];
-        let mut rna = rna;
-        let mut flag = false;
-
-        while rna.len() > 3 {
-            let (first, second) = rna.split_at(3);
-
-            rnas.push(first);
-
-            if second.len() == 3 {
-                rnas.push(second);
-            }
-
-            rna = second;
-        }
-
-        println!("{rnas:?}");
-
-        for (key, values) in self.info.iter() {
-            for (index, rna_val) in rnas.clone().iter().enumerate() {
-                if *rna_val == "UAA" {
-                    let (left, _right) = rnas.split_at(index);
-                    rnas = left.to_vec();
-                    flag = true;
-                }
-                if values.contains(&rna_val) {
-                    proteins.push(*key);
-                }
-            }
-        }
-
-        println!("{proteins:?}");
-
-        if proteins.is_empty() || (!flag && rna.len() > 0)   {
-            return None;
-        }
-
-        proteins.sort_by(|&a, &b| a.cmp(b));
-
-        return Some(proteins);
+        rna.as_bytes()
+            .chunks(3)
+            .map(str::from_utf8)
+            .map(|sequence| self.name_for(sequence.unwrap()))
+            .take_while(|&codon| codon != Some(STOP))
+            .collect()
     }
 }
 
 pub fn parse<'a>(pairs: Vec<(&'a str, &'a str)>) -> CodonsInfo<'a> {
-    let mut map: HashMap<&str, Vec<&str>> = HashMap::new();
-
-    for (codon, rna) in pairs {
-        map.entry(rna)
-            .and_modify(|codons| codons.push(codon))
-            .or_insert(vec![codon]);
-    }
-
-    CodonsInfo { info: map }
+    CodonsInfo { info: pairs.iter().cloned().collect() }
 }
 
 #[cfg(test)]
