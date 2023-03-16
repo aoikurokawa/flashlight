@@ -19,27 +19,45 @@ impl<'a> CodonsInfo<'a> {
     }
 
     pub fn of_rna(&self, rna: &str) -> Option<Vec<&'a str>> {
-        let mut proteins = vec![];
+        let mut proteins: Vec<&str> = vec![];
+        let mut rnas = vec![];
+        let mut rna = rna;
+        let mut flag = false;
 
-        let rnas = rna
-            .chars()
-            .enumerate()
-            .map(|(index, _ch)| {
-                if index % 3 == 0 {
-                    rna.split_at(index + 1).0
-                } else {
-                    ""
-                }
-            })
-            .collect::<Vec<&str>>();
+        while rna.len() > 3 {
+            let (first, second) = rna.split_at(3);
+
+            rnas.push(first);
+
+            if second.len() == 3 {
+                rnas.push(second);
+            }
+
+            rna = second;
+        }
+
+        println!("{rnas:?}");
 
         for (key, values) in self.info.iter() {
-            for rna_val in rnas.iter() {
-                if values.contains(rna_val) {
+            for (index, rna_val) in rnas.clone().iter().enumerate() {
+                if *rna_val == "UAA" {
+                    let (left, _right) = rnas.split_at(index);
+                    rnas = left.to_vec();
+                    flag = true;
+                }
+                if values.contains(&rna_val) {
                     proteins.push(*key);
                 }
             }
         }
+
+        println!("{proteins:?}");
+
+        if proteins.is_empty() || (!flag && rna.len() > 0)   {
+            return None;
+        }
+
+        proteins.sort_by(|&a, &b| a.cmp(b));
 
         return Some(proteins);
     }
@@ -156,13 +174,11 @@ mod tests {
         assert!(info.of_rna("CARROT").is_none());
     }
     #[test]
-    #[ignore]
     fn test_invalid_length() {
         let info = proteins::parse(make_pairs());
         assert!(info.of_rna("AUGUA").is_none());
     }
     #[test]
-    #[ignore]
     fn test_valid_stopped_rna() {
         let info = proteins::parse(make_pairs());
         assert_eq!(info.of_rna("AUGUAAASDF"), Some(vec!["methionine"]));
