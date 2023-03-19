@@ -12,6 +12,7 @@ mod word_count;
 
 pub use armstrong_number::*;
 pub use beer_song::*;
+pub use difference_of_squares::*;
 pub use gigasecond::*;
 pub use isbn_verifier::*;
 pub use isogram::*;
@@ -20,4 +21,3 @@ pub use protein_translation::*;
 pub use robot_name::*;
 pub use simple_cipher::*;
 pub use word_count::*;
-pub use difference_of_squares::*;

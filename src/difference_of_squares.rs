@@ -8,6 +8,10 @@ pub fn square_of_sum(n: u32) -> u32 {
     sum.pow(2)
 }
 
+pub fn square_of_sum_1(n: u32) -> u32 {
+    (1..=n).sum::<u32>().pow(2)
+}
+
 pub fn sum_of_squares(n: u32) -> u32 {
     let mut sum = 0;
 
@@ -16,6 +20,10 @@ pub fn sum_of_squares(n: u32) -> u32 {
     }
 
     sum
+}
+
+pub fn sum_of_squares_1(n: u32) -> u32 {
+    (1..=n).map(|x| x.pow(2)).sum()
 }
 
 pub fn difference(n: u32) -> u32 {
