@@ -9,7 +9,13 @@ pub fn square_of_sum(n: u32) -> u32 {
 }
 
 pub fn sum_of_squares(n: u32) -> u32 {
-    unimplemented!("sum of squares of 1...{n}")
+    let mut sum = 0;
+
+    for i in 1..=n {
+        sum += i.pow(2);
+    }
+
+    sum
 }
 
 pub fn difference(n: u32) -> u32 {
@@ -33,17 +39,14 @@ mod tests {
         assert_eq!(25_502_500, squares::square_of_sum(100));
     }
     #[test]
-    #[ignore]
     fn test_sum_of_squares_1() {
         assert_eq!(1, squares::sum_of_squares(1));
     }
     #[test]
-    #[ignore]
     fn test_sum_of_squares_5() {
         assert_eq!(55, squares::sum_of_squares(5));
     }
     #[test]
-    #[ignore]
     fn test_sum_of_squares_100() {
         assert_eq!(338_350, squares::sum_of_squares(100));
     }
