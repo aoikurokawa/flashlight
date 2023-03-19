@@ -19,7 +19,7 @@ pub fn sum_of_squares(n: u32) -> u32 {
 }
 
 pub fn difference(n: u32) -> u32 {
-    unimplemented!("difference between square of sum of 1...{n} and sum of squares of 1...{n}")
+    square_of_sum(n) - sum_of_squares(n)
 }
 
 #[cfg(test)]
@@ -51,12 +51,10 @@ mod tests {
         assert_eq!(338_350, squares::sum_of_squares(100));
     }
     #[test]
-    #[ignore]
     fn test_difference_1() {
         assert_eq!(0, squares::difference(1));
     }
     #[test]
-    #[ignore]
     fn test_difference_5() {
         assert_eq!(170, squares::difference(5));
     }
