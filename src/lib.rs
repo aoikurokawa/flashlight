@@ -1,5 +1,6 @@
 mod armstrong_number;
 mod beer_song;
+mod difference_of_squares;
 mod gigasecond;
 mod isbn_verifier;
 mod isogram;
@@ -19,3 +20,4 @@ pub use protein_translation::*;
 pub use robot_name::*;
 pub use simple_cipher::*;
 pub use word_count::*;
+pub use difference_of_squares::*;
