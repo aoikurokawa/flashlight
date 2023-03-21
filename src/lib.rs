@@ -1,6 +1,7 @@
 mod armstrong_number;
 mod beer_song;
 mod difference_of_squares;
+mod fizzy;
 mod gigasecond;
 mod isbn_verifier;
 mod isogram;
@@ -15,6 +16,7 @@ mod word_count;
 pub use armstrong_number::*;
 pub use beer_song::*;
 pub use difference_of_squares::*;
+pub use fizzy::*;
 pub use gigasecond::*;
 pub use isbn_verifier::*;
 pub use isogram::*;
