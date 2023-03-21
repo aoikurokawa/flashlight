@@ -93,7 +93,6 @@ pub fn convert(input: &str) -> Result<String, Error> {
             None => break,
         }
     }
-
     Ok(result)
 }
 
