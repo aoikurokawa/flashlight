@@ -22,8 +22,8 @@ enum Digit {
     Nine,
 }
 
-fn recognize_digit(lines: &[&str]) -> Option<Digit> {
-    match lines {
+fn recognize_digit(lines: &Vec<&str>) -> Option<Digit> {
+    match lines.as_slice() {
         [" _ ", "| |", "|_|", "   "] => Some(Digit::Zero),
         ["   ", "  |", "  |", "   "] => Some(Digit::One),
         [" _ ", " _|", "|_ ", "   "] => Some(Digit::Two),
@@ -50,9 +50,10 @@ pub fn convert(input: &str) -> Result<String, Error> {
         return Err(Error::InvalidRowCount(lines.len()));
     }
 
+    let mut sections = Vec::new();
     let mut sections_map: HashMap<u8, Vec<&str>> = HashMap::new();
     let mut count = 0;
-    for (_line_index, line) in lines.iter_mut().enumerate() {
+    for (line_index, line) in lines.iter_mut().enumerate() {
         while line.len() > 0 {
             let (first, second) = line.split_at(3);
 
@@ -65,16 +66,23 @@ pub fn convert(input: &str) -> Result<String, Error> {
             *line = second;
         }
 
+        if (line_index + 1) % 4 == 0 {
+            sections.push(sections_map.clone());
+            sections_map.clear();
+        }
+
         count = 0;
     }
 
+    println!("{sections:?}");
+
     let mut result = String::new();
-    loop {
-        match sections_map.get(&count) {
-            Some(section) => {
-                for i in (0..lines.len()).step_by(4) {
-                    let digit_lines = [section[i], section[i + 1], section[i + 2], section[i + 3]];
-                    match recognize_digit(&digit_lines) {
+    for section_map in sections {
+        let mut map_count = 0;
+        loop {
+            match section_map.get(&map_count) {
+                Some(section) => {
+                    match recognize_digit(&section) {
                         Some(Digit::Zero) => result.push('0'),
                         Some(Digit::One) => result.push('1'),
                         Some(Digit::Two) => result.push('2'),
@@ -87,13 +95,26 @@ pub fn convert(input: &str) -> Result<String, Error> {
                         Some(Digit::Nine) => result.push('9'),
                         None => result.push('?'),
                     }
+                    map_count += 1;
                 }
-                count += 1;
+                None => break,
             }
-            None => break,
         }
     }
-    Ok(result)
+
+    let mut ret_res = String::new();
+    if lines.len() > 4 {
+        for (i, ch) in result.clone().chars().enumerate() {
+            ret_res.push(ch);
+            if (i + 1) % 3 == 0 {
+                ret_res.push(',')
+            }         }
+        ret_res.pop();
+    } else {
+        ret_res = result.clone();
+    }
+
+    Ok(ret_res)
 }
 
 #[cfg(test)]
