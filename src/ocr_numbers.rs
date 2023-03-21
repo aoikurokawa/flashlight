@@ -1,6 +1,8 @@
 // The code below is a stub. Just enough to satisfy the compiler.
 // In order to pass the tests you can add-to or change any of this code.
 
+use std::collections::HashMap;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     InvalidRowCount(usize),
@@ -23,6 +25,15 @@ enum Digit {
 fn recognize_digit(lines: &[&str]) -> Option<Digit> {
     match lines {
         [" _ ", "| |", "|_|", "   "] => Some(Digit::Zero),
+        ["   ", "  |", "  |", "   "] => Some(Digit::One),
+        [" _ ", " _|", "|_ ", "   "] => Some(Digit::Two),
+        [" _ ", " _|", " _|", "   "] => Some(Digit::Three),
+        ["   ", "|_|", "  |", "   "] => Some(Digit::Four),
+        [" _ ", "|_ ", " _|", "   "] => Some(Digit::Five),
+        [" _ ", "|_ ", "|_|", "   "] => Some(Digit::Six),
+        [" _ ", "  |", "  |", "   "] => Some(Digit::Seven),
+        [" _ ", "|_|", "|_|", "   "] => Some(Digit::Eight),
+        [" _ ", "|_|", " _|", "   "] => Some(Digit::Nine),
         _ => None,
     }
 }
@@ -30,30 +41,56 @@ fn recognize_digit(lines: &[&str]) -> Option<Digit> {
 pub fn convert(input: &str) -> Result<String, Error> {
     let mut lines: Vec<&str> = Vec::new();
     for line in input.lines() {
-        if line.len() != 3 {
+        if line.len() % 3 != 0 {
             return Err(Error::InvalidColumnCount(line.len()));
         }
-        lines.push(line.trim());
+        lines.push(line);
     }
     if lines.len() % 4 != 0 {
         return Err(Error::InvalidRowCount(lines.len()));
     }
 
+    let mut sections_map: HashMap<u8, Vec<&str>> = HashMap::new();
+    let mut count = 0;
+    for (_line_index, line) in lines.iter_mut().enumerate() {
+        while line.len() > 0 {
+            let (first, second) = line.split_at(3);
+
+            sections_map
+                .entry(count)
+                .and_modify(|arr| arr.push(first))
+                .or_insert(vec![first]);
+
+            count += 1;
+            *line = second;
+        }
+
+        count = 0;
+    }
+
     let mut result = String::new();
-    for i in (0..lines.len()).step_by(4) {
-        let digit_lines = [lines[i], lines[i + 1], lines[i + 2], lines[i + 3]];
-        match recognize_digit(&digit_lines) {
-            Some(Digit::Zero) => result.push('0'),
-            Some(Digit::One) => result.push('1'),
-            Some(Digit::Two) => result.push('2'),
-            Some(Digit::Three) => result.push('3'),
-            Some(Digit::Four) => result.push('4'),
-            Some(Digit::Five) => result.push('5'),
-            Some(Digit::Six) => result.push('6'),
-            Some(Digit::Seven) => result.push('7'),
-            Some(Digit::Eight) => result.push('8'),
-            Some(Digit::Nine) => result.push('9'),
-            None => result.push('?'),
+    loop {
+        match sections_map.get(&count) {
+            Some(section) => {
+                for i in (0..lines.len()).step_by(4) {
+                    let digit_lines = [section[i], section[i + 1], section[i + 2], section[i + 3]];
+                    match recognize_digit(&digit_lines) {
+                        Some(Digit::Zero) => result.push('0'),
+                        Some(Digit::One) => result.push('1'),
+                        Some(Digit::Two) => result.push('2'),
+                        Some(Digit::Three) => result.push('3'),
+                        Some(Digit::Four) => result.push('4'),
+                        Some(Digit::Five) => result.push('5'),
+                        Some(Digit::Six) => result.push('6'),
+                        Some(Digit::Seven) => result.push('7'),
+                        Some(Digit::Eight) => result.push('8'),
+                        Some(Digit::Nine) => result.push('9'),
+                        None => result.push('?'),
+                    }
+                }
+                count += 1;
+            }
+            None => break,
         }
     }
 
