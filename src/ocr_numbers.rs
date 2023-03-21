@@ -108,7 +108,8 @@ pub fn convert(input: &str) -> Result<String, Error> {
             ret_res.push(ch);
             if (i + 1) % 3 == 0 {
                 ret_res.push(',')
-            }         }
+            }
+        }
         ret_res.pop();
     } else {
         ret_res = result.clone();
