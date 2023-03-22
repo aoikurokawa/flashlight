@@ -7,13 +7,7 @@ pub fn square(s: u32) -> u64 {
 }
 
 pub fn total() -> u64 {
-    let mut sum = 0;
-
-    for i in 1..=64 {
-        sum += square(i);
-    }
-
-    sum
+    (2_u128.pow(64) - 1) as u64
 }
 
 #[cfg(test)]
