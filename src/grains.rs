@@ -6,8 +6,16 @@ pub fn square(s: u32) -> u64 {
     2_u64.pow(s - 1) as u64
 }
 
+pub fn square_1(s: u32) -> u64 {
+    1 << (s - 1)
+}
+
 pub fn total() -> u64 {
     (2_u128.pow(64) - 1) as u64
+}
+
+pub fn total_1() -> u64 {
+    ((1_u128 << 64) - 1) as u64
 }
 
 #[cfg(test)]
@@ -15,7 +23,7 @@ mod tests {
     use crate::grains;
 
     fn process_square_case(input: u32, expected: u64) {
-        assert_eq!(grains::square(input), expected);
+        assert_eq!(grains::square_1(input), expected);
     }
     #[test]
     /// 1
