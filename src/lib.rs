@@ -1,4 +1,5 @@
 mod armstrong_number;
+mod grains;
 mod beer_song;
 mod difference_of_squares;
 mod fizzy;
@@ -27,3 +28,4 @@ pub use protein_translation::*;
 pub use robot_name::*;
 pub use simple_cipher::*;
 pub use word_count::*;
+pub use grains::*;
