@@ -24,7 +24,9 @@ impl<'a> CodonsInfo<'a> {
 }
 
 pub fn parse<'a>(pairs: Vec<(&'a str, &'a str)>) -> CodonsInfo<'a> {
-    CodonsInfo { info: pairs.iter().cloned().collect() }
+    CodonsInfo {
+        info: pairs.iter().cloned().collect(),
+    }
 }
 
 #[cfg(test)]
