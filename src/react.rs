@@ -308,7 +308,7 @@ impl<'a, T: Copy + PartialEq> Reactor<'a, T> {
                         cell.remove_callback(*callback_index);
                         Ok(())
                     }
-                    None => Err(RemoveCallbackError::NonexistentCell),
+                    None => Err(RemoveCallbackError::NonexistentCallback),
                 }
             }
             None => Err(RemoveCallbackError::NonexistentCell),
@@ -350,8 +350,8 @@ mod tests {
             .unwrap();
         assert_eq!(reactor.value(CellId::Compute(output)), Some(2));
     }
+
     #[test]
-    #[ignore]
     fn compute_cells_take_inputs_in_the_right_order() {
         let mut reactor = Reactor::new();
         let one = reactor.create_input(1);
@@ -364,7 +364,6 @@ mod tests {
         assert_eq!(reactor.value(CellId::Compute(output)), Some(21));
     }
     #[test]
-    #[ignore]
     fn error_creating_compute_cell_if_input_doesnt_exist() {
         let mut dummy_reactor = Reactor::new();
         let input = dummy_reactor.create_input(1);
@@ -374,7 +373,6 @@ mod tests {
         );
     }
     #[test]
-    #[ignore]
     fn do_not_break_cell_if_creating_compute_cell_with_valid_and_invalid_input() {
         let mut dummy_reactor = Reactor::new();
         let _ = dummy_reactor.create_input(1);
@@ -389,7 +387,6 @@ mod tests {
         assert_eq!(reactor.value(CellId::Input(input)), Some(5));
     }
     #[test]
-    #[ignore]
     fn compute_cells_update_value_when_dependencies_are_changed() {
         let mut reactor = Reactor::new();
         let input = reactor.create_input(1);
@@ -401,7 +398,6 @@ mod tests {
         assert_eq!(reactor.value(CellId::Compute(output)), Some(4));
     }
     #[test]
-    #[ignore]
     fn compute_cells_can_depend_on_other_compute_cells() {
         let mut reactor = Reactor::new();
         let input = reactor.create_input(1);
@@ -466,7 +462,6 @@ mod tests {
         }
     }
     #[test]
-    #[ignore]
     fn compute_cells_fire_callbacks() {
         let cb = CallbackRecorder::new();
         let mut reactor = Reactor::new();
@@ -481,7 +476,6 @@ mod tests {
         cb.expect_to_have_been_called_with(4);
     }
     #[test]
-    #[ignore]
     fn error_adding_callback_to_nonexistent_cell() {
         let mut dummy_reactor = Reactor::new();
         let input = dummy_reactor.create_input(1);
@@ -494,7 +488,6 @@ mod tests {
         );
     }
     #[test]
-    #[ignore]
     fn error_removing_callback_from_nonexisting_cell() {
         let mut dummy_reactor = Reactor::new();
         let dummy_input = dummy_reactor.create_input(1);
@@ -516,7 +509,6 @@ mod tests {
         );
     }
     #[test]
-    #[ignore]
     fn callbacks_only_fire_on_change() {
         let cb = CallbackRecorder::new();
         let mut reactor = Reactor::new();
@@ -536,7 +528,6 @@ mod tests {
         cb.expect_to_have_been_called_with(222);
     }
     #[test]
-    #[ignore]
     fn callbacks_can_be_called_multiple_times() {
         let cb = CallbackRecorder::new();
         let mut reactor = Reactor::new();
@@ -553,7 +544,6 @@ mod tests {
         cb.expect_to_have_been_called_with(4);
     }
     #[test]
-    #[ignore]
     fn callbacks_can_be_called_from_multiple_cells() {
         let cb1 = CallbackRecorder::new();
         let cb2 = CallbackRecorder::new();
@@ -576,7 +566,6 @@ mod tests {
         cb2.expect_to_have_been_called_with(9);
     }
     #[test]
-    #[ignore]
     fn callbacks_can_be_added_and_removed() {
         let cb1 = CallbackRecorder::new();
         let cb2 = CallbackRecorder::new();
@@ -605,7 +594,6 @@ mod tests {
         cb3.expect_to_have_been_called_with(42);
     }
     #[test]
-    #[ignore]
     fn removing_a_callback_multiple_times_doesnt_interfere_with_other_callbacks() {
         let cb1 = CallbackRecorder::new();
         let cb2 = CallbackRecorder::new();
@@ -633,7 +621,6 @@ mod tests {
         cb2.expect_to_have_been_called_with(3);
     }
     #[test]
-    #[ignore]
     fn callbacks_should_only_be_called_once_even_if_multiple_dependencies_change() {
         let cb = CallbackRecorder::new();
         let mut reactor = Reactor::new();
@@ -660,7 +647,6 @@ mod tests {
         cb.expect_to_have_been_called_with(10);
     }
     #[test]
-    #[ignore]
     fn callbacks_should_not_be_called_if_dependencies_change_but_output_value_doesnt_change() {
         let cb = CallbackRecorder::new();
         let mut reactor = Reactor::new();
@@ -686,7 +672,6 @@ mod tests {
         }
     }
     #[test]
-    #[ignore]
     fn test_adder_with_boolean_values() {
         // This is a digital logic circuit called an adder:
         // https://en.wikipedia.org/wiki/Adder_(electronics)
