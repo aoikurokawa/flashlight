@@ -1,4 +1,5 @@
 mod armstrong_number;
+mod pythagorean_triplet;
 mod beer_song;
 mod difference_of_squares;
 mod fizzy;
@@ -33,3 +34,4 @@ pub use react::*;
 pub use robot_name::*;
 pub use simple_cipher::*;
 pub use word_count::*;
+pub use pythagorean_triplet::*;
