@@ -303,7 +303,10 @@ impl<'a, T: Copy + PartialEq> Reactor<'a, T> {
             Some(cell) => {
                 let callbacks = &cell.callbacks;
 
-                match callbacks.iter().find(|(_, callback)| callback.id == callback_id) {
+                match callbacks
+                    .iter()
+                    .find(|(_, callback)| callback.id == callback_id)
+                {
                     Some((callback_index, _)) => {
                         cell.remove_callback(*callback_index);
                         Ok(())
