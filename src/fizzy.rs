@@ -34,7 +34,7 @@ impl<T> Matcher<T> {
 /// Also, it's a good excuse to try out using impl trait.
 pub struct Fizzy<T>(Vec<Matcher<T>>);
 
-impl<T> Default for Fizzy<T> 
+impl<T> Default for Fizzy<T>
 where
     T: ToString + Copy + PartialEq,
 {
