@@ -8,7 +8,7 @@ pub fn word_count(words: &str) -> HashMap<String, u32> {
 
     for temp_word in words.split_whitespace() {
         for word in temp_word.split(&[',', '\n', '\t']).collect::<Vec<&str>>() {
-            let mut word = word.replace(&EXCLUDE_LIST[..], "");
+            let mut word = word.replace(EXCLUDE_LIST, "");
             if !word.is_empty() {
                 let chars = word.chars().collect::<Vec<char>>();
                 if chars[0] == '\'' && chars[chars.len() - 1] == '\'' {
