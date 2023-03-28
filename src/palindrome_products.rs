@@ -57,7 +57,6 @@ pub fn palindrome_products(min: u64, max: u64) -> Option<(Palindrome, Palindrome
         }
         _ => None,
     }
-
 }
 
 #[cfg(test)]
