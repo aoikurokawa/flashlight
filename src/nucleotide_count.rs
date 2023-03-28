@@ -2,7 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use once_cell::sync::Lazy;
 
-const NUCLEOTIDE_CHARACTER: Lazy<HashSet<char>> = Lazy::new(|| HashSet::from(['A', 'C', 'G', 'T']));
+static NUCLEOTIDE_CHARACTER: Lazy<HashSet<char>> =
+    Lazy::new(|| HashSet::from(['A', 'C', 'G', 'T']));
 
 pub fn count(nucleotide: char, dna: &str) -> Result<usize, char> {
     let mut count: usize = 0;

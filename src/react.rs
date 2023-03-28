@@ -33,16 +33,17 @@ struct Callback<'a, T> {
     function: Box<dyn 'a + FnMut(T)>,
 }
 
+type ComputeFunction<T> = Option<Box<dyn Fn(&[T]) -> T>>;
+
 pub struct Cell<'a, T> {
     id: CellId,
     value: T,
-    compute_function: Option<Box<dyn 'a + Fn(&[T]) -> T>>,
+    compute_function: ComputeFunction<T>,
     callbacks: HashMap<usize, Callback<'a, T>>,
     callback_id_counter: usize,
     dependencies: Vec<CellId>,
 }
 
-type ComputeFunction<T> = Option<Box<dyn Fn(&[T]) -> T>>;
 
 impl<'a, T: Copy + PartialEq> Cell<'a, T> {
     fn new(id: CellId, value: T) -> Self {

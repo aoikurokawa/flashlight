@@ -43,7 +43,7 @@ fn parse_pair<T: FromStr>(s: &str, separator: char) -> Option<(T, T)> {
 }
 
 fn parse_complex(s: &str) -> Option<Complex<f64>> {
-    parse_pair(s, ',').map(|(re, im)| Complex {re, im }) 
+    parse_pair(s, ',').map(|(re, im)| Complex { re, im })
 }
 
 /// Given the row and column of a pixel in the output image, return the
