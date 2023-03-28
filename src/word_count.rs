@@ -6,7 +6,7 @@ const EXCLUDE_LIST: &[char] = &[',', ':', '!', '&', '@', '$', '%', '^', '.'];
 pub fn word_count(words: &str) -> HashMap<String, u32> {
     let mut map = HashMap::new();
 
-    for temp_word in words.split_whitespace().into_iter() {
+    for temp_word in words.split_whitespace() {
         for word in temp_word.split(&[',', '\n', '\t']).collect::<Vec<&str>>() {
             let mut word = word.replace(&EXCLUDE_LIST[..], "");
             if !word.is_empty() {
