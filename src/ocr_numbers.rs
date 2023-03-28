@@ -54,13 +54,13 @@ pub fn convert(input: &str) -> Result<String, Error> {
     let mut sections_map: HashMap<u8, Vec<&str>> = HashMap::new();
     let mut count = 0;
     for (line_index, line) in lines.iter_mut().enumerate() {
-        while line.len() > 0 {
+        while !line.is_empty() {
             let (first, second) = line.split_at(3);
 
             sections_map
                 .entry(count)
                 .and_modify(|arr| arr.push(first))
-                .or_insert(vec![first]);
+                .or_insert_with(|| vec![first]);
 
             count += 1;
             *line = second;
