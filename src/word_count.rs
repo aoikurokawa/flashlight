@@ -15,7 +15,7 @@ pub fn word_count(words: &str) -> HashMap<String, u32> {
                     word = word.replace('\'', "");
                 }
             }
-            if word != "" {
+            if !word.is_empty() {
                 map.entry(word.to_lowercase().to_string())
                     .and_modify(|count| *count += 1)
                     .or_insert(1);
