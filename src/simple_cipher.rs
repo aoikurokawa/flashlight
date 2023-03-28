@@ -3,7 +3,7 @@ use rand::Rng;
 const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 
 fn check_key(key: &u8) -> bool {
-    return key.is_ascii_lowercase();
+    key.is_ascii_lowercase()
 }
 
 pub fn encode(key: &str, s: &str) -> Option<String> {

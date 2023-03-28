@@ -42,6 +42,8 @@ pub struct Cell<'a, T> {
     dependencies: Vec<CellId>,
 }
 
+type ComputeFunction<T> = Option<Box<dyn Fn(&[T]) -> T>>;
+
 impl<'a, T: Copy + PartialEq> Cell<'a, T> {
     fn new(id: CellId, value: T) -> Self {
         Self {
@@ -54,11 +56,11 @@ impl<'a, T: Copy + PartialEq> Cell<'a, T> {
         }
     }
 
-    fn new_with_compute(id: CellId, value: T, compute_function: Box<dyn Fn(&[T]) -> T>) -> Self {
+    fn new_with_compute(id: CellId, value: T, compute_function: ComputeFunction<T> ) -> Self {
         Self {
             id,
             value,
-            compute_function: Some(compute_function),
+            compute_function,
             callbacks: HashMap::new(),
             callback_id_counter: 0,
             dependencies: Vec::new(),
@@ -163,7 +165,7 @@ impl<'a, T: Copy + PartialEq> Reactor<'a, T> {
                 let id = cells.len();
                 let compute_id = ComputeCellId(id);
                 let cell_id = CellId::Compute(compute_id);
-                let mut cell = Cell::new_with_compute(cell_id, value, Box::new(compute_func));
+                let mut cell = Cell::new_with_compute(cell_id, value, Some(Box::new(compute_func)));
 
                 for dependency in dependencies {
                     let dependents = self.dependents_map.entry(*dependency).or_default();
