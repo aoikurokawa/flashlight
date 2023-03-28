@@ -74,15 +74,13 @@ pub fn convert(input: &str) -> Result<String, Error> {
         count = 0;
     }
 
-    println!("{sections:?}");
-
     let mut result = String::new();
     for section_map in sections {
         let mut map_count = 0;
         loop {
             match section_map.get(&map_count) {
                 Some(section) => {
-                    match recognize_digit(&section) {
+                    match recognize_digit(section) {
                         Some(Digit::Zero) => result.push('0'),
                         Some(Digit::One) => result.push('1'),
                         Some(Digit::Two) => result.push('2'),
