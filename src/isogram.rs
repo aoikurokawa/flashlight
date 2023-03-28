@@ -8,11 +8,8 @@ pub fn check(candidate: &str) -> bool {
             continue;
         }
 
-        match map.insert(ch, 1) {
-            Some(_) => {
+        if map.insert(ch, 1).is_some() {
                 return false;
-            }
-            None => {}
         }
     }
 

@@ -54,13 +54,13 @@ pub fn convert(input: &str) -> Result<String, Error> {
     let mut sections_map: HashMap<u8, Vec<&str>> = HashMap::new();
     let mut count = 0;
     for (line_index, line) in lines.iter_mut().enumerate() {
-        while line.len() > 0 {
+        while !line.is_empty() {
             let (first, second) = line.split_at(3);
 
             sections_map
                 .entry(count)
                 .and_modify(|arr| arr.push(first))
-                .or_insert(vec![first]);
+                .or_insert_with(|| vec![first]);
 
             count += 1;
             *line = second;
@@ -74,31 +74,24 @@ pub fn convert(input: &str) -> Result<String, Error> {
         count = 0;
     }
 
-    println!("{sections:?}");
-
     let mut result = String::new();
     for section_map in sections {
         let mut map_count = 0;
-        loop {
-            match section_map.get(&map_count) {
-                Some(section) => {
-                    match recognize_digit(&section) {
-                        Some(Digit::Zero) => result.push('0'),
-                        Some(Digit::One) => result.push('1'),
-                        Some(Digit::Two) => result.push('2'),
-                        Some(Digit::Three) => result.push('3'),
-                        Some(Digit::Four) => result.push('4'),
-                        Some(Digit::Five) => result.push('5'),
-                        Some(Digit::Six) => result.push('6'),
-                        Some(Digit::Seven) => result.push('7'),
-                        Some(Digit::Eight) => result.push('8'),
-                        Some(Digit::Nine) => result.push('9'),
-                        None => result.push('?'),
-                    }
-                    map_count += 1;
-                }
-                None => break,
+        while let Some(section) = section_map.get(&map_count) {
+            match recognize_digit(section) {
+                Some(Digit::Zero) => result.push('0'),
+                Some(Digit::One) => result.push('1'),
+                Some(Digit::Two) => result.push('2'),
+                Some(Digit::Three) => result.push('3'),
+                Some(Digit::Four) => result.push('4'),
+                Some(Digit::Five) => result.push('5'),
+                Some(Digit::Six) => result.push('6'),
+                Some(Digit::Seven) => result.push('7'),
+                Some(Digit::Eight) => result.push('8'),
+                Some(Digit::Nine) => result.push('9'),
+                None => result.push('?'),
             }
+            map_count += 1;
         }
     }
 
