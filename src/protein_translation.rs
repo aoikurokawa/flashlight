@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::str;
 
-const STOP: &'static str = "stop codon";
+const STOP: &str = "stop codon";
 
 #[derive(Default)]
 pub struct CodonsInfo<'a> {
