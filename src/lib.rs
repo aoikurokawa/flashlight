@@ -1,5 +1,6 @@
 mod armstrong_number;
 mod beer_song;
+mod bob;
 mod difference_of_squares;
 mod fizzy;
 mod gigasecond;
@@ -21,6 +22,7 @@ mod word_count;
 
 pub use armstrong_number::*;
 pub use beer_song::*;
+pub use bob::*;
 pub use difference_of_squares::*;
 pub use fizzy::*;
 pub use gigasecond::*;
