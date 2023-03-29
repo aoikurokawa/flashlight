@@ -44,7 +44,6 @@ pub struct Cell<'a, T> {
     dependencies: Vec<CellId>,
 }
 
-
 impl<'a, T: Copy + PartialEq> Cell<'a, T> {
     fn new(id: CellId, value: T) -> Self {
         Self {
@@ -57,7 +56,7 @@ impl<'a, T: Copy + PartialEq> Cell<'a, T> {
         }
     }
 
-    fn new_with_compute(id: CellId, value: T, compute_function: ComputeFunction<T> ) -> Self {
+    fn new_with_compute(id: CellId, value: T, compute_function: ComputeFunction<T>) -> Self {
         Self {
             id,
             value,

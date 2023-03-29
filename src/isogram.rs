@@ -9,7 +9,7 @@ pub fn check(candidate: &str) -> bool {
         }
 
         if map.insert(ch, 1).is_some() {
-                return false;
+            return false;
         }
     }
 

@@ -1,7 +1,7 @@
 pub fn reply(message: &str) -> &str {
     let trimmed = message.trim();
     let is_silence = trimmed.is_empty();
-    let is_question = trimmed.ends_with("?");
+    let is_question = trimmed.ends_with('?');
     let is_alphabetic = trimmed.chars().any(|c| c.is_alphabetic());
     let is_yelling = is_alphabetic
         && trimmed
