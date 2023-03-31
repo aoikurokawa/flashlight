@@ -18,6 +18,7 @@ mod pythagorean_triplet;
 mod react;
 mod rna_transcription;
 mod robot_name;
+mod series;
 mod simple_cipher;
 mod word_count;
 
@@ -41,5 +42,6 @@ pub use pythagorean_triplet::*;
 pub use react::*;
 pub use rna_transcription::*;
 pub use robot_name::*;
+pub use series::*;
 pub use simple_cipher::*;
 pub use word_count::*;
