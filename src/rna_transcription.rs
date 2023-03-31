@@ -25,7 +25,7 @@ impl Dna {
                 'C' => rna = format!("{}{}", rna, "G"),
                 'T' => rna = format!("{}{}", rna, "A"),
                 'A' => rna = format!("{}{}", rna, "U"),
-                _ => rna = format!(""),
+                _ => rna = String::new(),
             }
         }
         Rna(rna)
