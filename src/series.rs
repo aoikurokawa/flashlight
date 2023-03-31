@@ -10,7 +10,7 @@ pub fn series(digits: &str, len: usize) -> Vec<String> {
         }
         expected.push(digit.to_string());
 
-        if digits.len() > 0 {
+        if !digits.is_empty() {
             let (_first, second) = digits.split_at(1);
             digits = second;
         } else {
