@@ -34,7 +34,29 @@ pub fn encode(source: &str) -> String {
 }
 
 pub fn decode(source: &str) -> String {
-    unimplemented!("Return the run-length decoding of {source}.");
+    let mut decoded = String::new();
+    let mut count = String::new();
+
+    for (_index, ch) in source.chars().enumerate() {
+        if ch.is_numeric() {
+            count.push(ch);
+        } else {
+            let mut digit_count = match count.parse::<i32>() {
+                Ok(num) => num,
+                Err(_) => {
+                    decoded.push(ch);
+                    continue;
+                }
+            };
+            while digit_count > 0 {
+                decoded.push(ch);
+                digit_count -= 1;
+            }
+            count.clear();
+        }
+    }
+
+    decoded
 }
 
 #[cfg(test)]
