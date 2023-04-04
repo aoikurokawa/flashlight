@@ -1,5 +1,5 @@
-mod armstrong_number;
 mod accumulate;
+mod armstrong_number;
 mod beer_song;
 mod bob;
 mod difference_of_squares;
@@ -26,6 +26,7 @@ mod series;
 mod simple_cipher;
 mod word_count;
 
+pub use accumulate::*;
 pub use armstrong_number::*;
 pub use beer_song::*;
 pub use bob::*;
@@ -52,4 +53,3 @@ pub use run_length_encoding::{decode, encode};
 pub use series::*;
 pub use simple_cipher::*;
 pub use word_count::*;
-pub use accumulate::*;
