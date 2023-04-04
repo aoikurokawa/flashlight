@@ -1,8 +1,8 @@
-pub fn map<T, R, F>(input: Vec<T>, mut function: F) -> Vec<R>
+pub fn map<T, R, F>(input: Vec<T>, function: F) -> Vec<R>
 where
     F: FnMut(T) -> R,
 {
-    input.into_iter().map(|num| function(num)).collect()
+    input.into_iter().map(function).collect()
 }
 
 #[cfg(test)]
