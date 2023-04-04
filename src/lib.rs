@@ -1,4 +1,5 @@
 mod armstrong_number;
+mod accumulate;
 mod beer_song;
 mod bob;
 mod difference_of_squares;
@@ -51,3 +52,4 @@ pub use run_length_encoding::{decode, encode};
 pub use series::*;
 pub use simple_cipher::*;
 pub use word_count::*;
+pub use accumulate::*;
