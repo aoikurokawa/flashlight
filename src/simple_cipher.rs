@@ -38,7 +38,7 @@ pub fn encode(key: &str, s: &str) -> Option<String> {
     Some(encoded)
 }
 
-pub fn decode(key: &str, s: &str) -> Option<String> {
+pub fn decode_simple_cipher(key: &str, s: &str) -> Option<String> {
     let mut gaps = vec![];
     let mut decoded = String::new();
 
@@ -88,7 +88,7 @@ pub fn encode_random(s: &str) -> (String, String) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::simple_cipher::{decode_simple_cipher, encode};
 
     const PLAIN_TEXT: &str = "thisismysecret";
     const KEY: &str = "abcdefghij";
@@ -100,7 +100,10 @@ mod tests {
 
     #[test]
     fn cipher_can_decode_with_given_key() {
-        assert_eq!(decode(KEY, "abcdefghij"), Some("aaaaaaaaaa".to_string()));
+        assert_eq!(
+            decode_simple_cipher(KEY, "abcdefghij"),
+            Some("aaaaaaaaaa".to_string())
+        );
     }
 
     #[test]
@@ -120,7 +123,7 @@ mod tests {
     #[test]
     fn cipher_is_reversible_given_key() {
         assert_eq!(
-            decode(KEY, &encode(KEY, PLAIN_TEXT).unwrap()),
+            decode_simple_cipher(KEY, &encode(KEY, PLAIN_TEXT).unwrap()),
             Some(PLAIN_TEXT.to_string())
         );
     }

@@ -1,3 +1,4 @@
+mod accumulate;
 mod armstrong_number;
 mod beer_song;
 mod bob;
@@ -25,6 +26,7 @@ mod series;
 mod simple_cipher;
 mod word_count;
 
+pub use accumulate::*;
 pub use armstrong_number::*;
 pub use beer_song::*;
 pub use bob::*;
