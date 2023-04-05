@@ -1,66 +1,28 @@
-use std::collections::HashMap;
-
-const LEFT_BRACKETS: &[char] = &['[', '{', '('];
-const RIGHT_BRACKETS: &[char] = &[']', '}', ')'];
-
 pub fn brackets_are_balanced(string: &str) -> bool {
-    let mut brackets_map: HashMap<char, u32> = HashMap::new();
-    let mut bracket_order = 0;
-    let mut brace_order = 0;
-    let mut parenthese_order = 0;
+    let mut stack: Vec<char> = vec![];
+    let open_brackets = "([{";
+    let close_brackets = ")]}";
 
-    for ch in string.chars() {
-        match ch {
-            '[' => {
-                bracket_order += 1;
-                brackets_map.entry(ch).and_modify(|c| *c += 1).or_insert(1);
-            }
-            '{' => {
-                brace_order += 1;
-                brackets_map.entry(ch).and_modify(|c| *c += 1).or_insert(1);
-            }
-            '(' => {
-                parenthese_order += 1;
-                brackets_map.entry(ch).and_modify(|c| *c += 1).or_insert(1);
-            }
-            ']' => {
-                if bracket_order < 0 {
-                    return false;
+    for bracket in string.chars() {
+        if open_brackets.contains(bracket) {
+            stack.push(bracket);
+        } else if close_brackets.contains(bracket) {
+            match stack.pop() {
+                Some(last_open_bracket)
+                    if last_open_bracket
+                        == open_brackets
+                            .chars()
+                            .nth(close_brackets.find(bracket).unwrap())
+                            .unwrap() =>
+                {
+                    continue;
                 }
-                bracket_order -= 1;
+                _ => return false,
             }
-            '}' => {
-                if brace_order < 0 {
-                    return false;
-                }
-                brace_order -= 1;
-            }
-            ')' => {
-                if parenthese_order < 0 {
-                    return false;
-                }
-                parenthese_order -= 1;
-            }
-            _ => {}
         }
     }
 
-    for (index, left_bra) in LEFT_BRACKETS.iter().enumerate() {
-        match brackets_map.get(left_bra) {
-            Some(left_count) => match brackets_map.get(&RIGHT_BRACKETS[index]) {
-                Some(right_count) => {
-                    if left_count != right_count {
-                        return false;
-                    }
-                }
-                None => {
-                    return false;
-                }
-            },
-            None => {}
-        }
-    }
-    true
+    stack.is_empty()
 }
 
 #[cfg(test)]
