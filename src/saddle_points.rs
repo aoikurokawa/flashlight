@@ -13,7 +13,6 @@ pub fn find_saddle_points(input: &[Vec<u64>]) -> Vec<(usize, usize)> {
         .map(|v| v.iter().copied().max().unwrap())
         .collect();
     let col_mins: Vec<u64> = (0..ncols)
-        .into_iter()
         .map(|i| input.iter().map(|v| v[i]).min().unwrap())
         .collect();
     let mut points: Vec<(usize, usize)> = Vec::new();
