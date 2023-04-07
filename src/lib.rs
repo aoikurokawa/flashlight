@@ -1,4 +1,5 @@
 mod accumulate;
+mod affine_cipher;
 mod armstrong_number;
 mod beer_song;
 mod bob;
@@ -29,6 +30,7 @@ mod simple_cipher;
 mod word_count;
 
 pub use accumulate::*;
+pub use affine_cipher::{decode as affine_cipher_decode, encode as affine_cipher_encode};
 pub use armstrong_number::*;
 pub use beer_song::*;
 pub use bob::*;
