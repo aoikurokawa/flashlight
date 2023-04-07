@@ -19,7 +19,7 @@ pub fn encode(rawtext: &str, a: i32, b: i32) -> Result<String, AffineCipherError
                     acc.push(' ');
                 }
 
-                if current.is_digit(10) {
+                if current.is_ascii_digit() {
                     acc.push(current);
                 } else {
                     let index = letters.binary_search(&current).unwrap();
@@ -34,7 +34,7 @@ pub fn encode(rawtext: &str, a: i32, b: i32) -> Result<String, AffineCipherError
     }
 }
 
-fn encode_char(x: usize, a: i32, b: i32, letters: &Vec<char>) -> char {
+fn encode_char(x: usize, a: i32, b: i32, letters: &[char]) -> char {
     letters[(((a * x as i32) + b) % 26) as usize]
 }
 
@@ -51,7 +51,7 @@ pub fn decode(ciphertext: &str, a: i32, b: i32) -> Result<String, AffineCipherEr
             if current.is_alphabetic() {
                 let index = letters.binary_search(&current).unwrap();
                 acc.push(decode_char(index, a, b, &letters));
-            } else if current.is_digit(10) {
+            } else if current.is_ascii_digit() {
                 acc.push(current);
             }
             acc
@@ -61,7 +61,7 @@ pub fn decode(ciphertext: &str, a: i32, b: i32) -> Result<String, AffineCipherEr
     }
 }
 
-fn decode_char(y: usize, a: i32, b: i32, letters: &Vec<char>) -> char {
+fn decode_char(y: usize, a: i32, b: i32, letters: &[char]) -> char {
     use modinverse::modinverse;
     let divisor = modinverse(a, 26).unwrap();
     let neg_shifted = y as i32 - b;
