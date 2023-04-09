@@ -3,6 +3,7 @@ mod affine_cipher;
 mod armstrong_number;
 mod beer_song;
 mod bob;
+mod clock;
 mod difference_of_squares;
 mod fizzy;
 mod gigasecond;
@@ -34,6 +35,7 @@ pub use affine_cipher::{decode as affine_cipher_decode, encode as affine_cipher_
 pub use armstrong_number::*;
 pub use beer_song::*;
 pub use bob::*;
+pub use clock::*;
 pub use difference_of_squares::*;
 pub use fizzy::*;
 pub use gigasecond::*;
