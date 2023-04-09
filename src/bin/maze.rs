@@ -36,6 +36,6 @@ fn main() {
         for x in 0..MAP_N {
             print!("{}", tiles[maze[y][x]]);
         }
-        println!("");
+        println!();
     }
 }

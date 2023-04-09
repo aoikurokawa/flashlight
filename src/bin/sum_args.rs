@@ -6,10 +6,7 @@ fn main() {
         if i == 0 {
             continue;
         }
-        let num: f64 = match s.parse() {
-            Ok(v) => v,
-            Err(_) => 0.0,
-        };
+        let num: f64 = s.parse().unwrap_or(0.0);
         total += num;
     }
 

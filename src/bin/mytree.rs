@@ -1,4 +1,7 @@
-use std::{env, path};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -7,13 +10,12 @@ fn main() {
         target_dir = &args[1];
     }
 
-
-    let target = path::PathBuf::from(target_dir);
+    let target = PathBuf::from(target_dir);
     println!("{}", target_dir);
     tree(&target, 0);
 }
 
-fn tree(target: &path::PathBuf, level: isize) {
+fn tree(target: &Path, level: isize) {
     let files = target.read_dir().expect("does not exist");
 
     for ent in files {
@@ -24,7 +26,7 @@ fn tree(target: &path::PathBuf, level: isize) {
         let fname = path.file_name().unwrap();
         if path.is_dir() {
             println!("|--<{:?}>", fname);
-            tree(&path, level+1);
+            tree(&path, level + 1);
             continue;
         }
         println!("|-- {:?}", fname);
