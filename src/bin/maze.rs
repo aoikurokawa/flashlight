@@ -29,7 +29,7 @@ fn main() {
       }
    }
 
-   let tiles = ["  ", "ZZ"];
+   let tiles = ["  ", "||"];
    for y in 0..MAP_N {
       for x in 0..MAP_N {
          print!("{}", tiles[maze[y][x]]);
