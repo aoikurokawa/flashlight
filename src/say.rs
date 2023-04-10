@@ -1,9 +1,9 @@
 macro_rules! impl_say {
     ($x:expr, $n:expr, $word:expr) => {
-       match $x % $n {
+        match $x % $n {
             0 => format!("{} {}", encode($x / $n), $word),
             _ => format!("{} {} {}", encode($x / $n), $word, encode($x % $n)),
-        } 
+        }
     };
 }
 
@@ -45,7 +45,9 @@ pub fn encode(n: u64) -> String {
         x @ 1_000_000..=999_999_999 => impl_say!(x, 1_000_000, "million"),
         x @ 1_000_000_000..=999_999_999_999 => impl_say!(x, 1_000_000_000, "billion"),
         x @ 1_000_000_000_000..=999_999_999_999_999 => impl_say!(x, 1_000_000_000_000, "trillion"),
-        x @ 1_000_000_000_000_000..=999_999_999_999_999_999 => impl_say!(x, 1_000_000_000_000_000, "quadrillion"),
+        x @ 1_000_000_000_000_000..=999_999_999_999_999_999 => {
+            impl_say!(x, 1_000_000_000_000_000, "quadrillion")
+        }
         x => impl_say!(x, 1_000_000_000_000_000_000, "quintillion"),
     }
 }
