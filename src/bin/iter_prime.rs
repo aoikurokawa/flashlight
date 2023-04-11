@@ -13,7 +13,7 @@ impl PrimeIterator {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 
