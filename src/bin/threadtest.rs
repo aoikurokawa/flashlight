@@ -23,7 +23,7 @@ pub fn fib(n: i64) -> i64 {
     if n == 2 {
         return 1;
     }
-    return fib(n - 2) + fib(n - 1);
+    fib(n - 2) + fib(n - 1)
 }
 
 pub fn show_time(start_time: time::Instant) {
@@ -59,7 +59,7 @@ fn main() {
         if let Ok((arg, answer)) = rx.recv() {
             job -= 1;
             println!("Result fib({})={} (remaining={})", arg, answer, job);
-            if job <= 0 {
+            if job == 0 {
                 show_time(start_time);
                 break;
             }
