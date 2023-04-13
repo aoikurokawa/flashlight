@@ -5,7 +5,10 @@ pub fn anagrams_for<'a>(word: &str, possible_anagrams: &[&'a str]) -> HashSet<&'
     let mut anagram_set = HashSet::new();
 
     for ch in word.to_lowercase().chars() {
-        word_map.entry(ch).and_modify(|count| *count += 1).or_insert(1);
+        word_map
+            .entry(ch)
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
     }
 
     for candidate_word in possible_anagrams {
@@ -16,7 +19,10 @@ pub fn anagrams_for<'a>(word: &str, possible_anagrams: &[&'a str]) -> HashSet<&'
         let mut temp_map = HashMap::new();
 
         for ch in candidate_word.to_lowercase().chars() {
-            temp_map.entry(ch).and_modify(|count| *count += 1).or_insert(1);
+            temp_map
+                .entry(ch)
+                .and_modify(|count| *count += 1)
+                .or_insert(1);
         }
 
         if temp_map.eq(&word_map) {
