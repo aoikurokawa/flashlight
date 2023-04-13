@@ -1,6 +1,7 @@
 mod accumulate;
 mod acronym;
 mod affine_cipher;
+mod anagram;
 mod armstrong_number;
 mod atbash_cipher;
 mod beer_song;
@@ -37,6 +38,7 @@ mod word_count;
 pub use accumulate::*;
 pub use acronym::*;
 pub use affine_cipher::{decode as affine_cipher_decode, encode as affine_cipher_encode};
+pub use anagram::*;
 pub use armstrong_number::*;
 pub use atbash_cipher::{decode as atbash_cipher_decode, encode as atbash_cipher_encode};
 pub use beer_song::*;
