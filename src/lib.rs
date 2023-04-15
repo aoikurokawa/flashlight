@@ -1,6 +1,7 @@
 mod accumulate;
 mod acronym;
 mod affine_cipher;
+mod all_your_base;
 mod anagram;
 mod armstrong_number;
 mod atbash_cipher;
@@ -38,6 +39,7 @@ mod word_count;
 pub use accumulate::*;
 pub use acronym::*;
 pub use affine_cipher::{decode as affine_cipher_decode, encode as affine_cipher_encode};
+pub use all_your_base::convert as convert_all_your_base;
 pub use anagram::*;
 pub use armstrong_number::*;
 pub use atbash_cipher::{decode as atbash_cipher_decode, encode as atbash_cipher_encode};
