@@ -8,6 +8,7 @@ mod atbash_cipher;
 mod beer_song;
 mod bob;
 mod clock;
+mod crypto_square;
 mod difference_of_squares;
 mod fizzy;
 mod gigasecond;
@@ -47,6 +48,7 @@ pub use atbash_cipher::{decode as atbash_cipher_decode, encode as atbash_cipher_
 pub use beer_song::*;
 pub use bob::*;
 pub use clock::*;
+pub use crypto_square::encrypt as crypto_square_encrypto;
 pub use difference_of_squares::*;
 pub use fizzy::*;
 pub use gigasecond::*;
