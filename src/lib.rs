@@ -37,6 +37,7 @@ mod scrabble_score;
 mod series;
 mod simple_cipher;
 mod word_count;
+mod yacht;
 
 pub use accumulate::*;
 pub use acronym::*;
@@ -77,3 +78,4 @@ pub use scrabble_score::*;
 pub use series::*;
 pub use simple_cipher::*;
 pub use word_count::*;
+pub use yacht::score as yacht_score;
