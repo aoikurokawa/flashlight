@@ -19,30 +19,12 @@ type Dice = [u8; 5];
 
 pub fn score(dice: Dice, category: Category) -> u8 {
     match category {
-        Category::Ones => {
-            let sum = dice.to_vec().iter().filter(|num| **num == 1).sum();
-            return sum;
-        }
-        Category::Twos => {
-            let sum = dice.to_vec().iter().filter(|num| **num == 2).sum();
-            return sum;
-        }
-        Category::Threes => {
-            let sum = dice.to_vec().iter().filter(|num| **num == 3).sum();
-            return sum;
-        }
-        Category::Fours => {
-            let sum = dice.to_vec().iter().filter(|num| **num == 4).sum();
-            return sum;
-        }
-        Category::Fives => {
-            let sum = dice.to_vec().iter().filter(|num| **num == 5).sum();
-            return sum;
-        }
-        Category::Sixes => {
-            let sum = dice.to_vec().iter().filter(|num| **num == 6).sum();
-            return sum;
-        }
+        Category::Ones => dice.to_vec().iter().filter(|num| **num == 1).sum(),
+        Category::Twos => dice.to_vec().iter().filter(|num| **num == 2).sum(),
+        Category::Threes => dice.to_vec().iter().filter(|num| **num == 3).sum(),
+        Category::Fours => dice.to_vec().iter().filter(|num| **num == 4).sum(),
+        Category::Fives => dice.to_vec().iter().filter(|num| **num == 5).sum(),
+        Category::Sixes => dice.to_vec().iter().filter(|num| **num == 6).sum(),
         Category::FullHouse => {
             let mut map = HashMap::new();
 
@@ -62,9 +44,9 @@ pub fn score(dice: Dice, category: Category) -> u8 {
             });
 
             if total == 5 {
-                return sum;
+                sum
             } else {
-                return 0;
+                0
             }
         }
         Category::FourOfAKind => {
@@ -83,7 +65,7 @@ pub fn score(dice: Dice, category: Category) -> u8 {
                 }
             });
 
-            return sum;
+            sum
         }
         Category::LittleStraight => {
             let mut dice: Vec<u8> = dice.clone().to_vec();
@@ -96,7 +78,7 @@ pub fn score(dice: Dice, category: Category) -> u8 {
                 }
                 count += 1;
             }
-            return 30;
+            30
         }
         Category::BigStraight => {
             let mut dice: Vec<u8> = dice.clone().to_vec();
@@ -109,12 +91,9 @@ pub fn score(dice: Dice, category: Category) -> u8 {
                 }
                 count += 1;
             }
-            return 30;
+            30
         }
-        Category::Choice => {
-            let sum = dice.to_vec().iter().sum();
-            return sum;
-        }
+        Category::Choice => dice.to_vec().iter().sum(),
         Category::Yacht => {
             let target = dice[0];
 
@@ -124,7 +103,7 @@ pub fn score(dice: Dice, category: Category) -> u8 {
                 }
             }
 
-            return 50;
+            50
         }
     }
 }
