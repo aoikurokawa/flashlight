@@ -89,41 +89,27 @@ pub fn score(dice: Dice, category: Category) -> u8 {
             let mut dice: Vec<u8> = dice.clone().to_vec();
             dice.sort();
             let mut count = 1;
-            let mut valid = false;
 
             for num in dice.iter() {
-                if *num == count {
-                    valid = true;
-                } else {
+                if *num != count {
                     return 0;
                 }
                 count += 1;
             }
-            if valid {
-                return 30;
-            } else {
-                return 0;
-            }
+            return 30;
         }
         Category::BigStraight => {
             let mut dice: Vec<u8> = dice.clone().to_vec();
             dice.sort();
             let mut count = 2;
-            let mut valid = false;
 
             for num in dice.iter() {
-                if *num == count {
-                    valid = true;
-                } else {
+                if *num != count {
                     return 0;
                 }
                 count += 1;
             }
-            if valid {
-                return 30;
-            } else {
-                return 0;
-            }
+            return 30;
         }
         Category::Choice => {
             let sum = dice.to_vec().iter().sum();
