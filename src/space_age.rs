@@ -2,57 +2,38 @@
 // In order to pass the tests you can add-to or change any of this code.
 
 #[derive(Debug)]
-pub struct Duration {
-    seconds: u64,
-    days: f64,
-    years: f64,
-}
+pub struct Duration(f64);
 
 impl From<u64> for Duration {
     fn from(s: u64) -> Self {
-        Self {
-            seconds: s,
-            days: s as f64 / 60.0 * 60.0 * 24.0,
-            years: s as f64 / (60.0 * 60.0 * 24.0 * 365.25),
-        }
+        Duration((s as f64) / (31557600 as f64))
     }
 }
 
 pub trait Planet {
+    fn period() -> f64;
     fn years_during(d: &Duration) -> f64 {
-        let years = format!("{:.2}", d.years);
-        years.parse::<f64>().unwrap()
+        d.0 / Self::period()
     }
 }
 
-pub struct Mercury;
-impl Planet for Mercury {}
-
-pub struct Venus;
-impl Planet for Venus{
-    fn years_during(d: &Duration) -> f64 {
-        let years = format!("{:.2}", d.years);
-        years.parse::<f64>().unwrap() * 0.61519726
-    }
+macro_rules! planet {
+    ($n:ident, $p:expr) => {
+       pub struct $n;
+        impl Planet for $n {
+            fn period() -> f64 {$p}
+        }
+    };
 }
 
-pub struct Earth;
-impl Planet for Earth{}
-
-pub struct Mars;
-impl Planet for Mars{}
-
-pub struct Jupiter;
-impl Planet for Jupiter {}
-
-pub struct Saturn;
-impl Planet for Saturn {}
-
-pub struct Uranus;
-impl Planet for Uranus {}
-
-pub struct Neptune;
-impl Planet for Neptune {}
+planet!(Earth, 1.0);
+planet!(Mercury, 0.2408467);
+planet!(Venus, 0.61519726);
+planet!(Mars, 1.8808158);
+planet!(Jupiter, 11.862615);
+planet!(Saturn, 29.447498);
+planet!(Uranus, 84.016846);
+planet!(Neptune, 164.79132);
 
 #[cfg(test)]
 mod tests {
