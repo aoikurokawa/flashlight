@@ -6,7 +6,7 @@ pub struct Duration(f64);
 
 impl From<u64> for Duration {
     fn from(s: u64) -> Self {
-        Duration((s as f64) / (31557600 as f64))
+        Duration((s as f64) / (31557600_f64))
     }
 }
 
@@ -19,9 +19,11 @@ pub trait Planet {
 
 macro_rules! planet {
     ($n:ident, $p:expr) => {
-       pub struct $n;
+        pub struct $n;
         impl Planet for $n {
-            fn period() -> f64 {$p}
+            fn period() -> f64 {
+                $p
+            }
         }
     };
 }
