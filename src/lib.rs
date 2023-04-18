@@ -36,6 +36,7 @@ mod say;
 mod scrabble_score;
 mod series;
 mod simple_cipher;
+mod space_age;
 mod word_count;
 mod yacht;
 
@@ -77,5 +78,6 @@ pub use say::encode as say_encode;
 pub use scrabble_score::*;
 pub use series::*;
 pub use simple_cipher::*;
+pub use space_age::*;
 pub use word_count::*;
 pub use yacht::score as yacht_score;
