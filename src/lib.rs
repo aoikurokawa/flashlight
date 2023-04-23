@@ -1,4 +1,5 @@
 mod accumulate;
+mod alphametics;
 mod acronym;
 mod affine_cipher;
 mod all_your_base;
@@ -89,3 +90,4 @@ pub use space_age::*;
 pub use sublist::*;
 pub use word_count::*;
 pub use yacht::score as yacht_score;
+pub use alphametics::*;
