@@ -102,14 +102,29 @@ pub fn solve(input: &str) -> Option<HashMap<char, u8>> {
         .chain(lhs_rhs[0].split('+').map(|s| s.trim()).map(|s| (s, 1)))
         .collect();
     let letters = distinct_letters(input);
-    let setup: Vec<_> = letters.iter().map(|&c| calc_signature(&components, c)).collect();
+    let setup: Vec<_> = letters
+        .iter()
+        .map(|&c| calc_signature(&components, c))
+        .collect();
 
     for permutation in permutation(&DIGITS, setup.len()) {
-        if setup.iter().zip(permutation.iter()).all(|(letter_setup, &digit)| !letter_setup.leading || digit != 0) {
-            let value: i64 = setup.iter().zip(permutation.iter()).map(|(letter_setup, &digit)| letter_setup.signature * digit).sum();
+        if setup
+            .iter()
+            .zip(permutation.iter())
+            .all(|(letter_setup, &digit)| !letter_setup.leading || digit != 0)
+        {
+            let value: i64 = setup
+                .iter()
+                .zip(permutation.iter())
+                .map(|(letter_setup, &digit)| letter_setup.signature * digit)
+                .sum();
             if value == 0 {
-                let char_map: HashMap<char, u8> = setup.iter().zip(permutation.iter()).map(|(letter_setup, &digit)| (letter_setup.letter, digit as u8)).collect();
-                return Some(char_map)
+                let char_map: HashMap<char, u8> = setup
+                    .iter()
+                    .zip(permutation.iter())
+                    .map(|(letter_setup, &digit)| (letter_setup.letter, digit as u8))
+                    .collect();
+                return Some(char_map);
             }
         }
     }
