@@ -40,6 +40,7 @@ mod series;
 mod sieve;
 mod simple_cipher;
 mod space_age;
+mod sublist;
 mod word_count;
 mod yacht;
 
@@ -85,5 +86,6 @@ pub use series::*;
 pub use sieve::*;
 pub use simple_cipher::*;
 pub use space_age::*;
+pub use sublist::*;
 pub use word_count::*;
 pub use yacht::score as yacht_score;
