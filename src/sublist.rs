@@ -11,16 +11,8 @@ pub enum Comparison {
 pub fn sublist<T: PartialEq>(first_list: &[T], second_list: &[T]) -> Comparison {
     match first_list.len().cmp(&second_list.len()) {
         Ordering::Less => {
-            // let mut count = 0;
-            for (index, sl) in second_list.iter().enumerate() {
-                if *sl == first_list[0] {
-                    let (_first, second) = second_list.split_at(index - 1);
-                    for (el_index, _el) in second.iter().enumerate() {
-                        if first_list[el_index] != second_list[el_index] {
-                           break; 
-                        }
-                    }
-                }
+            if contains(second_list, first_list) {
+                return Comparison::Sublist;
             }
         }
         Ordering::Equal => {
@@ -29,15 +21,7 @@ pub fn sublist<T: PartialEq>(first_list: &[T], second_list: &[T]) -> Comparison 
             }
         }
         Ordering::Greater => {
-            let mut count = 0;
-            let mut last_index = 0;
-
-            for (index, sl) in second_list.iter().enumerate() {
-                if first_list.contains(sl) {
-                    count += 1;
-                }
-            }
-            if count == second_list.len() {
+            if contains(first_list, second_list) {
                 return Comparison::Superlist;
             }
         }
