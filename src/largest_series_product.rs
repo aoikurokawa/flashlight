@@ -16,9 +16,9 @@ pub fn lsp(string_digits: &str, span: usize) -> Result<u64, Error> {
         return Err(Error::SpanTooLong);
     }
 
-    if span <= 0 {
+    if span == 0 {
         return Ok(1);
-    } 
+    }
 
     let largest: u64 = digits_vec
         .windows(span)
