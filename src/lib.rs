@@ -1,4 +1,5 @@
 mod accumulate;
+mod bowling;
 mod acronym;
 mod affine_cipher;
 mod all_your_base;
@@ -105,3 +106,4 @@ pub use spiral_matrix::*;
 pub use sublist::*;
 pub use word_count::*;
 pub use yacht::score as yacht_score;
+pub use bowling::*;
