@@ -1,95 +1,103 @@
+use std::{cmp::Ordering, iter::once};
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     NotEnoughPinsLeft,
     GameComplete,
 }
 
-pub enum Tabulation {
-    Normal,
-    Spare,
+pub enum Frame {
     Strike,
+    Spare(u16, u16),
+    Open(u16, u16),
+}
+
+impl Frame {
+    fn expexted_extra_rolls(&self) -> usize {
+        match self {
+            Frame::Strike => 2,
+            Frame::Spare(_, _) => 1,
+            Frame::Open(_, _) => 0,
+        }
+    }
+
+    fn base_points(&self) -> u16 {
+        match self {
+            Frame::Strike => 10,
+            Frame::Spare(_, _) => 10,
+            Frame::Open(a, b) => a + b,
+        }
+    }
 }
 
 pub struct BowlingGame {
-    frames: Vec<(Tabulation, u16, u16)>,
-    previous_roll: Option<(u16, u16)>,
+    frames: Vec<Frame>,
+    half: Option<u16>,
 }
 
 impl BowlingGame {
     pub fn new() -> Self {
         Self {
             frames: Vec::new(),
-            previous_roll: None,
+            half: None,
         }
     }
 
     pub fn roll(&mut self, pins: u16) -> Result<(), Error> {
-        match self.frames.len() {
-            0..=8 => match &self.previous_roll {
-                Some(prev_pins) => match prev_pins.1 {
-                    0..=9 => {
-                        if prev_pins.1 + pins < 10 {
-                            self.frames.push((Tabulation::Normal, prev_pins.1, pins));
-                        } else if prev_pins.1 + pins == 10 {
-                            self.frames.push((Tabulation::Spare, 0, 0));
-                        } else {
-                            return Err(Error::NotEnoughPinsLeft);
-                        }
-                    }
-                    10 => {
-                        self.frames.push((Tabulation::Strike, 0, 0));
-                    }
-                    _ => {
-                        return Err(Error::NotEnoughPinsLeft);
-                    }
-                },
-                None => {
-                    if pins > 10 {
-                        return Err(Error::NotEnoughPinsLeft);
-                    }
-                    if self.frames.len() == 10 {
-                        return Err(Error::GameComplete);
-                    }
+        if self.frames.len() > 9
+            && self.rolls_iter(10).count() >= self.frames[9].expexted_extra_rolls()
+        {
+            return Err(Error::GameComplete);
+        }
 
-                    self.previous_roll = Some((pins, 0));
-                }
+        match self.half {
+            None => match pins.cmp(&10) {
+                Ordering::Greater => return Err(Error::NotEnoughPinsLeft),
+                Ordering::Equal => self.frames.push(Frame::Strike),
+                Ordering::Less => self.half = Some(pins),
             },
-            9 => {
-
-
+            Some(n) => {
+                self.half = None;
+                match (n + pins).cmp(&10) {
+                    Ordering::Greater => return Err(Error::NotEnoughPinsLeft),
+                    Ordering::Equal => self.frames.push(Frame::Spare(n, pins)),
+                    Ordering::Less => self.frames.push(Frame::Open(n, pins)),
+                }
             }
-            10.. => return Err(Error::GameComplete),
-            _ => {}
         }
 
         Ok(())
     }
 
     pub fn score(&self) -> Option<u16> {
-        if self.frames.len() == 10 {
-            let mut score = 0;
-            for (index, frame) in self.frames.iter().enumerate() {
-                match frame.0 {
-                    Tabulation::Normal => {
-                        score += frame.1;
-                        score += frame.2;
-                    }
-                    Tabulation::Spare => {
-                        score += frame.1;
-                        score += frame.2;
-                        score += self.frames[index + 1].1;
-                    }
-                    Tabulation::Strike => {
-                        score += 10;
-                        score += self.frames[index + 1].1;
-                        score += self.frames[index + 1].2;
-                    }
-                }
-            }
-            Some(score)
-        } else {
-            None
+        if self.frames.len() < 10
+            || self.rolls_iter(10).count() != self.frames[9].expexted_extra_rolls()
+        {
+            return None;
         }
+        Some(
+            self.frames[..10]
+                .iter()
+                .map(|f| f)
+                .enumerate()
+                .flat_map(|(i, f)| {
+                    self.rolls_iter(i + 1)
+                        .take(f.expexted_extra_rolls())
+                        .chain(once(f.base_points()))
+                })
+                .sum(),
+        )
+    }
+
+    fn rolls_iter<'a>(&'a self, frame: usize) -> impl Iterator<Item = u16> + 'a {
+        self.frames[frame..]
+            .iter()
+            .flat_map(|f| match *f {
+                Frame::Spare(a, b) => vec![a, b],
+                Frame::Strike => vec![10],
+                Frame::Open(a, b) => vec![a, b],
+            })
+            .chain(self.half.into_iter())
     }
 }
 
@@ -206,11 +214,11 @@ mod tests {
         let mut game = BowlingGame::new();
         for _ in 0..18 {
             let _ = game.roll(0);
-            let _ = game.roll(5);
-            let _ = game.roll(5);
-            let _ = game.roll(7);
-            assert_eq!(game.score(), Some(17));
         }
+        let _ = game.roll(5);
+        let _ = game.roll(5);
+        let _ = game.roll(7);
+        assert_eq!(game.score(), Some(17));
     }
 
     #[test]
