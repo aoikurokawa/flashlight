@@ -1,5 +1,4 @@
 mod accumulate;
-mod bowling;
 mod acronym;
 mod affine_cipher;
 mod all_your_base;
@@ -11,6 +10,7 @@ mod atbash_cipher;
 mod beer_song;
 mod binary_search;
 mod bob;
+mod bowling;
 mod clock;
 mod crypto_square;
 mod diamond;
@@ -65,6 +65,7 @@ pub use atbash_cipher::{decode as atbash_cipher_decode, encode as atbash_cipher_
 pub use beer_song::*;
 pub use binary_search::find as find_binary_search;
 pub use bob::*;
+pub use bowling::*;
 pub use clock::*;
 pub use crypto_square::encrypt as crypto_square_encrypto;
 pub use diamond::*;
@@ -106,4 +107,3 @@ pub use spiral_matrix::*;
 pub use sublist::*;
 pub use word_count::*;
 pub use yacht::score as yacht_score;
-pub use bowling::*;
