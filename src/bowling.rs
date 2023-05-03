@@ -30,6 +30,7 @@ impl Frame {
     }
 }
 
+#[derive(Default)]
 pub struct BowlingGame {
     frames: Vec<Frame>,
     half: Option<u16>,
@@ -37,10 +38,7 @@ pub struct BowlingGame {
 
 impl BowlingGame {
     pub fn new() -> Self {
-        Self {
-            frames: Vec::new(),
-            half: None,
-        }
+        Default::default()
     }
 
     pub fn roll(&mut self, pins: u16) -> Result<(), Error> {
@@ -78,7 +76,6 @@ impl BowlingGame {
         Some(
             self.frames[..10]
                 .iter()
-                .map(|f| f)
                 .enumerate()
                 .flat_map(|(i, f)| {
                     self.rolls_iter(i + 1)
@@ -89,7 +86,7 @@ impl BowlingGame {
         )
     }
 
-    fn rolls_iter<'a>(&'a self, frame: usize) -> impl Iterator<Item = u16> + 'a {
+    fn rolls_iter(&self, frame: usize) -> impl Iterator<Item = u16> + '_ {
         self.frames[frame..]
             .iter()
             .flat_map(|f| match *f {
