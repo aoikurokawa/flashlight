@@ -50,6 +50,7 @@ mod simple_linked_list;
 mod space_age;
 mod spiral_matrix;
 mod sublist;
+mod tournament;
 mod word_count;
 mod yacht;
 
@@ -105,5 +106,6 @@ pub use simple_linked_list::*;
 pub use space_age::*;
 pub use spiral_matrix::*;
 pub use sublist::*;
+pub use tournament::*;
 pub use word_count::*;
 pub use yacht::score as yacht_score;
