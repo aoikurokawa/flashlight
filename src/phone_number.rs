@@ -1,5 +1,8 @@
 pub fn number(user_number: &str) -> Option<String> {
-    let mut divided: Vec<&str> = user_number.split(&[' ', '-', '.']).collect();
+    let mut divided: Vec<String> = user_number
+        .split(&[' ', '-', '.'])
+        .map(|num| num.to_string())
+        .collect();
 
     println!("{:?}", divided);
 
@@ -20,19 +23,19 @@ pub fn number(user_number: &str) -> Option<String> {
                         if !is_valid(num, 3) {
                             return None;
                         }
-                        num.chars().filter(|ch| ch.is_digit(10)).for_each(drop);
+                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     1 => {
                         if !is_valid(num, 3) {
                             return None;
                         }
-                        num.chars().filter(|ch| ch.is_digit(10)).for_each(drop);
+                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     2 => {
                         if !is_valid(num, 4) {
                             return None;
                         }
-                        num.chars().filter(|ch| ch.is_digit(10)).for_each(drop);
+                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     _ => return None,
                 }
@@ -45,25 +48,25 @@ pub fn number(user_number: &str) -> Option<String> {
                         if !num.contains('+') || !is_valid(num, 1) {
                             return None;
                         }
-                        num.chars().filter(|ch| ch.is_digit(10)).for_each(drop);
+                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     1 => {
                         if !is_valid(num, 3) {
                             return None;
                         }
-                        num.chars().filter(|ch| ch.is_digit(10)).for_each(drop);
+                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     2 => {
                         if !is_valid(num, 3) {
                             return None;
                         }
-                        num.chars().filter(|ch| ch.is_digit(10)).for_each(drop);
+                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     3 => {
                         if !is_valid(num, 4) {
                             return None;
                         }
-                        num.chars().filter(|ch| ch.is_digit(10)).for_each(drop);
+                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     _ => return None,
                 }
@@ -75,10 +78,10 @@ pub fn number(user_number: &str) -> Option<String> {
     Some(divided.join(""))
 }
 
-fn is_valid(num:&str, count: usize) -> bool {
+fn is_valid(num: &str, count: usize) -> bool {
     let mut ret = String::new();
     for ch in num.chars() {
-        if !ch.is_digit(10) {
+        if ch.is_digit(10) {
             ret.push(ch);
         }
     }
