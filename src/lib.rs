@@ -53,6 +53,7 @@ mod space_age;
 mod spiral_matrix;
 mod sublist;
 mod tournament;
+mod triangle;
 mod word_count;
 mod yacht;
 
@@ -111,5 +112,6 @@ pub use space_age::*;
 pub use spiral_matrix::*;
 pub use sublist::*;
 pub use tournament::*;
+pub use triangle::*;
 pub use word_count::*;
 pub use yacht::score as yacht_score;
