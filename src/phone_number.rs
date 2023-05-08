@@ -13,7 +13,7 @@ pub fn number(user_number: &str) -> Option<String> {
             Ordering::Less => return None,
             Ordering::Equal => return Some(divided[0].to_string()),
             Ordering::Greater => {
-                if divided[0].len() == 11 && divided[0].starts_with("1") {
+                if divided[0].len() == 11 && divided[0].starts_with('1') {
                     return Some(divided[0][1..].to_string());
                 }
                 return None;
@@ -47,7 +47,7 @@ pub fn number(user_number: &str) -> Option<String> {
                     0 => {
                         if !num.contains('+') || !is_valid(num, 1, false, false) {
                             return None;
-                        } 
+                        }
                         *num = "".to_string();
                     }
                     1 => {
@@ -83,15 +83,11 @@ fn is_valid(num: &mut String, count: usize, area_code: bool, exchange_code: bool
         .filter(|ch| ch.is_ascii_digit())
         .enumerate()
     {
-        if area_code {
-            if idx == 0 && (ch == '0' || ch == '1') {
-                return false;
-            }
+        if area_code && idx == 0 && (ch == '0' || ch == '1') {
+            return false;
         }
-        if exchange_code {
-            if idx == 0 && (ch == '0' || ch == '1') {
-                return false;
-            }
+        if exchange_code && idx == 0 && (ch == '0' || ch == '1') {
+            return false;
         }
         cleaned.push(ch);
     }
