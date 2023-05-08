@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 pub fn number(user_number: &str) -> Option<String> {
     let mut divided: Vec<String> = user_number
         .split(&[' ', '-', '.'])
@@ -7,35 +9,33 @@ pub fn number(user_number: &str) -> Option<String> {
     println!("{:?}", divided);
 
     match divided.len() {
-        1 => {
-            if divided[0].len() > 10 {
+        1 => match divided[0].len().cmp(&10) {
+            Ordering::Less => return None,
+            Ordering::Equal => return Some(divided[0].to_string()),
+            Ordering::Greater => {
+                if divided[0].len() == 11 && divided[0].starts_with("1") {
+                    return Some(divided[0][1..].to_string());
+                }
                 return None;
             }
-            return Some(divided[0].to_string());
-        }
+        },
         3 => {
             for (index, num) in divided.iter_mut().enumerate() {
                 match index {
                     0 => {
-                        // if num.starts_with("(") && num.ends_with(")") {
-
-                        // }
-                        if !is_valid(num, 3) {
+                        if !is_valid(num, 3, true, false) {
                             return None;
                         }
-                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     1 => {
-                        if !is_valid(num, 3) {
+                        if !is_valid(num, 3, false, true) {
                             return None;
                         }
-                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     2 => {
-                        if !is_valid(num, 4) {
+                        if !is_valid(num, 4, false, false) {
                             return None;
                         }
-                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     _ => return None,
                 }
@@ -45,28 +45,25 @@ pub fn number(user_number: &str) -> Option<String> {
             for (index, num) in divided.iter_mut().enumerate() {
                 match index {
                     0 => {
-                        if !num.contains('+') || !is_valid(num, 1) {
+                        if !num.contains('+') || !is_valid(num, 1, false, false) {
                             return None;
-                        }
-                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
+                        } 
+                        *num = "".to_string();
                     }
                     1 => {
-                        if !is_valid(num, 3) {
+                        if !is_valid(num, 3, false, false) {
                             return None;
                         }
-                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     2 => {
-                        if !is_valid(num, 3) {
+                        if !is_valid(num, 3, false, false) {
                             return None;
                         }
-                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     3 => {
-                        if !is_valid(num, 4) {
+                        if !is_valid(num, 4, false, false) {
                             return None;
                         }
-                        *num = num.chars().filter(|ch| ch.is_digit(10)).collect();
                     }
                     _ => return None,
                 }
@@ -78,16 +75,30 @@ pub fn number(user_number: &str) -> Option<String> {
     Some(divided.join(""))
 }
 
-fn is_valid(num: &str, count: usize) -> bool {
-    let mut ret = String::new();
-    for ch in num.chars() {
-        if ch.is_digit(10) {
-            ret.push(ch);
+fn is_valid(num: &mut String, count: usize, area_code: bool, exchange_code: bool) -> bool {
+    let mut cleaned = String::new();
+    for (idx, ch) in num
+        .clone()
+        .chars()
+        .filter(|ch| ch.is_ascii_digit())
+        .enumerate()
+    {
+        if area_code {
+            if idx == 0 && (ch == '0' || ch == '1') {
+                return false;
+            }
         }
+        if exchange_code {
+            if idx == 0 && (ch == '0' || ch == '1') {
+                return false;
+            }
+        }
+        cleaned.push(ch);
     }
-    if ret.len() != count {
+    if cleaned.len() != count {
         return false;
     }
+    *num = cleaned;
     true
 }
 
