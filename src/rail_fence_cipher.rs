@@ -8,43 +8,23 @@ impl RailFence {
     }
 
     pub fn encode(&self, text: &str) -> String {
-        let mut temp_vec = Vec::new();
-        (0..self.rails).for_each(|_| {
-            let new_vec: Vec<String> = vec![];
-            temp_vec.push(new_vec);
-        });
+        let mut rows = vec!["".to_string(); self.rails as usize];
+        let mut current_row = 0;
+        let mut direction = 1;
 
-        let mut row: usize = 0;
-        let mut start_flag = true;
-        let mut end_flag = false;
         for ch in text.chars() {
-            temp_vec[row].push(ch.to_string());
+            rows[current_row].push(ch);
 
-            if start_flag {
-                if row == temp_vec.len() - 1 {
-                    end_flag = true;
-                    start_flag = false;
-                    row = temp_vec.len() - 2;
-                    continue;
-                }
-                row += 1;
+            if current_row == 0 {
+                direction = 1;
+            } else if current_row == self.rails as usize - 1 {
+                direction = -1;
             }
-            if end_flag {
-                if row == 0 {
-                    end_flag = false;
-                    start_flag = true;
-                    row = 1;
-                    continue;
-                }
 
-                row -= 1;
-            }
+            current_row = (current_row as isize + direction) as usize;
         }
 
-        temp_vec
-            .iter_mut()
-            .map(|row_str| row_str.join(""))
-            .collect()
+        rows.join("")
     }
 
     pub fn decode(&self, cipher: &str) -> String {
