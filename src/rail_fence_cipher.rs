@@ -1,14 +1,16 @@
 pub struct RailFence {
-    rails: u32,
+    rails: usize,
 }
 
 impl RailFence {
     pub fn new(rails: u32) -> RailFence {
-        Self { rails }
+        Self {
+            rails: rails as usize,
+        }
     }
 
     pub fn encode(&self, text: &str) -> String {
-        let mut rows = vec!["".to_string(); self.rails as usize];
+        let mut rows = vec!["".to_string(); self.rails];
         let mut current_row = 0;
         let mut direction = 1;
 
@@ -17,7 +19,7 @@ impl RailFence {
 
             if current_row == 0 {
                 direction = 1;
-            } else if current_row == self.rails as usize - 1 {
+            } else if current_row == self.rails - 1 {
                 direction = -1;
             }
 
@@ -28,7 +30,7 @@ impl RailFence {
     }
 
     pub fn decode(&self, cipher: &str) -> String {
-        let mut rails: Vec<Vec<usize>> = vec![Vec::new(); self.rails as usize];
+        let mut rails: Vec<Vec<usize>> = vec![Vec::new(); self.rails];
 
         // Build the rail structure with indices
         let mut row = 0;
@@ -39,7 +41,7 @@ impl RailFence {
             // Toggle direction when we reach the ends of the rails
             if row == 0 {
                 direction = 1;
-            } else if row == self.rails as usize - 1 {
+            } else if row == self.rails - 1 {
                 direction = -1;
             }
 
