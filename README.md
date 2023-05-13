@@ -2,8 +2,8 @@
 
 ## TABLE
 
-1. [Armstrong Numbers](https://exercism.org/tracks/rust/exercises/armstrong-numbers/edit) 
-2. [Gigasecond](https://exercism.org/tracks/rust/exercises/gigasecond)
+1. [Hello World](https://exercism.org/tracks/rust/exercises/hello-world) 
+2. [Bob](https://exercism.org/tracks/rust/exercises/bob)
 3. [ISBN Verifier](https://exercism.org/tracks/rust/exercises/isbn-verifier)
 
 ## Libraries
