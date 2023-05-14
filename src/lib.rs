@@ -61,6 +61,7 @@ mod sublist;
 mod tournament;
 mod triangle;
 mod two_bucket;
+mod variable_length_quantity;
 mod word_count;
 mod yacht;
 
@@ -127,5 +128,6 @@ pub use sublist::*;
 pub use tournament::*;
 pub use triangle::*;
 pub use two_bucket::solve as solve_two_bucket;
+pub use variable_length_quantity::*;
 pub use word_count::*;
 pub use yacht::score as yacht_score;
