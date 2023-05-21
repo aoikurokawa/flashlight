@@ -1,22 +1,22 @@
 fn parse_operation(lhs: i32, words: &[&str]) -> Option<i32> {
-    match &words[..] {
-        &["divided", "by", rhs, ref rest @ ..] => {
+    match words[..] {
+        ["divided", "by", rhs, ref rest @ ..] => {
             let rhs = rhs.parse::<i32>().ok()?;
             parse_operation(lhs / rhs, rest)
         }
-        &["minus", rhs, ref rest @ ..] => {
+        ["minus", rhs, ref rest @ ..] => {
             let rhs = rhs.parse::<i32>().ok()?;
             parse_operation(lhs - rhs, rest)
         }
-        &["multiplied", "by", rhs, ref rest @ ..] => {
+        ["multiplied", "by", rhs, ref rest @ ..] => {
             let rhs = rhs.parse::<i32>().ok()?;
             parse_operation(lhs * rhs, rest)
         }
-        &["plus", rhs, ref rest @ ..] => {
+        ["plus", rhs, ref rest @ ..] => {
             let rhs = rhs.parse::<i32>().ok()?;
             parse_operation(lhs + rhs, rest)
         }
-        &["raised", "to", "the", rhs, "power", ref rest @ ..] => {
+        ["raised", "to", "the", rhs, "power", ref rest @ ..] => {
             let rhs = rhs
                 .trim_end_matches("st")
                 .trim_end_matches("nd")
@@ -26,8 +26,8 @@ fn parse_operation(lhs: i32, words: &[&str]) -> Option<i32> {
                 .ok()?;
             parse_operation(lhs.pow(rhs), rest)
         }
-        &[] => Some(lhs),
-        &[..] => None,
+        [] => Some(lhs),
+        [..] => None,
     }
 }
 
@@ -37,8 +37,8 @@ pub fn answer(command: &str) -> Option<i32> {
         .split_ascii_whitespace()
         .collect();
 
-    match &words[..] {
-        &["What", "is", lhs @ _, ref rest @ ..] => {
+    match words[..] {
+        ["What", "is", lhs, ref rest @ ..] => {
             let lhs = lhs.parse::<i32>().ok()?;
             parse_operation(lhs, rest)
         }
