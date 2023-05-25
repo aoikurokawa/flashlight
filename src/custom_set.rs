@@ -13,9 +13,7 @@ where
     pub fn new(input: &[T]) -> Self {
         let mut value = input.clone().to_vec();
         value.sort();
-        Self {
-            value,
-        }
+        Self { value }
     }
 
     pub fn contains(&self, element: &T) -> bool {
@@ -34,7 +32,7 @@ where
             (true, true) => return true,
             (true, false) => return true,
             (false, true) => return false,
-            _ => {},
+            _ => {}
         }
 
         let mut valid = false;
