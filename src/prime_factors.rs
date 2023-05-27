@@ -1,20 +1,14 @@
-const DIVISORS: [u64; 9] = [2, 3, 5, 11, 17, 23, 461, 9539, 894_119];
-
 pub fn factors(n: u64) -> Vec<u64> {
     let mut prime_numbers = Vec::new();
+    let mut candidates = 2..;
     let mut temp_n = n;
 
-    let mut index = 0;
-    loop {
-        if temp_n % DIVISORS[index] == 0 {
-            prime_numbers.push(DIVISORS[index]);
-            temp_n /= DIVISORS[index];
-        } else {
-            index += 1;
+    while temp_n > 1 {
+        let x = candidates.next().unwrap();
 
-            if index == 9 {
-                break;
-            }
+        while temp_n % x == 0 {
+            temp_n /= x;
+            prime_numbers.push(x);
         }
     }
 
