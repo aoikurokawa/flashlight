@@ -1,4 +1,5 @@
 mod accumulate;
+mod circular_buffer;
 mod acronym;
 mod affine_cipher;
 mod all_your_base;
@@ -157,3 +158,4 @@ pub use word_count::*;
 pub use wordy::*;
 pub use xorcism::*;
 pub use yacht::score as yacht_score;
+pub use circular_buffer::*;
