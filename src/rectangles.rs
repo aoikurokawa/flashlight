@@ -1,3 +1,4 @@
+#[allow(clippy::needless_range_loop)]
 pub fn count(lines: &[&str]) -> u32 {
     let v: Vec<Vec<char>> = lines.iter().map(|row| row.chars().collect()).collect();
 
@@ -7,7 +8,7 @@ pub fn count(lines: &[&str]) -> u32 {
             if v[top][left] == '+' {
                 for right in left + 1..v[top].len() {
                     if v[top][right] == '+' {
-                        for (idx, _side) in v.iter().skip(top + 1).enumerate() {
+                        for idx in top + 1..v.len() {
                             match (v[idx][left], v[idx][right]) {
                                 ('+', '+') => {
                                     if v[idx][left + 1..right]
