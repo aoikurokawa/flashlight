@@ -1,4 +1,5 @@
 mod accumulate;
+mod scale_generator;
 mod acronym;
 mod affine_cipher;
 mod all_your_base;
@@ -175,3 +176,4 @@ pub use word_count::*;
 pub use wordy::*;
 pub use xorcism::*;
 pub use yacht::score as yacht_score;
+pub use scale_generator::*;
