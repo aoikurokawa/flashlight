@@ -1,26 +1,7 @@
 pub fn sum_of_multiples(limit: u32, factors: &[u32]) -> u32 {
-    let mut sum_multiples = Vec::new();
-
-    for factor in factors {
-        if *factor == 0 {
-            continue;
-        }
-
-        let mut head = 0;
-        let mut multiples = Vec::new();
-
-        while head < limit {
-            head += factor;
-
-            if head < limit && !sum_multiples.contains(&head) {
-                multiples.push(head);
-            }
-        }
-
-        sum_multiples.append(&mut multiples);
-    }
-
-    sum_multiples.iter().sum()
+    (0..limit)
+        .filter(|x| factors.iter().any(|y| (y > &0) && (x % y) == 0))
+        .sum()
 }
 
 #[cfg(test)]
