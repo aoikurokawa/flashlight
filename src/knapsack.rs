@@ -1,26 +1,25 @@
 pub struct Item {
-    pub weight: u32,
+    pub weight: usize,
     pub value: u32,
 }
 
 pub fn maximum_value(max_weight: u32, items: &[Item]) -> u32 {
     let n = items.len();
-    let mut dp = vec![vec![0; max_weight as usize + 1]; n + 1];
+    let max_weight = max_weight as usize;
+    let mut dp = vec![vec![0; max_weight + 1]; n + 1];
 
     for i in 1..=n {
-        for w in 1..=max_weight as usize {
-            if items[i - 1].weight as usize <= w {
-                dp[i][w] = dp[i - 1][w]
-                    .max(dp[i - 1][w - items[i - 1].weight as usize] + items[i - 1].value);
+        for w in 1..=max_weight {
+            if items[i - 1].weight <= w {
+                dp[i][w] =
+                    dp[i - 1][w].max(dp[i - 1][w - items[i - 1].weight] + items[i - 1].value);
             } else {
                 dp[i][w] = dp[i - 1][w];
             }
         }
     }
 
-    println!("{:?}", dp);
-
-    dp[n][max_weight as usize]
+    dp[n][max_weight]
 }
 
 #[cfg(test)]
@@ -54,7 +53,13 @@ mod tests {
             },
         ];
 
-        // [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10], [0, 0, 0, 0, 40, 40, 40, 40, 40, 50, 50], [0, 0, 0, 0, 40, 40, 40, 40, 40, 50, 70], [0, 0, 0, 0, 50, 50, 50, 50, 90, 90, 90]]
+        // [
+        // [0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0],
+        // [0, 0, 0, 0,  0, 10, 10, 10, 10, 10, 10],
+        // [0, 0, 0, 0, 40, 40, 40, 40, 40, 50, 50],
+        // [0, 0, 0, 0, 40, 40, 40, 40, 40, 50, 70],
+        // [0, 0, 0, 0, 50, 50, 50, 50, 90, 90, 90]
+        // ]
 
         assert_eq!(maximum_value(max_weight, &items), 90);
     }
