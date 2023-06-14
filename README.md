@@ -23,8 +23,16 @@
 20. [x] [Kindergarten Garden](https://exercism.org/tracks/rust/exercises/kindergarten-garden)
 
 ## Libraries
+
 - [time](https://crates.io/crates/time)
-- 
+- [rand](https://crates.io/crates/rand)
+- [once_cell](https://crates.io/crates/once_cell)
+- [num](https://crates.io/crates/num)
+- [image](https://crates.io/crates/image)
+- [crossbeam](https://crates.io/crates/crossbeam)
+- [modinverse](https://crates.io/crates/modinverse)
+- [anyhow](https://crates.io/crates/anyhow)
+- [num-bigint](https://crates.io/crates/num-bigint)
 
 ## REFERENCES
 - [Overview](https://exercism.org/tracks/rust)
