@@ -13,8 +13,8 @@ use rust::jitter::{JitParams, Jitter, PriceType};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::JitResult;
 use crate::utils;
+use crate::JitResult;
 
 pub struct JitMakerConfig<T: AccountProvider> {
     pub market_indexes: Vec<u16>,
@@ -33,6 +33,18 @@ pub trait Strategy {
     async fn adjust_quotes(&mut self, market_index: u16, sub_account: u16) -> JitResult<()>;
 }
 
+pub struct JitMaker<T: AccountProvider> {
+    market_indexes: Vec<u16>,
+    target_leverage: f64,
+    spread: f64,
+    market_type: MarketType,
+    drift_client: DriftClient<T>,
+    jitter: Arc<Jitter<T>>,
+    dlob_builder: Arc<Mutex<DLOBBuilder>>,
+    sub_accounts: Vec<u16>,
+    volatility_threshold: f64,
+}
+
 #[async_trait]
 impl<T: AccountProvider + Clone> Strategy for JitMaker<T> {
     async fn adjust_quotes(&mut self, market_index: u16, sub_account: u16) -> JitResult<()> {
@@ -48,20 +60,8 @@ impl<T: AccountProvider + Clone> Strategy for JitMaker<T> {
     }
 }
 
-pub struct JitMaker<T: AccountProvider> {
-    market_indexes: Vec<u16>,
-    target_leverage: f64,
-    spread: f64,
-    market_type: MarketType,
-    drift_client: DriftClient<T>,
-    jitter: Arc<Jitter<T>>,
-    dlob_builder: Arc<Mutex<DLOBBuilder>>,
-    sub_accounts: Vec<u16>,
-    volatility_threshold: f64,
-}
-
 impl<T: AccountProvider + Clone> JitMaker<T> {
-    pub async fn new(config: JitMakerConfig<T>) -> JitResult<Self> {
+    pub fn new(config: JitMakerConfig<T>) -> JitResult<Self> {
         let mut market_indexes = config.market_indexes.clone();
         market_indexes.sort();
         market_indexes.dedup();
@@ -182,6 +182,7 @@ impl<T: AccountProvider + Clone> JitMaker<T> {
             .drift_client
             .get_perp_market_account(market_index)
             .expect("perp market account");
+
         let oracle = self
             .drift_client
             .get_oracle_price_data_and_slot_for_perp_market(market_index)
@@ -287,13 +288,13 @@ impl<T: AccountProvider + Clone> JitMaker<T> {
             .update_perp_params(market_index, new_perp_params);
 
         log::info!(
-            "jitter perp params updated, market_index: {}, bid: {}, ask: {} min_position: {}, max_position: {}",
-            market_index,
-            bid_offset,
-            ask_offset,
-            min_position,
-            max_position
-        );
+             "jitter perp params updated, market_index: {}, bid: {}, ask: {} min_position: {}, max_position: {}",
+             market_index,
+             bid_offset,
+             ask_offset,
+             min_position,
+             max_position
+         );
         log::info!("quote perp took: {:?}", start.elapsed());
 
         Ok(())

@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.79"
+clap = { version = "4.5.4", features = ["derive"] }
 dotenv = "0.15.0"
 drift = { git = "https://github.com/drift-labs/protocol-v2.git" }
 drift-sdk = { git = "https://github.com/drift-labs/drift-rs" }

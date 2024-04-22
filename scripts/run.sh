@@ -1,3 +1,2 @@
 ##! /bin/bash
-set KEYPAIR_FILE = ""
-cargo r 
+RUST_LOG=info cargo r --release -- run
