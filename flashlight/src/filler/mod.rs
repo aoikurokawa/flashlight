@@ -1,4 +1,3 @@
-
 use drift_sdk::slot_subscriber::SlotSubscriber;
 
 use crate::config::{FillerConfig, GlobalConfig};

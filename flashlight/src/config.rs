@@ -1,4 +1,5 @@
-use drift_sdk::{types::Context as DriftEnv, Pubkey};
+use sdk::types::Context as DriftEnv;
+use solana_sdk::pubkey::Pubkey;
 
 enum JitoStrategy {
     JitoOnly,
