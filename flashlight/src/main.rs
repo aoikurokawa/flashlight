@@ -27,7 +27,12 @@ struct Cli {
 enum Commands {
     /// Initialize user
     InitUser {},
-    RunJit {},
+
+    /// Just In Time Auction Bot
+    Jit {},
+
+    /// Order Matching Bot
+    Filler {},
 }
 
 #[tokio::main]
@@ -50,7 +55,7 @@ async fn main() {
 
             println!("{:?}", wallet.signer());
         }
-        Commands::RunJit {} => {
+        Commands::Jit {} => {
             let sub_accounts = vec![0];
 
             let mut drift_client = DriftClient::new(
@@ -103,6 +108,8 @@ async fn main() {
             let _ = jit_maker.subscribe().await;
 
             println!("Hello, world!");
+        }
+        Commands::Filler {  } => {
         }
     }
 }
