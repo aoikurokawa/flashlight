@@ -6,11 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anchor-lang = "0.30.0"
-futures-util = "0.3.30"
-log = "0.4.21"
-reqwest = "0.12.4"
-solana-client = "1.18.12"
-solana-rpc = "1.18.12"
-thiserror = "1.0.60"
-tokio = { version = "1.37.0", features = ["full"] }
+anchor-lang = { workspace = true }
+base64 = { workspace = true }
+drift = { path = "../drift" }
+futures-util = { workspace = true }
+log = { workspace = true }
+reqwest = { workspace = true }
+solana-client = { workspace = true }
+solana-rpc = { workspace = true }
+solana-sdk = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
