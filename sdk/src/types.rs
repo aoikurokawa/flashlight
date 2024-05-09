@@ -2,7 +2,7 @@ use std::cell::{BorrowError, BorrowMutError};
 
 use drift::ErrorCode;
 use futures_util::Sink;
-use solana_sdk::{instruction::InstructionError, transaction::TransactionError};
+use solana_sdk::{instruction::InstructionError, transaction::TransactionError, pubkey::Pubkey};
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
@@ -123,3 +123,4 @@ impl SdkError {
         None
     }
 }
+

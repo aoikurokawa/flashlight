@@ -8,13 +8,16 @@ edition = "2021"
 [dependencies]
 anchor-lang = { workspace = true }
 base64 = { workspace = true }
-drift = { path = "../drift" }
 futures-util = { workspace = true }
 log = { workspace = true }
 reqwest = { workspace = true }
 solana-client = { workspace = true }
-solana-rpc = { workspace = true }
 solana-sdk = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
+
+[dependencies.drift]
+git = "https://github.com/drift-labs/protocol-v2.git"
+rev = "2bbe28c"
+features = [ "mainnet-beta", "drift-rs" ] 
