@@ -1,4 +1,13 @@
+use std::cell::{BorrowError, BorrowMutError};
+
+use drift::ErrorCode;
+use futures_util::Sink;
+use solana_sdk::{instruction::InstructionError, transaction::TransactionError, pubkey::Pubkey};
 use thiserror::Error;
+use tokio::net::TcpStream;
+use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
+
+pub type SdkResult<T> = Result<T, SdkError>;
 
 /// Drift program context
 #[derive(Debug, Copy, Clone)]
@@ -8,6 +17,25 @@ pub enum Context {
     DevNet,
     /// Target MaiNnet
     MainNet,
+}
+
+#[derive(Debug)]
+pub struct SinkError(
+    pub <WebSocketStream<MaybeTlsStream<TcpStream>> as Sink<tungstenite::Message>>::Error,
+);
+
+impl std::fmt::Display for SinkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "WebSocket Sink Error: {}", self.0)
+    }
+}
+
+impl std::error::Error for SinkError {}
+
+impl From<SinkError> for SdkError {
+    fn from(err: SinkError) -> Self {
+        SdkError::SubscriptionFailure(err)
+    }
 }
 
 #[derive(Debug, Error)]
@@ -95,3 +123,4 @@ impl SdkError {
         None
     }
 }
+

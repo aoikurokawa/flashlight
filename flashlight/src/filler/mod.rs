@@ -1,4 +1,4 @@
-use drift_sdk::slot_subscriber::SlotSubscriber;
+use sdk::{slot_subscriber::SlotSubscriber, BulkAccountLoader};
 
 use crate::config::{FillerConfig, GlobalConfig};
 
@@ -8,8 +8,8 @@ struct FillerBot {
     default_interval_ms: u16,
 
 	slot_subscriber: SlotSubscriber,
-	bulkAccountLoader: Option<BulkAccountLoader>,
-	protected userStatsMapSubscriptionConfig: UserSubscriptionConfig;
+	bulk_account_loader: Option<BulkAccountLoader>,
+	user_stats_map_subscription_config: UserSubscriptionConfig,
 	protected driftClient: DriftClient;
 	/// Connection to use specifically for confirming transactions
 	protected txConfirmationConnection: Connection;
