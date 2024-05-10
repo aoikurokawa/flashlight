@@ -1,5 +1,5 @@
 [workspace]
-members = [ "sdk", "flashlight", "drift"]
+members = [ "sdk", "flashlight" ]
 resolver = "2"
 
 [workspace.dependencies]

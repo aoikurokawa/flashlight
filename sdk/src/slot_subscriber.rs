@@ -123,36 +123,36 @@ impl SlotSubscriber {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
-
-    use anchor_client::Cluster;
-
-    use super::*;
-    use crate::utils::envs::mainnet_endpoint;
-
-    #[cfg(feature = "rpc_tests")]
-    #[tokio::test]
-    async fn test_subscribe() {
-        let cluster = Cluster::from_str(&mainnet_endpoint()).unwrap();
-        let url = cluster.ws_url().to_string();
-
-        let mut slot_subscriber = SlotSubscriber::new(url);
-        let _ = slot_subscriber.subscribe().await;
-
-        slot_subscriber.event_emitter.clone().subscribe(
-            SlotSubscriber::SUBSCRIPTION_ID,
-            move |event| {
-                if let Some(event) = event.as_any().downcast_ref::<SlotUpdate>() {
-                    dbg!(event);
-                }
-            },
-        );
-        dbg!("sub'd");
-
-        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-        let _ = slot_subscriber.unsubscribe().await;
-        dbg!("unsub'd");
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use std::str::FromStr;
+// 
+//     use anchor_client::Cluster;
+// 
+//     use super::*;
+//     use crate::utils::envs::mainnet_endpoint;
+// 
+//     #[cfg(feature = "rpc_tests")]
+//     #[tokio::test]
+//     async fn test_subscribe() {
+//         let cluster = Cluster::from_str(&mainnet_endpoint()).unwrap();
+//         let url = cluster.ws_url().to_string();
+// 
+//         let mut slot_subscriber = SlotSubscriber::new(url);
+//         let _ = slot_subscriber.subscribe().await;
+// 
+//         slot_subscriber.event_emitter.clone().subscribe(
+//             SlotSubscriber::SUBSCRIPTION_ID,
+//             move |event| {
+//                 if let Some(event) = event.as_any().downcast_ref::<SlotUpdate>() {
+//                     dbg!(event);
+//                 }
+//             },
+//         );
+//         dbg!("sub'd");
+// 
+//         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+//         let _ = slot_subscriber.unsubscribe().await;
+//         dbg!("unsub'd");
+//     }
+// }

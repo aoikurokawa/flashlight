@@ -1,6 +1,6 @@
 use solana_sdk::commitment_config::CommitmentLevel;
 
-use crate::BulkAccountLoader;
+use crate::{BulkAccountLoader, UserAccountSubscriber};
 
 pub enum UserSubscriptionConfig {
     WebSocket {
@@ -12,6 +12,6 @@ pub enum UserSubscriptionConfig {
         accountLoader: BulkAccountLoader,
     },
     Custom {
-        user_account_subscriber: UserAccountSubscriber,
+        user_account_subscriber: Box<dyn UserAccountSubscriber>,
     },
 }
