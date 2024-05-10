@@ -14,13 +14,13 @@ enum UserAccountEvents {
 }
 
 pub trait UserAccountSubscriber {
-    async fn subscribe(user_account: Option<UserAccount>) -> SdkResult<bool>;
+    async fn subscribe(&self, user_account: Option<UserAccount>) -> SdkResult<bool>;
 
-    async fn fetch() -> SdkResult<()>;
+    async fn fetch(&self) -> SdkResult<()>;
 
-    fn update_data(user_account: UserAccount, slot: u16) -> SdkResult<()>;
+    async fn update_data(&self, user_account: UserAccount, slot: u16) -> SdkResult<()>;
 
-    async fn unsubscribe() -> SdkResult<()>;
+    async fn unsubscribe(&self) -> SdkResult<()>;
 
-    fn get_user_account_and_slot() -> SdkResult<DataAndSlot<UserAccount>>;
+    async fn get_user_account_and_slot(&self) -> SdkResult<DataAndSlot<UserAccount>>;
 }
