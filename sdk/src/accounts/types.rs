@@ -1,23 +1,21 @@
-use drift::user::User as UserAccount;
+use drift::state::user::User as UserAccount;
+
+use crate::{types::DataAndSlot, SdkResult};
 
 enum UserAccountEvents {
-    UserAccountUpdate {
-        payload: UserAccount
-    },
+    UserAccountUpdate { payload: UserAccount },
     Update,
-    Error {
-        e: Error,
-    }
+    Error { e: String },
 }
 
-pub struct UserAccountSubscriber {
-	event_emitter: StrictEventEmitter<EventEmitter, UserAccountEvents>,
-	isSubscribed: boolean;
+pub trait UserAccountSubscriber {
+    async fn subscribe(&self, user_account: Option<UserAccount>) -> SdkResult<bool>;
 
-	subscribe(userAccount?: UserAccount): Promise<boolean>;
-	fetch(): Promise<void>;
-	updateData(userAccount: UserAccount, slot: number): void;
-	unsubscribe(): Promise<void>;
+    async fn fetch(&self) -> SdkResult<()>;
 
-	getUserAccountAndSlot(): DataAndSlot<UserAccount>;
+    async fn update_data(&self, user_account: UserAccount, slot: u16) -> SdkResult<()>;
+
+    async fn unsubscribe(&self) -> SdkResult<()>;
+
+    async fn get_user_account_and_slot(&self) -> SdkResult<DataAndSlot<UserAccount>>;
 }

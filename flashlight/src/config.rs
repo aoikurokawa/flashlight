@@ -1,11 +1,7 @@
 use sdk::types::Context as DriftEnv;
 use solana_sdk::pubkey::Pubkey;
 
-enum JitoStrategy {
-    JitoOnly,
-    NonJitoOnly,
-    Hybrid,
-}
+use crate::types::JitoStrategy;
 
 enum TxSenderType {
     Fast,
