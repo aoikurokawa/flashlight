@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     cell::{BorrowError, BorrowMutError},
     cmp::Ordering,
 };
@@ -14,6 +15,8 @@ use solana_sdk::{
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
+
+use crate::event_emitter::Event;
 
 pub type SdkResult<T> = Result<T, SdkError>;
 
@@ -181,6 +184,16 @@ impl SdkError {
             }
         }
         None
+    }
+}
+
+impl Event for SdkError {
+    fn box_clone(&self) -> Box<dyn Event> {
+        Box::new(*self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

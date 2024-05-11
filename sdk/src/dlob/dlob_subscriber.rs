@@ -1,4 +1,9 @@
-use std::time::Duration;
+use std::sync::Arc;
+
+use tokio::{
+    sync::{Mutex, MutexGuard},
+    time::{self, Duration},
+};
 
 use crate::{event_emitter::EventEmitter, types::SdkResult, AccountProvider, DriftClient};
 
@@ -15,7 +20,7 @@ pub struct DLOBSubscriber<T: AccountProvider, D: DLOBSource, S: SlotSource> {
 
     slot_source: S,
 
-    update_frequency: u64,
+    update_frequency: Duration,
 
     interval_id: Option<Duration>,
 
@@ -27,8 +32,8 @@ pub struct DLOBSubscriber<T: AccountProvider, D: DLOBSource, S: SlotSource> {
 impl<T, D, S> DLOBSubscriber<T, D, S>
 where
     T: AccountProvider,
-    D: DLOBSource + Send,
-    S: SlotSource + Send,
+    D: DLOBSource + Send + Sync + 'static,
+    S: SlotSource + Send + Sync + 'static,
 {
     pub fn new(config: DLOBSubscriptionConfig<T, D, S>) -> Self {
         Self {
@@ -42,32 +47,47 @@ where
         }
     }
 
-    pub async fn subscribe(&mut self) -> SdkResult<()> {
-        if self.interval_id.is_none() {
+    pub async fn subscribe(dlob_subscriber: Arc<Mutex<Self>>) -> SdkResult<()> {
+        let mut dlob_subscriber = dlob_subscriber.clone().lock().await;
+        if dlob_subscriber.interval_id.is_none() {
             return Ok(());
         }
 
-        self.update_dlob().await?;
+        DLOBSubscriber::update_dlob(dlob_subscriber).await?;
 
-        let update_frequency = self.update_frequency;
-        tokio::task::spawn(async move {
-            let mut timer =
-                tokio::time::interval(tokio::time::Duration::from_millis(update_frequency));
+        let update_frequency = dlob_subscriber.update_frequency;
+        let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+
+        let update_task = tokio::spawn(async move {
             loop {
-                {
-                    self.update_dlob().await;
-                    self.event_emitter.emit("update", Box::new(self.dlob.clone()));
+                time::sleep(update_frequency).await;
+                match DLOBSubscriber::update_dlob(dlob_subscriber).await {
+                    Ok(()) => tx.send(Ok(())).await.unwrap(),
+                    Err(e) => tx.send(Err(e)).await.unwrap(),
                 }
-                let _ = timer.tick().await;
             }
         });
+
+        let handle_events = tokio::spawn(async move {
+            while let Some(res) = rx.recv().await {
+                match res {
+                    Ok(()) => dlob_subscriber
+                        .event_emitter
+                        .emit("update", Box::new(dlob_subscriber.dlob.clone())),
+                    Err(e) => dlob_subscriber.event_emitter.emit("error", Box::new(e)),
+                }
+            }
+        });
+
+        let _ = tokio::try_join!(update_task, handle_events);
 
         Ok(())
     }
 
-    async fn update_dlob(&mut self) -> SdkResult<()> {
-        let slot = self.slot_source.get_slot();
-        self.dlob = self.dlob_source.get_dlob(slot).await;
+    async fn update_dlob(mut dlob_subscriber: MutexGuard<Self>) -> SdkResult<()> {
+        // let mut dlob_subscriber = dlob_subscriber.clone().lock().unwrap();
+        let slot = dlob_subscriber.slot_source.get_slot();
+        dlob_subscriber.dlob = dlob_subscriber.dlob_source.get_dlob(slot).await;
 
         Ok(())
     }
