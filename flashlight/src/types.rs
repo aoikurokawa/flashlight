@@ -11,3 +11,9 @@ pub(crate) trait Bot {
     /// Returns true if bot is healthy, else false. Typically used for monitoring liveness.
     async fn health_check() -> bool;
 }
+
+pub(crate) enum JitoStrategy {
+    JitoOnly,
+    NonJitoOnly,
+    Hybrid,
+}

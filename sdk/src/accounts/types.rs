@@ -1,11 +1,6 @@
 use drift::state::user::User as UserAccount;
 
-use crate::SdkResult;
-
-pub struct DataAndSlot<T> {
-    data: T,
-    slot: u16,
-}
+use crate::{types::DataAndSlot, SdkResult};
 
 enum UserAccountEvents {
     UserAccountUpdate { payload: UserAccount },

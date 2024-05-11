@@ -1,13 +1,25 @@
-use std::cell::{BorrowError, BorrowMutError};
+use std::{
+    cell::{BorrowError, BorrowMutError},
+    cmp::Ordering,
+};
 
-use drift::error::ErrorCode;
+use anchor_lang::AccountDeserialize;
+use drift::{error::ErrorCode, state::user::MarketType};
 use futures_util::Sink;
-use solana_sdk::{instruction::InstructionError, transaction::TransactionError};
+use solana_sdk::{
+    instruction::{AccountMeta, InstructionError},
+    pubkey::Pubkey,
+    transaction::TransactionError,
+};
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
 pub type SdkResult<T> = Result<T, SdkError>;
+
+pub fn is_one_of_variant<T: PartialEq>(value: &T, variants: &[T]) -> bool {
+    variants.iter().any(|variant| value == variant)
+}
 
 /// Drift program context
 #[derive(Debug, Copy, Clone)]
@@ -17,6 +29,54 @@ pub enum Context {
     DevNet,
     /// Target MaiNnet
     MainNet,
+}
+
+#[derive(Debug, Clone)]
+pub struct DataAndSlot<T>
+where
+    T: AccountDeserialize,
+{
+    pub slot: u64,
+    pub data: T,
+}
+
+/// Id of a Drift market
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct MarketId {
+    pub(crate) index: u16,
+    pub(crate) kind: MarketType,
+}
+
+impl MarketId {
+    /// Id of a perp market
+    pub const fn perp(index: u16) -> Self {
+        Self {
+            index,
+            kind: MarketType::Perp,
+        }
+    }
+    /// Id of a spot market
+    pub const fn spot(index: u16) -> Self {
+        Self {
+            index,
+            kind: MarketType::Spot,
+        }
+    }
+
+    /// `MarketId` for the USDC Spot Market
+    pub const QUOTE_SPOT: Self = Self {
+        index: 0,
+        kind: MarketType::Spot,
+    };
+}
+
+impl From<(u16, MarketType)> for MarketId {
+    fn from(value: (u16, MarketType)) -> Self {
+        Self {
+            index: value.0,
+            kind: value.1,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -121,5 +181,104 @@ impl SdkError {
             }
         }
         None
+    }
+}
+
+/// Helper type for Accounts included in drift instructions
+///
+/// Provides sorting implementation matching drift program
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub(crate) enum RemainingAccount {
+    Oracle { pubkey: Pubkey },
+    Spot { pubkey: Pubkey, writable: bool },
+    Perp { pubkey: Pubkey, writable: bool },
+}
+
+impl RemainingAccount {
+    fn pubkey(&self) -> &Pubkey {
+        match self {
+            Self::Oracle { pubkey } => pubkey,
+            Self::Spot { pubkey, .. } => pubkey,
+            Self::Perp { pubkey, .. } => pubkey,
+        }
+    }
+    fn parts(self) -> (Pubkey, bool) {
+        match self {
+            Self::Oracle { pubkey } => (pubkey, false),
+            Self::Spot {
+                pubkey, writable, ..
+            } => (pubkey, writable),
+            Self::Perp {
+                pubkey, writable, ..
+            } => (pubkey, writable),
+        }
+    }
+    fn discriminant(&self) -> u8 {
+        // SAFETY: Because `Self` is marked `repr(u8)`, its layout is a `repr(C)` `union`
+        // between `repr(C)` structs, each of which has the `u8` discriminant as its first
+        // field, so we can read the discriminant without offsetting the pointer.
+        unsafe { *<*const _>::from(self).cast::<u8>() }
+    }
+}
+
+impl Ord for RemainingAccount {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let type_order = self.discriminant().cmp(&other.discriminant());
+        if let Ordering::Equal = type_order {
+            self.pubkey().cmp(other.pubkey())
+        } else {
+            type_order
+        }
+    }
+}
+
+impl PartialOrd for RemainingAccount {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl From<RemainingAccount> for AccountMeta {
+    fn from(value: RemainingAccount) -> Self {
+        let (pubkey, is_writable) = value.parts();
+        AccountMeta {
+            pubkey,
+            is_writable,
+            is_signer: false,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ClientOpts {
+    active_sub_account_id: u16,
+    sub_account_ids: Vec<u16>,
+}
+
+impl Default for ClientOpts {
+    fn default() -> Self {
+        Self {
+            active_sub_account_id: 0,
+            sub_account_ids: vec![0],
+        }
+    }
+}
+
+impl ClientOpts {
+    pub fn new(active_sub_account_id: u16, sub_account_ids: Option<Vec<u16>>) -> Self {
+        let sub_account_ids = sub_account_ids.unwrap_or(vec![active_sub_account_id]);
+        Self {
+            active_sub_account_id,
+            sub_account_ids,
+        }
+    }
+
+    pub fn active_sub_account_id(&self) -> u16 {
+        self.active_sub_account_id
+    }
+
+    pub fn sub_account_ids(self) -> Vec<u16> {
+        self.sub_account_ids
     }
 }
