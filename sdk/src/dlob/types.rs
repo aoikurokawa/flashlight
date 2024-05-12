@@ -4,7 +4,7 @@ use crate::{AccountProvider, DriftClient};
 
 use super::dlob::DLOB;
 
-pub(crate) struct DLOBSubscriptionConfig<T: AccountProvider, D: DLOBSource, S: SlotSource> {
+pub struct DLOBSubscriptionConfig<T: AccountProvider, D: DLOBSource, S: SlotSource> {
     pub(crate) drift_client: DriftClient<T>,
     pub(crate) dlob_source: D,
     pub(crate) slot_source: S,
@@ -16,10 +16,10 @@ pub(crate) trait DLOBSubscriberEvents {
     fn error();
 }
 
-pub(crate) trait DLOBSource {
+pub trait DLOBSource {
     fn get_dlob(&self, slot: u64) -> impl std::future::Future<Output = DLOB> + Send;
 }
 
-pub(crate) trait SlotSource {
+pub trait SlotSource {
     fn get_slot(&self) -> u64;
 }

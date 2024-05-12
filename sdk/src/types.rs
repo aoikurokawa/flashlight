@@ -1,5 +1,4 @@
 use std::{
-    any::Any,
     cell::{BorrowError, BorrowMutError},
     cmp::Ordering,
 };
@@ -15,8 +14,6 @@ use solana_sdk::{
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
-
-use crate::event_emitter::Event;
 
 pub type SdkResult<T> = Result<T, SdkError>;
 
@@ -101,6 +98,12 @@ impl From<SinkError> for SdkError {
     }
 }
 
+impl From<drift::error::ErrorCode> for SdkError {
+    fn from(value: drift::error::ErrorCode) -> Self {
+        Self::DriftProgramError(value)
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum SdkError {
     #[error("{0}")]
@@ -155,6 +158,8 @@ pub enum SdkError {
     MaxReconnectionAttemptsReached,
     #[error("jit taker order not found")]
     JitOrderNotFound,
+    #[error("Drift Program occured. Error Code: {0}")]
+    DriftProgramError(drift::error::ErrorCode),
 }
 
 impl SdkError {
@@ -184,16 +189,6 @@ impl SdkError {
             }
         }
         None
-    }
-}
-
-impl Event for SdkError {
-    fn box_clone(&self) -> Box<dyn Event> {
-        Box::new(*self)
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 
