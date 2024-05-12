@@ -42,26 +42,45 @@ pub fn calculate_live_oracle_twap(
 pub fn calculate_live_oracle_std(
     amm: &AMM,
     oracle_price_data: &OraclePriceData,
-    now: u128,
-) -> u128 {
+    now: i128,
+) -> i128 {
     let since_last_update = std::cmp::max(
         1,
-        now.sub(amm.historical_oracle_data.last_oracle_price_twap_ts as u128),
+        now.sub(amm.historical_oracle_data.last_oracle_price_twap_ts as i128),
     );
-    // let since_start = std::cmp::max(0, amm.funding_period.sub(since_last_update));
+    let since_start = std::cmp::max(0, (amm.funding_period as i128).sub(since_last_update));
 
-    // let live_oracle_twap = calculate_live_ora
-    0
+    let live_oracle_twap = calculate_live_oracle_twap(
+        &amm.historical_oracle_data,
+        oracle_price_data,
+        now,
+        amm.funding_period as i128,
+    );
+
+    let price_delta_vs_twap = (oracle_price_data.price as i128)
+        .sub(live_oracle_twap)
+        .abs();
+
+    let oracle_std = price_delta_vs_twap.add(
+        (amm.oracle_std as i128)
+            .mul(since_start)
+            .div(since_start.add(since_last_update)),
+    );
+
+    oracle_std
 }
 
 #[cfg(test)]
 mod tests {
     use drift::{
         math::constants::FIVE_MINUTE,
-        state::oracle::{HistoricalOracleData, OraclePriceData},
+        state::{
+            oracle::{HistoricalOracleData, OraclePriceData},
+            perp_market::AMM,
+        },
     };
 
-    use super::calculate_live_oracle_twap;
+    use super::{calculate_live_oracle_std, calculate_live_oracle_twap};
 
     #[test]
     fn test_calculate_live_oracle_twap() {
@@ -108,6 +127,34 @@ mod tests {
         assert_eq!(
             980, result,
             "The TWAP calculation for longer periods did not return the expected value"
+        );
+    }
+
+    #[test]
+    fn test_calculate_live_oracle_std() {
+        let hist_data = HistoricalOracleData {
+            last_oracle_price_twap: 1000,
+            last_oracle_price_twap_5min: 1200,
+            last_oracle_price_twap_ts: 100,
+            ..Default::default()
+        };
+        let amm = AMM {
+            historical_oracle_data: hist_data,
+            funding_period: FIVE_MINUTE as i64,
+            oracle_std: 5,
+            ..Default::default()
+        };
+        let oracle_data = OraclePriceData {
+            price: 800,
+            ..Default::default()
+        };
+        let now = 200;
+
+        let result = calculate_live_oracle_std(&amm, &oracle_data, now);
+
+        assert_eq!(
+            269, result,
+            "The calculated standard deviation did not match the expected value."
         );
     }
 }
