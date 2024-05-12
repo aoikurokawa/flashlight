@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
-use drift::state::{oracle::OraclePriceData, perp_market::PerpMarket};
+use drift::{
+    math::amm::calculate_market_open_bids_asks,
+    state::{oracle::OraclePriceData, perp_market::PerpMarket},
+};
 
-use crate::types::SdkResult;
+use crate::{math::amm::calculate_updated_amm, types::SdkResult};
 
 pub(crate) enum LiquiditySource {
     Serum,
@@ -32,7 +35,7 @@ pub(crate) fn get_vamm_l2_generator(
     market_account: PerpMarket,
     oracle_price_data: OraclePriceData,
     num_orders: usize,
-    now: u64,
+    now: Option<u128>,
     top_of_book_quote_amounts: Option<Vec<u64>>,
 ) -> SdkResult<()> {
     let mut num_base_orders = num_orders;
@@ -41,7 +44,30 @@ pub(crate) fn get_vamm_l2_generator(
         assert!(amounts.len() < num_orders);
     }
 
+    let updated_amm = calculate_updated_amm(&market_account.amm, &oracle_price_data)?;
 
+    let (mut open_bids, mut open_asks) = calculate_market_open_bids_asks(&updated_amm)?;
+
+    let min_order_size = market_account.amm.min_order_size;
+    if open_bids < min_order_size as i128 * 2 {
+        open_bids = 0;
+    }
+
+    if open_asks.abs() < min_order_size as i128 * 2 {
+        open_asks = 0;
+    }
+
+    let now = match now {
+        Some(t) => t,
+        None => {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                / 1000
+        }
+    };
+    //     let () = calculate_spread_reserves(&updated_amm, direction)
 
     Ok(())
 }

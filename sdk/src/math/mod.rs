@@ -3,4 +3,7 @@ pub mod amm;
 pub mod auction;
 pub mod leverage;
 pub mod liquidation;
+pub mod oracle;
 pub mod order;
+pub mod repeg;
+pub mod util;
