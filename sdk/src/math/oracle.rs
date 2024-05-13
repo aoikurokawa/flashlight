@@ -1,7 +1,7 @@
 use std::ops::{Add, Div, Mul, Sub};
 
 use drift::{
-    math::constants::FIVE_MINUTE,
+    math::constants::{BID_ASK_SPREAD_PRECISION, FIVE_MINUTE},
     state::{
         oracle::{HistoricalOracleData, OraclePriceData},
         perp_market::AMM,
@@ -68,6 +68,32 @@ pub fn calculate_live_oracle_std(
     );
 
     oracle_std
+}
+
+pub fn get_new_oracle_conf_pct(
+    amm: &AMM,
+    oracle_price_data: &OraclePriceData,
+    reserve_price: u128,
+    now: i128,
+) -> i128 {
+    let conf_interval = oracle_price_data.confidence as i128;
+
+    let since_last_update = std::cmp::max(
+        0,
+        now.sub(amm.historical_oracle_data.last_oracle_price_twap_ts as i128),
+    );
+    let mut lower_bound_conf_pct = amm.last_oracle_conf_pct as i128;
+    if since_last_update > 0 {
+        let lower_bound_conf_divisor = std::cmp::max(21.sub(since_last_update), 5);
+        lower_bound_conf_pct = amm.last_oracle_conf_pct as i128
+            - amm.last_oracle_conf_pct as i128 / lower_bound_conf_divisor;
+    }
+    let conf_interval_pct =
+        conf_interval * BID_ASK_SPREAD_PRECISION as i128 / reserve_price as i128;
+
+    let conf_interval_pct_result = std::cmp::max(conf_interval_pct as i128, lower_bound_conf_pct);
+
+    conf_interval_pct_result
 }
 
 #[cfg(test)]

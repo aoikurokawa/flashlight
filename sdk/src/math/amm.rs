@@ -21,7 +21,10 @@ use crate::{
     types::{SdkError, SdkResult},
 };
 
-use super::repeg::calculate_adjust_k_cost;
+use super::{
+    oracle::{calculate_live_oracle_std, get_new_oracle_conf_pct},
+    repeg::calculate_adjust_k_cost,
+};
 
 pub fn calculate_optimal_peg_and_budget(
     amm: &AMM,
@@ -211,10 +214,12 @@ pub fn calculate_amm_reserve_after_swap(
     }
 }
 
+pub fn calculate_spread_bn() {}
+
 pub fn calculate_spread(
     amm: &AMM,
     oracle_price_data: Option<&OraclePriceData>,
-    now: Option<u128>,
+    now: Option<i128>,
     reserve_price: Option<u128>,
 ) -> SdkResult<(u16, u16)> {
     let reserve_price = match reserve_price {
@@ -240,9 +245,15 @@ pub fn calculate_spread(
         None => SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs() as u128,
+            .as_secs() as i128,
     };
-    // let live_oracle_std = calculate_live_
+
+    if let Some(oracle_price_data) = oracle_price_data {
+        let live_oracle_std = calculate_live_oracle_std(amm, oracle_price_data, now);
+        let conf_interval_pct = get_new_oracle_conf_pct(amm, oracle_price_data, reserve_price, now);
+    }
+
+    let spreads = calculate_spread_bn();
 
     Ok((0, 0))
 }
