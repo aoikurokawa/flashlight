@@ -5,7 +5,10 @@ use drift::{
     state::{oracle::OraclePriceData, perp_market::PerpMarket},
 };
 
-use crate::{math::amm::calculate_updated_amm, types::SdkResult};
+use crate::{
+    math::amm::{calculate_spread_reserves, calculate_updated_amm},
+    types::SdkResult,
+};
 
 pub(crate) enum LiquiditySource {
     Serum,
@@ -33,7 +36,7 @@ pub(crate) trait L2OrderBookGenerator {
 
 pub(crate) fn get_vamm_l2_generator(
     market_account: PerpMarket,
-    oracle_price_data: OraclePriceData,
+    oracle_price_data: &OraclePriceData,
     num_orders: usize,
     now: Option<u128>,
     top_of_book_quote_amounts: Option<Vec<u64>>,
@@ -67,7 +70,8 @@ pub(crate) fn get_vamm_l2_generator(
                 / 1000
         }
     };
-    //     let () = calculate_spread_reserves(&updated_amm, direction)
+    let (bid_reserves, ask_reserves) =
+        calculate_spread_reserves(&updated_amm, oracle_price_data, Some(now))?;
 
     Ok(())
 }

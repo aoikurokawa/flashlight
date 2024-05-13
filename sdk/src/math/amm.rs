@@ -10,6 +10,7 @@ use drift::{
         amm_spread::{calculate_inventory_liquidity_ratio, calculate_reference_price_offset},
         constants::{
             AMM_TIMES_PEG_TO_QUOTE_PRECISION_RATIO, BID_ASK_SPREAD_PRECISION, PERCENTAGE_PRECISION,
+            PRICE_PRECISION,
         },
         repeg::{calculate_peg_from_target_price, calculate_repeg_cost},
     },
@@ -24,7 +25,31 @@ use crate::{
 use super::{
     oracle::{calculate_live_oracle_std, get_new_oracle_conf_pct},
     repeg::calculate_adjust_k_cost,
+    util::clamp_bn,
 };
+
+#[derive(Debug, Default)]
+pub struct SpreadTerms {
+    long_vol_spread: u128,
+    short_vol_spread: u128,
+    long_spread_w_ps: u128,
+    short_spread_w_ps: u128,
+    max_target_spread: u128,
+    inventory_spread_scale: u128,
+    long_spread_w_inv_scale: u128,
+    short_spread_w_inv_scale: u128,
+    effective_leverage: u128,
+    effective_leverage_capped: u128,
+    long_spread_w_el: u128,
+    short_spread_w_el: u128,
+    revenue_retreat_amount: u128,
+    half_revenue_retreat_amount: u128,
+    long_spread_w_rev_retreat: u128,
+    short_spread_w_rev_retreat: u128,
+    total_spread: u128,
+    long_spread: u128,
+    short_spread: u128,
+}
 
 pub fn calculate_optimal_peg_and_budget(
     amm: &AMM,
@@ -214,14 +239,232 @@ pub fn calculate_amm_reserve_after_swap(
     }
 }
 
-pub fn calculate_spread_bn() {}
+// pub fn calculate_market_open_bid_ask(
+//     base_asset_reserve: u128,
+//     min_base_asset_reserve: u128,
+//     max_base_asset_reserve: u128,
+//     step_size: Option<u64>,
+// ) -> (i64, i64) {
+//     // open orders
+//     let mut open_asks: i64 = 0;
+//     if min_base_asset_reserve < base_asset_reserve {
+//         open_asks = (base_asset_reserve - min_base_asset_reserve) as i64 * -1;
+//
+//         if let Some(step_size) = step_size {
+//             if open_asks / 2 < step_size as i64 {
+//                 open_asks = 0;
+//             }
+//         }
+//     } else {
+//         open_asks = 0;
+//     }
+//
+//     let mut open_bids: i64 = 0;
+//     if max_base_asset_reserve > base_asset_reserve {
+//         open_bids = (max_base_asset_reserve - base_asset_reserve) as i64;
+//
+//         if let Some(step_size) = step_size {
+//             if open_bids / 2 < step_size as i64 {
+//                 open_bids = 0;
+//             }
+//         }
+//     } else {
+//         open_bids = 0;
+//     }
+//
+//     return (open_bids, open_asks);
+// }
+
+// pub fn  calculate_inventory_liquidity_ratio(
+// 	baseAssetAmountWithAmm: BN,
+// 	baseAssetReserve: BN,
+// 	minBaseAssetReserve: BN,
+// 	maxBaseAssetReserve: BN
+// ) ->  BN {
+//    calculate_inv
+// 	// inventory skew
+// 	const [openBids, openAsks] = calculateMarketOpenBidAsk(
+// 		baseAssetReserve,
+// 		minBaseAssetReserve,
+// 		maxBaseAssetReserve
+// 	);
+
+// 	const minSideLiquidity = BN.min(openBids.abs(), openAsks.abs());
+
+// 	const inventoryScaleBN = BN.min(
+// 		baseAssetAmountWithAmm
+// 			.mul(PERCENTAGE_PRECISION)
+// 			.div(BN.max(minSideLiquidity, ONE))
+// 			.abs(),
+// 		PERCENTAGE_PRECISION
+// 	);
+// 	return inventoryScaleBN;
+// }
+
+// pub fn calculate_inventory_scale(
+//     base_asset_amount_with_amm: i128,
+//     base_asset_reserve: u128,
+//     min_base_asset_reserve: u128,
+//     max_base_asset_reserve: u128,
+//     directional_spread: u64,
+//     max_spread: u64,
+// ) -> SdkResult<u128> {
+//     if base_asset_amount_with_amm == 0 {
+//         return 1;
+//     }
+//
+//     let max_bid_ask_inventory_skew_factor = BID_ASK_SPREAD_PRECISION.mul(10);
+//
+//     let inventory_scale_bn = calculate_inventory_liquidity_ratio(
+//         base_asset_amount_with_amm,
+//         base_asset_reserve,
+//         min_base_asset_reserve,
+//         max_base_asset_reserve,
+//     )?;
+//
+//     let inventory_scale_max_bn = std::cmp::max(
+//         max_bid_ask_inventory_skew_factor,
+//         max_spread
+//             .mul(BID_ASK_SPREAD_PRECISION)
+//             .div(std::cmp::max(directional_spread, 1)),
+//     );
+//
+//     let inventory_scale_capped = std::cmp::min(
+//         inventory_scale_max_bn,
+//         BID_ASK_SPREAD_PRECISION.add(
+//             inventory_scale_max_bn
+//                 .mul(inventory_scale_bn)
+//                 .div(PERCENTAGE_PRECISION),
+//         ),
+//     ) / BID_ASK_SPREAD_PRECISION;
+//
+//     return inventoryScaleCapped;
+// }
+
+pub fn calculate_vol_spread_bn(
+    last_oracle_conf_pct: u128,
+    reserve_price: u128,
+    mark_std: u128,
+    oracle_std: u128,
+    long_intensity: u128,
+    short_intensity: u128,
+    volume_24h: u128,
+) -> (u128, u128) {
+    let market_avg_std_pct = mark_std
+        .add(oracle_std)
+        .mul(PERCENTAGE_PRECISION)
+        .div(reserve_price)
+        .div(2);
+    let vol_spread = std::cmp::max(last_oracle_conf_pct, market_avg_std_pct.div(2));
+
+    let clamp_min = PERCENTAGE_PRECISION.div(100);
+    let clamp_max = PERCENTAGE_PRECISION.mul(16).div(10);
+
+    let long_vol_spread_factor = clamp_bn(
+        long_intensity
+            .mul(PERCENTAGE_PRECISION)
+            .div(std::cmp::max(1, volume_24h)),
+        clamp_min,
+        clamp_max,
+    );
+    let short_vol_spread_factor = clamp_bn(
+        short_intensity
+            .mul(PERCENTAGE_PRECISION)
+            .div(std::cmp::max(1, volume_24h)),
+        clamp_min,
+        clamp_max,
+    );
+
+    let mut conf_component = last_oracle_conf_pct;
+
+    if last_oracle_conf_pct <= PRICE_PRECISION.div(400) {
+        conf_component = last_oracle_conf_pct.div(10);
+    }
+
+    let long_vol_spread = std::cmp::max(
+        conf_component,
+        vol_spread
+            .mul(long_vol_spread_factor)
+            .div(PERCENTAGE_PRECISION),
+    );
+    let short_vol_spread = std::cmp::max(
+        conf_component,
+        vol_spread
+            .mul(short_vol_spread_factor)
+            .div(PERCENTAGE_PRECISION),
+    );
+
+    (long_vol_spread, short_vol_spread)
+}
+
+// pub fn calculate_spread_bn(
+//     base_spread: u128,
+//     last_oracle_reserve_price_spread_pct: f64,
+//     last_oracle_conf_pct: u128,
+//     max_spread: f64,
+//     quote_asset_reserve: u128,
+//     terminal_quote_asset_reserve: u128,
+//     peg_multiplier: u128,
+//     base_asset_amount_with_amm: i128,
+//     reserve_price: u128,
+//     total_fee_minus_distributions: u128,
+//     net_revenue_since_last_funding: u128,
+//     base_asset_reserve: u128,
+//     min_base_asset_reserve: u128,
+//     max_base_asset_reserve: u128,
+//     mark_std: u128,
+//     oracle_std: u128,
+//     long_intensity: u128,
+//     short_intensity: u128,
+//     volume_24h: u128,
+//     return_terms: bool,
+// ) -> (Option<SpreadTerms>, Option<(i128, i128)>) {
+//     let mut spread_terms = SpreadTerms::default();
+//
+//     let (long_vol_spread, short_vol_spread) = calculate_vol_spread_bn(
+//         last_oracle_conf_pct,
+//         reserve_price,
+//         mark_std,
+//         oracle_std,
+//         long_intensity,
+//         short_intensity,
+//         volume_24h,
+//     );
+//
+//     spread_terms.long_vol_spread = long_vol_spread;
+//     spread_terms.short_vol_spread = short_vol_spread;
+//
+//     let mut long_spread = std::cmp::max(base_spread / 2, long_vol_spread);
+//     let mut short_spread = std::cmp::max(base_spread / 2, short_vol_spread);
+//
+//     if last_oracle_reserve_price_spread_pct > 0.0 {
+//         short_spread = std::cmp::max(
+//             short_spread,
+//             last_oracle_reserve_price_spread_pct + long_vol_spread,
+//         );
+//     } else if last_oracle_reserve_price_spread_pct < 0.0 {
+//         long_spread = std::cmp::max(
+//             long_spread,
+//             last_oracle_reserve_price_spread_pct + long_vol_spread,
+//         );
+//     }
+//     spread_terms.long_spread_w_ps = long_spread;
+//     spread_terms.short_spread_w_ps = short_spread;
+//
+//     let max_value = max_spread.max(last_oracle_reserve_price_spread_pct.abs());
+//     let max_target_spread = max_value.floor();
+//
+//     // let inventory_spread_scale = calculate_in
+//
+//     (None, None)
+// }
 
 pub fn calculate_spread(
     amm: &AMM,
-    oracle_price_data: Option<&OraclePriceData>,
-    now: Option<i128>,
+    oracle_price_data: &OraclePriceData,
+    now: Option<u128>,
     reserve_price: Option<u128>,
-) -> SdkResult<(u16, u16)> {
+) -> SdkResult<(u32, u32)> {
     let reserve_price = match reserve_price {
         Some(price) => price,
         None => calculate_price(
@@ -245,52 +488,70 @@ pub fn calculate_spread(
         None => SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs() as i128,
+            .as_secs() as u128,
     };
 
-    if let Some(oracle_price_data) = oracle_price_data {
-        let live_oracle_std = calculate_live_oracle_std(amm, oracle_price_data, now);
-        let conf_interval_pct = get_new_oracle_conf_pct(amm, oracle_price_data, reserve_price, now);
-    }
+    let live_oracle_std = calculate_live_oracle_std(amm, oracle_price_data, now);
+    let conf_interval_pct = get_new_oracle_conf_pct(amm, oracle_price_data, reserve_price, now);
 
-    let spreads = calculate_spread_bn();
+    let spreads = drift::math::amm_spread::calculate_spread(
+        amm.base_spread,
+        target_mark_spread_pct,
+        conf_interval_pct,
+        amm.max_spread,
+        amm.quote_asset_reserve,
+        amm.terminal_quote_asset_reserve,
+        amm.peg_multiplier,
+        amm.base_asset_amount_with_amm,
+        reserve_price,
+        amm.total_fee_minus_distributions,
+        amm.net_revenue_since_last_funding,
+        amm.base_asset_reserve,
+        amm.min_base_asset_reserve,
+        amm.max_base_asset_reserve,
+        amm.mark_std,
+        live_oracle_std,
+        amm.long_intensity_volume,
+        amm.short_intensity_volume,
+        amm.volume_24h,
+    )?;
 
-    Ok((0, 0))
+    Ok((spreads.0, spreads.1))
 }
 
 pub fn calculate_spread_reserves(
     amm: &AMM,
     oracle_price_data: &OraclePriceData,
     now: Option<u128>,
-) -> SdkResult<()> {
-    fn calculate_spread_reserve(
-        spread: i128,
-        direction: PositionDirection,
-        amm: &AMM,
-    ) -> (u128, u128) {
-        if spread == 0 {
-            return (amm.base_asset_reserve, amm.quote_asset_reserve);
-        }
-        let mut spread_fraction = spread / 2;
+) -> SdkResult<((u128, u128), (u128, u128))> {
+    // fn calculate_spread_reserve(
+    //     spread: i128,
+    //     direction: PositionDirection,
+    //     amm: &AMM,
+    // ) -> (u128, u128) {
+    //     if spread == 0 {
+    //         return (amm.base_asset_reserve, amm.quote_asset_reserve);
+    //     }
+    //     let mut spread_fraction = spread / 2;
 
-        if spread_fraction == 0 {
-            spread_fraction = if spread >= 0 { 1 } else { -1 };
-        }
+    //     if spread_fraction == 0 {
+    //         spread_fraction = if spread >= 0 { 1 } else { -1 };
+    //     }
 
-        let quote_asset_reserve_delta = amm
-            .quote_asset_reserve
-            .div((BID_ASK_SPREAD_PRECISION as i128 / spread_fraction) as u128);
+    //     let quote_asset_reserve_delta = amm
+    //         .quote_asset_reserve
+    //         .div((BID_ASK_SPREAD_PRECISION as i128 / spread_fraction) as u128);
 
-        let quote_asset_reserve = if quote_asset_reserve_delta >= 0 {
-            amm.quote_asset_reserve + quote_asset_reserve_delta
-        } else {
-            amm.quote_asset_reserve - quote_asset_reserve_delta
-        };
+    //     let quote_asset_reserve = if quote_asset_reserve_delta >= 0 {
+    //         amm.quote_asset_reserve + quote_asset_reserve_delta
+    //     } else {
+    //         amm.quote_asset_reserve - quote_asset_reserve_delta
+    //     };
 
-        let base_asset_reserve = amm.sqrt_k.mul(amm.sqrt_k).div(quote_asset_reserve);
+    //     let base_asset_reserve = amm.sqrt_k.mul(amm.sqrt_k).div(quote_asset_reserve);
 
-        (base_asset_reserve, quote_asset_reserve)
-    }
+    //     (base_asset_reserve, quote_asset_reserve)
+    // }
 
     let reserve_price = calculate_price(
         amm.base_asset_reserve,
@@ -305,31 +566,43 @@ pub fn calculate_spread_reserves(
             amm.max_spread as u128 / 5,
             (PERCENTAGE_PRECISION / 10000) * (amm.curve_update_intensity as u128 - 100),
         );
+
+        let liquidity_fraction = calculate_inventory_liquidity_ratio(
+            amm.base_asset_amount_with_amm,
+            amm.base_asset_reserve,
+            amm.min_base_asset_reserve,
+            amm.max_base_asset_reserve,
+        )?;
+        let liquidity_fraction_signed = liquidity_fraction.mul(sig_num(
+            amm.base_asset_amount_with_amm
+                .add(amm.base_asset_amount_per_lp),
+        ));
+        reference_price_offset = calculate_reference_price_offset(
+            reserve_price,
+            amm.last_24h_avg_funding_rate,
+            liquidity_fraction_signed,
+            0,
+            amm.historical_oracle_data.last_oracle_price_twap_5min,
+            amm.last_mark_price_twap_5min,
+            amm.historical_oracle_data.last_oracle_price_twap,
+            amm.last_mark_price_twap,
+            max_offset as i64,
+        )?;
     }
 
-    let liquidity_fraction = calculate_inventory_liquidity_ratio(
-        amm.base_asset_amount_with_amm,
-        amm.base_asset_reserve,
-        amm.min_base_asset_reserve,
-        amm.max_base_asset_reserve,
-    )?;
-    let liquidity_fraction_signed = liquidity_fraction.mul(sig_num(
-        amm.base_asset_amount_with_amm
-            .add(amm.base_asset_amount_per_lp),
-    ));
-    reference_price_offset = calculate_reference_price_offset(
-        reserve_price,
-        amm.last_24h_avg_funding_rate,
-        liquidity_fraction_signed,
-        0,
-        amm.historical_oracle_data.last_oracle_price_twap_5min,
-        amm.last_mark_price_twap_5min,
-        amm.historical_oracle_data.last_oracle_price_twap,
-        amm.last_mark_price_twap,
-        max_offset as i64,
+    let (long_spread, short_spread) = calculate_spread(
+        amm,
+        Some(oracle_price_data),
+        now,
+        Some(reserve_price as u128),
     )?;
 
-    Ok(())
+    let ask_reserves =
+        drift::math::amm_spread::calculate_spread_reserves(amm, PositionDirection::Long)?;
+    let bid_reserves =
+        drift::math::amm_spread::calculate_spread_reserves(amm, PositionDirection::Short)?;
+
+    Ok((bid_reserves, ask_reserves))
 }
 
 /// Translate long/shorting quote/base assert into amm operation
