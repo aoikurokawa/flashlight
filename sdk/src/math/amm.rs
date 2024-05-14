@@ -461,9 +461,9 @@ pub fn calculate_vol_spread_bn(
 
 pub fn calculate_spread(
     amm: &AMM,
-    oracle_price_data: &OraclePriceData,
-    now: Option<u128>,
-    reserve_price: Option<u128>,
+    oracle_price_data: Option<&OraclePriceData>,
+    now: Option<i64>,
+    reserve_price: Option<u64>,
 ) -> SdkResult<(u32, u32)> {
     let reserve_price = match reserve_price {
         Some(price) => price,
@@ -471,16 +471,16 @@ pub fn calculate_spread(
             amm.base_asset_reserve,
             amm.quote_asset_reserve,
             amm.peg_multiplier,
-        )? as u128,
+        )?,
     };
 
     let target_price = match oracle_price_data {
-        Some(data) => data.price as u128,
+        Some(data) => data.price as u64,
         None => reserve_price,
     };
     let target_mark_spread_pct = reserve_price
         .sub(target_price)
-        .mul(BID_ASK_SPREAD_PRECISION as u128)
+        .mul(BID_ASK_SPREAD_PRECISION)
         .div(reserve_price);
 
     let now = match now {
@@ -488,15 +488,16 @@ pub fn calculate_spread(
         None => SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_secs() as u128,
+            .as_secs() as i64,
     };
 
-    let live_oracle_std = calculate_live_oracle_std(amm, oracle_price_data, now);
-    let conf_interval_pct = get_new_oracle_conf_pct(amm, oracle_price_data, reserve_price, now);
+    let live_oracle_std = calculate_live_oracle_std(amm, oracle_price_data.unwrap(), now);
+    let conf_interval_pct =
+        get_new_oracle_conf_pct(amm, oracle_price_data.unwrap(), reserve_price, now);
 
     let spreads = drift::math::amm_spread::calculate_spread(
         amm.base_spread,
-        target_mark_spread_pct,
+        target_mark_spread_pct as i64,
         conf_interval_pct,
         amm.max_spread,
         amm.quote_asset_reserve,
@@ -510,7 +511,7 @@ pub fn calculate_spread(
         amm.min_base_asset_reserve,
         amm.max_base_asset_reserve,
         amm.mark_std,
-        live_oracle_std,
+        live_oracle_std as u64,
         amm.long_intensity_volume,
         amm.short_intensity_volume,
         amm.volume_24h,
@@ -522,7 +523,7 @@ pub fn calculate_spread(
 pub fn calculate_spread_reserves(
     amm: &AMM,
     oracle_price_data: &OraclePriceData,
-    now: Option<u128>,
+    now: Option<i64>,
 ) -> SdkResult<((u128, u128), (u128, u128))> {
     // fn calculate_spread_reserve(
     //     spread: i128,
@@ -590,12 +591,8 @@ pub fn calculate_spread_reserves(
         )?;
     }
 
-    let (long_spread, short_spread) = calculate_spread(
-        amm,
-        Some(oracle_price_data),
-        now,
-        Some(reserve_price as u128),
-    )?;
+    let (long_spread, short_spread) =
+        calculate_spread(amm, Some(oracle_price_data), now, Some(reserve_price))?;
 
     let ask_reserves =
         drift::math::amm_spread::calculate_spread_reserves(amm, PositionDirection::Long)?;

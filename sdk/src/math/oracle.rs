@@ -11,17 +11,16 @@ use drift::{
 pub fn calculate_live_oracle_twap(
     hist_oracle_data: &HistoricalOracleData,
     oracle_price_data: &OraclePriceData,
-    now: i128,
-    period: i128,
-) -> i128 {
-    let oracle_twap = if period == FIVE_MINUTE {
+    now: i64,
+    period: i64,
+) -> i64 {
+    let oracle_twap = if period == FIVE_MINUTE as i64 {
         hist_oracle_data.last_oracle_price_twap_5min
     } else {
         hist_oracle_data.last_oracle_price_twap
     };
 
-    let since_last_update =
-        std::cmp::max(1, now - hist_oracle_data.last_oracle_price_twap_ts as i128);
+    let since_last_update = std::cmp::max(1, now - hist_oracle_data.last_oracle_price_twap_ts);
     let since_start = std::cmp::max(0, period - since_last_update);
 
     let clamp_range = oracle_twap / 3;
@@ -31,38 +30,32 @@ pub fn calculate_live_oracle_twap(
         std::cmp::max(oracle_price_data.price, oracle_twap - clamp_range),
     );
 
-    let new_oracle_twap = (oracle_twap as i128)
+    let new_oracle_twap = (oracle_twap)
         .mul(since_start)
-        .add((clamped_oracle_price as i128).mul(since_last_update))
+        .add((clamped_oracle_price).mul(since_last_update))
         .div(since_start.add(since_last_update));
 
     new_oracle_twap
 }
 
-pub fn calculate_live_oracle_std(
-    amm: &AMM,
-    oracle_price_data: &OraclePriceData,
-    now: i128,
-) -> i128 {
+pub fn calculate_live_oracle_std(amm: &AMM, oracle_price_data: &OraclePriceData, now: i64) -> i64 {
     let since_last_update = std::cmp::max(
         1,
-        now.sub(amm.historical_oracle_data.last_oracle_price_twap_ts as i128),
+        now.sub(amm.historical_oracle_data.last_oracle_price_twap_ts),
     );
-    let since_start = std::cmp::max(0, (amm.funding_period as i128).sub(since_last_update));
+    let since_start = std::cmp::max(0, (amm.funding_period).sub(since_last_update));
 
     let live_oracle_twap = calculate_live_oracle_twap(
         &amm.historical_oracle_data,
         oracle_price_data,
         now,
-        amm.funding_period as i128,
+        amm.funding_period,
     );
 
-    let price_delta_vs_twap = (oracle_price_data.price as i128)
-        .sub(live_oracle_twap)
-        .abs();
+    let price_delta_vs_twap = oracle_price_data.price.sub(live_oracle_twap).abs();
 
     let oracle_std = price_delta_vs_twap.add(
-        (amm.oracle_std as i128)
+        (amm.oracle_std as i64)
             .mul(since_start)
             .div(since_start.add(since_last_update)),
     );
@@ -73,25 +66,24 @@ pub fn calculate_live_oracle_std(
 pub fn get_new_oracle_conf_pct(
     amm: &AMM,
     oracle_price_data: &OraclePriceData,
-    reserve_price: u128,
-    now: i128,
-) -> i128 {
-    let conf_interval = oracle_price_data.confidence as i128;
+    reserve_price: u64,
+    now: i64,
+) -> u64 {
+    let conf_interval = oracle_price_data.confidence;
 
     let since_last_update = std::cmp::max(
         0,
-        now.sub(amm.historical_oracle_data.last_oracle_price_twap_ts as i128),
+        now.sub(amm.historical_oracle_data.last_oracle_price_twap_ts),
     );
-    let mut lower_bound_conf_pct = amm.last_oracle_conf_pct as i128;
+    let mut lower_bound_conf_pct = amm.last_oracle_conf_pct;
     if since_last_update > 0 {
         let lower_bound_conf_divisor = std::cmp::max(21.sub(since_last_update), 5);
-        lower_bound_conf_pct = amm.last_oracle_conf_pct as i128
-            - amm.last_oracle_conf_pct as i128 / lower_bound_conf_divisor;
+        lower_bound_conf_pct =
+            amm.last_oracle_conf_pct - amm.last_oracle_conf_pct / lower_bound_conf_divisor as u64;
     }
-    let conf_interval_pct =
-        conf_interval * BID_ASK_SPREAD_PRECISION as i128 / reserve_price as i128;
+    let conf_interval_pct = conf_interval * BID_ASK_SPREAD_PRECISION / reserve_price;
 
-    let conf_interval_pct_result = std::cmp::max(conf_interval_pct as i128, lower_bound_conf_pct);
+    let conf_interval_pct_result = std::cmp::max(conf_interval_pct, lower_bound_conf_pct);
 
     conf_interval_pct_result
 }
@@ -122,7 +114,7 @@ mod tests {
         };
 
         let now = 200;
-        let period = FIVE_MINUTE;
+        let period = FIVE_MINUTE as i64;
 
         let result = calculate_live_oracle_twap(&hist_data, &oracle_data, now, period);
 
