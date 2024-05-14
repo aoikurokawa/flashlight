@@ -154,7 +154,7 @@ pub fn calculate_new_amm(
         };
 
         let swap_direction = get_swap_direction(AssetType::Base, direction_to_close);
-        let (new_quote_asset_reserve, _new_base_asset_reserve) = calculate_amm_reserve_after_swap(
+        let (new_quote_asset_reserve, _new_base_asset_reserve) = calculate_amm_reserves_after_swap(
             &new_amm,
             AssetType::Base,
             new_amm.base_asset_amount_with_amm.abs(),
@@ -191,7 +191,7 @@ pub fn calculate_updated_amm(amm: &AMM, oracle_price_data: &OraclePriceData) -> 
     };
 
     let swap_direction = get_swap_direction(AssetType::Base, direction_to_close);
-    let (new_quote_asset_reserve, _new_base_asset_reserve) = calculate_amm_reserve_after_swap(
+    let (new_quote_asset_reserve, _new_base_asset_reserve) = calculate_amm_reserves_after_swap(
         &new_amm,
         AssetType::Base,
         amm.base_asset_amount_with_amm.abs(),
@@ -208,7 +208,7 @@ pub fn calculate_updated_amm(amm: &AMM, oracle_price_data: &OraclePriceData) -> 
 }
 
 /// Calculates what the amm reserves would be after swapping a quote or base asset amount.
-pub fn calculate_amm_reserve_after_swap(
+pub fn calculate_amm_reserves_after_swap(
     amm: &AMM,
     input_asset_type: AssetType,
     swap_amount: i128,
