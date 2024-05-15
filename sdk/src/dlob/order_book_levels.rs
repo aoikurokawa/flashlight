@@ -16,11 +16,8 @@ use drift::{
     },
 };
 
-use crate::{
-    math::amm::{
-        calculate_amm_reserves_after_swap, calculate_spread_reserves, calculate_updated_amm,
-    },
-    types::SdkResult,
+use crate::math::amm::{
+    calculate_amm_reserves_after_swap, calculate_spread_reserves, calculate_updated_amm,
 };
 
 pub type GetL2BidsFn = fn(&mut L2Bids) -> Option<L2Level>;
@@ -254,78 +251,6 @@ impl Iterator for L2Asks {
         None
     }
 }
-
-// pub(crate) fn get_vamm_l2_generator(
-//     market_account: PerpMarket,
-//     oracle_price_data: &OraclePriceData,
-//     num_orders: i128,
-//     now: Option<i64>,
-//     top_of_book_quote_amounts: Option<Vec<u64>>,
-// ) -> SdkResult<(GetL2BidsFn, GetL2AsksFn)> {
-//     let mut num_base_orders = num_orders as i128;
-//     if let Some(amounts) = top_of_book_quote_amounts {
-//         num_base_orders = num_orders - amounts.len() as i128;
-//         assert!((amounts.len() as i128) < num_orders);
-//     }
-//
-//     let updated_amm = calculate_updated_amm(&market_account.amm, &oracle_price_data)?;
-//
-//     let (mut open_bids, mut open_asks) = calculate_market_open_bids_asks(&updated_amm)?;
-//
-//     let min_order_size = market_account.amm.min_order_size;
-//     if open_bids < min_order_size as i128 * 2 {
-//         open_bids = 0;
-//     }
-//
-//     if open_asks.abs() < min_order_size as i128 * 2 {
-//         open_asks = 0;
-//     }
-//
-//     let now = match now {
-//         Some(t) => t,
-//         None => std::time::SystemTime::now()
-//             .duration_since(std::time::UNIX_EPOCH)
-//             .unwrap()
-//             .as_secs() as i64,
-//     };
-//     let (bid_reserves, ask_reserves) =
-//         calculate_spread_reserves(&updated_amm, oracle_price_data, Some(now))?;
-//
-//     // let num_bids = 0;
-//
-//     // let top_of_book_bid_size = 0;
-//     let bid_size = open_bids.div(num_base_orders);
-//     let mut bid_amm = updated_amm.clone();
-//     bid_amm.base_asset_reserve = bid_reserves.0;
-//     bid_amm.quote_asset_reserve = bid_reserves.1;
-//
-//     bid_amm.base_asset_reserve = bid_reserves.0;
-//     bid_amm.quote_asset_reserve = bid_reserves.1;
-//
-//     let mut num_asks = 0;
-//     let top_of_book_ask_size = 0;
-//     let ask_size = open_asks.abs().div(num_base_orders);
-//     let mut ask_amm = updated_amm.clone();
-//     ask_amm.base_asset_reserve = ask_reserves.0;
-//     ask_amm.quote_asset_reserve = ask_reserves.1;
-//
-//     let get_l2_bids: GetL2BidsFn = |_| {
-//         let mut bids = L2Bids {
-//             num_bids: 0,
-//             num_orders,
-//             bid_size,
-//             top_of_book_quote_amounts,
-//             open_bids,
-//             top_of_book_bid_size: 0,
-//             bid_amm,
-//             num_base_orders,
-//         };
-//         bids.next()
-//     };
-//     let get_l2_asks: GetL2AsksFn = |asks: &mut L2Asks| asks.next();
-//
-//     Ok((get_l2_bids, get_l2_asks))
-// }
 
 pub struct L2OrderBookGenerator {
     market_account: PerpMarket,
