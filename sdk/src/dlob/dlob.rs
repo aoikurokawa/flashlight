@@ -19,6 +19,8 @@ use crate::math::order::is_resting_limit_order;
 use crate::usermap::UserMap;
 use crate::utils::market_type_to_string;
 
+use super::order_book_levels::{get_l2_generator_from_dlob_nodes, L2OrderBook};
+
 #[derive(Clone)]
 pub struct DLOB {
     exchange: Exchange,
@@ -283,6 +285,28 @@ impl DLOB {
         });
 
         all_orders
+    }
+
+    pub fn get_l2(
+        &self,
+        market_index: u16,
+        market_type: MarketType,
+        slot: u64,
+        oracle_price_data: OraclePriceData,
+        depth: u16,
+        include_vamm: bool,
+        num_vamm_orders: u16,
+        // fallback_l2_generators: Vec<L>,
+    ) -> L2OrderBook {
+        // let market_ask_l2_level_generator = get_l2_generator_from_dlob_nodes(
+        //     self.get_resting_limit_asks(slot, market_type, market_index, oracle_price_data),
+        //     &oracle_price_data,
+        //     slot,
+        // );
+
+        // let fallback_ask_generators = 
+
+        todo!()
     }
 }
 

@@ -16,9 +16,14 @@ use drift::{
     },
 };
 
-use crate::math::amm::{
-    calculate_amm_reserves_after_swap, calculate_spread_reserves, calculate_updated_amm,
+use crate::{
+    math::amm::{
+        calculate_amm_reserves_after_swap, calculate_spread_reserves, calculate_updated_amm,
+    },
+    types::SdkResult,
 };
+
+use super::dlob_node::DLOBNode;
 
 pub type GetL2BidsFn = fn(&mut L2Bids) -> Option<L2Level>;
 pub type GetL2AsksFn = fn(&mut L2Asks) -> Option<L2Level>;
@@ -53,6 +58,11 @@ pub(crate) struct L2OrderBook {
     pub(crate) slot: Option<u64>,
 }
 
+pub(crate) trait L2OrderBookGenerator {
+    fn get_l2_asks(&mut self) -> impl Iterator<Item = L2Level>;
+    fn get_l2_bids(&mut self) -> impl Iterator<Item = L2Level>;
+}
+
 struct L2Bids {
     num_bids: usize,
     num_orders: usize,
@@ -61,7 +71,7 @@ struct L2Bids {
     open_bids: i128,
     top_of_book_bid_size: i128,
     bid_amm: AMM,
-    num_base_orders: i128,
+    num_base_orders: usize,
 }
 
 impl Iterator for L2Bids {
@@ -112,7 +122,7 @@ impl Iterator for L2Bids {
                     self.bid_size = self
                         .open_bids
                         .sub(self.top_of_book_bid_size)
-                        .div(self.num_base_orders);
+                        .div(self.num_base_orders as i128);
                 }
             } else {
                 base_swapped = self.bid_size;
@@ -158,7 +168,7 @@ struct L2Asks {
     open_asks: i128,
     top_of_book_ask_size: i128,
     ask_amm: AMM,
-    num_base_orders: i128,
+    num_base_orders: usize,
 }
 
 impl Iterator for L2Asks {
@@ -214,7 +224,7 @@ impl Iterator for L2Asks {
                     self.ask_size = self
                         .open_asks
                         .sub(self.top_of_book_ask_size)
-                        .div(self.num_base_orders);
+                        .div(self.num_base_orders as i128);
                 }
             } else {
                 base_swapped = self.ask_size;
@@ -252,10 +262,10 @@ impl Iterator for L2Asks {
     }
 }
 
-pub struct L2OrderBookGenerator {
+pub struct VammL2Generator {
     market_account: PerpMarket,
     oracle_price_data: OraclePriceData,
-    num_orders: i128,
+    num_orders: usize,
     now: i64,
     top_of_book_quote_amounts: Option<Vec<u64>>,
 
@@ -265,7 +275,7 @@ pub struct L2OrderBookGenerator {
 
     open_bids: i128,
 
-    num_base_orders: i128,
+    num_base_orders: usize,
 
     ask_size: i128,
 
@@ -274,18 +284,18 @@ pub struct L2OrderBookGenerator {
     ask_amm: AMM,
 }
 
-impl L2OrderBookGenerator {
+impl VammL2Generator {
     pub fn new(
         market_account: PerpMarket,
         oracle_price_data: &OraclePriceData,
-        num_orders: i128,
+        num_orders: usize,
         now: Option<i64>,
         top_of_book_quote_amounts: Option<Vec<u64>>,
-    ) -> Self {
-        let mut num_base_orders = num_orders as i128;
+    ) -> SdkResult<Self> {
+        let mut num_base_orders = num_orders;
         if let Some(amounts) = top_of_book_quote_amounts {
-            num_base_orders = num_orders - amounts.len() as i128;
-            assert!((amounts.len() as i128) < num_orders);
+            num_base_orders = num_orders - amounts.len();
+            assert!(amounts.len() < num_orders);
         }
 
         let updated_amm = calculate_updated_amm(&market_account.amm, &oracle_price_data)?;
@@ -311,7 +321,7 @@ impl L2OrderBookGenerator {
         let (bid_reserves, ask_reserves) =
             calculate_spread_reserves(&updated_amm, oracle_price_data, Some(now))?;
 
-        let bid_size = open_bids.div(num_base_orders);
+        let bid_size = open_bids.div(num_base_orders as i128);
         let mut bid_amm = updated_amm.clone();
         bid_amm.base_asset_reserve = bid_reserves.0;
         bid_amm.quote_asset_reserve = bid_reserves.1;
@@ -321,14 +331,14 @@ impl L2OrderBookGenerator {
 
         let mut num_asks = 0;
         let top_of_book_ask_size = 0;
-        let ask_size = open_asks.abs().div(num_base_orders);
+        let ask_size = open_asks.abs().div(num_base_orders as i128);
         let mut ask_amm = updated_amm.clone();
         ask_amm.base_asset_reserve = ask_reserves.0;
         ask_amm.quote_asset_reserve = ask_reserves.1;
 
-        Self {
+        Ok(Self {
             market_account,
-            oracle_price_data,
+            oracle_price_data: *oracle_price_data,
             num_orders,
             now,
             top_of_book_quote_amounts,
@@ -339,7 +349,7 @@ impl L2OrderBookGenerator {
             ask_size,
             open_asks,
             ask_amm,
-        }
+        })
     }
 
     pub fn get_l2_bids(&mut self) -> impl Iterator<Item = L2Level> {
@@ -350,14 +360,14 @@ impl L2OrderBookGenerator {
             num_bids,
             num_orders: self.num_orders,
             bid_size: self.bid_size,
-            top_of_book_quote_amounts: self.top_of_book_quote_amounts,
+            top_of_book_quote_amounts: self.top_of_book_quote_amounts.clone(),
             open_bids: self.open_bids,
             top_of_book_bid_size,
             bid_amm: self.bid_amm,
             num_base_orders: self.num_base_orders,
         };
 
-        l2_bids.next()
+        l2_bids
     }
 
     pub fn get_l2_asks(&mut self) -> impl Iterator<Item = L2Level> {
@@ -368,13 +378,77 @@ impl L2OrderBookGenerator {
             num_asks,
             num_orders: self.num_orders,
             ask_size: self.ask_size,
-            top_of_book_quote_amounts: self.top_of_book_quote_amounts,
+            top_of_book_quote_amounts: self.top_of_book_quote_amounts.clone(),
             open_asks: self.open_asks,
             top_of_book_ask_size,
             ask_amm: self.ask_amm,
             num_base_orders: self.num_base_orders,
         };
 
-        l2_asks.next()
+        l2_asks
     }
+}
+
+impl L2OrderBookGenerator for VammL2Generator {
+    fn get_l2_asks(&mut self) -> impl Iterator<Item = L2Level> {
+        self.get_l2_asks()
+    }
+
+    fn get_l2_bids(&mut self) -> impl Iterator<Item = L2Level> {
+        self.get_l2_bids()
+    }
+}
+
+pub fn get_l2_generator_from_dlob_nodes<T, I>(
+    mut dlob_nodes: I,
+    oracle_price_data: OraclePriceData,
+    slot: u64,
+) -> impl Iterator<Item = L2Level>
+where
+    I: Iterator<Item = T>,
+    T: DLOBNode,
+{
+    std::iter::from_fn(move || {
+        if let Some(dlob_node) = dlob_nodes.next() {
+            let order = dlob_node.get_order();
+            let size = order.base_asset_amount.sub(order.base_asset_amount_filled);
+
+            let sources = HashMap::from([(LiquiditySource::Dlob, size as i128)]);
+            Some(L2Level {
+                price: dlob_node.get_price(oracle_price_data, slot) as u128,
+                size: size as i128,
+                sources,
+            })
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn create_l2_levels(
+    mut generator: impl Iterator<Item = L2Level>,
+    depth: usize,
+) -> Vec<L2Level> {
+    let mut levels: Vec<L2Level> = Vec::new();
+
+    if let Some(mut level) = generator.next() {
+        let price = level.price;
+        let size = level.size;
+
+        if !levels.is_empty() && levels[levels.len() - 1].price == price {
+            let mut current_level = levels[levels.len() - 1];
+            current_level.size += size;
+
+            for (source, size) in level.sources {
+                let entry = level.sources.entry(source).or_insert(size);
+                *entry += size;
+            }
+        } else if levels.len() == depth {
+            return levels;
+        } else {
+            levels.push(level);
+        }
+    }
+
+    levels
 }
