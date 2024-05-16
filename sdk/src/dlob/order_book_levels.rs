@@ -37,9 +37,9 @@ pub(crate) enum LiquiditySource {
 }
 
 pub(crate) struct L2Level {
-    price: u128,
-    size: i128,
-    sources: HashMap<LiquiditySource, i128>,
+    pub(crate) price: u128,
+    pub(crate) size: i128,
+    pub(crate) sources: HashMap<LiquiditySource, i128>,
 }
 
 impl L2Level {
@@ -55,12 +55,12 @@ impl L2Level {
 pub(crate) struct L2OrderBook {
     pub(crate) asks: Vec<L2Level>,
     pub(crate) bids: Vec<L2Level>,
-    pub(crate) slot: Option<u64>,
+    pub(crate) slot: u64,
 }
 
 pub(crate) trait L2OrderBookGenerator {
-    fn get_l2_asks(&mut self) -> impl Iterator<Item = L2Level>;
-    fn get_l2_bids(&mut self) -> impl Iterator<Item = L2Level>;
+    fn get_l2_asks(&mut self) -> Box<dyn Iterator<Item = L2Level>>;
+    fn get_l2_bids(&mut self) -> Box<dyn Iterator<Item = L2Level>>;
 }
 
 struct L2Bids {
@@ -388,25 +388,25 @@ impl VammL2Generator {
 }
 
 impl L2OrderBookGenerator for VammL2Generator {
-    fn get_l2_asks(&mut self) -> impl Iterator<Item = L2Level> {
-        self.get_l2_asks()
+    fn get_l2_asks(&mut self) -> Box<dyn Iterator<Item = L2Level>> {
+        Box::new(self.get_l2_asks())
     }
 
-    fn get_l2_bids(&mut self) -> impl Iterator<Item = L2Level> {
-        self.get_l2_bids()
+    fn get_l2_bids(&mut self) -> Box<dyn Iterator<Item = L2Level>> {
+        Box::new(self.get_l2_bids())
     }
 }
 
-pub fn get_l2_generator_from_dlob_nodes<T, I>(
+pub fn get_l2_generator_from_dlob_nodes<I, T>(
     mut dlob_nodes: I,
     oracle_price_data: OraclePriceData,
     slot: u64,
-) -> impl Iterator<Item = L2Level>
+) -> Box<dyn Iterator<Item = L2Level>>
 where
+    I: Iterator<Item = T> + 'static,
     T: DLOBNode,
-    I: Iterator<Item = T>,
 {
-    std::iter::from_fn(move || {
+    Box::new(std::iter::from_fn(move || {
         if let Some(dlob_node) = dlob_nodes.next() {
             let order = dlob_node.get_order();
             let size = order.base_asset_amount.sub(order.base_asset_amount_filled);
@@ -420,7 +420,7 @@ where
         } else {
             None
         }
-    })
+    }))
 }
 
 pub(crate) fn merge_l2_level_generators<I, F>(
