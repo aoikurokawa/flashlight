@@ -19,7 +19,9 @@ use crate::math::order::is_resting_limit_order;
 use crate::usermap::UserMap;
 use crate::utils::market_type_to_string;
 
-use super::order_book_levels::{get_l2_generator_from_dlob_nodes, L2OrderBook};
+use super::order_book_levels::{
+    get_l2_generator_from_dlob_nodes, L2OrderBook, L2OrderBookGenerator,
+};
 
 #[derive(Clone)]
 pub struct DLOB {
@@ -287,7 +289,7 @@ impl DLOB {
         all_orders
     }
 
-    pub fn get_l2(
+    pub fn get_l2<T>(
         &self,
         market_index: u16,
         market_type: MarketType,
@@ -296,15 +298,22 @@ impl DLOB {
         depth: u16,
         include_vamm: bool,
         num_vamm_orders: u16,
-        // fallback_l2_generators: Vec<L>,
-    ) -> L2OrderBook {
-        // let market_ask_l2_level_generator = get_l2_generator_from_dlob_nodes(
-        //     self.get_resting_limit_asks(slot, market_type, market_index, oracle_price_data),
-        //     &oracle_price_data,
-        //     slot,
-        // );
+        fallback_l2_generators: Vec<T>,
+    ) -> L2OrderBook
+    where
+        T: L2OrderBookGenerator,
+    {
+        let market_ask_l2_level_generator = get_l2_generator_from_dlob_nodes(
+            self.get_resting_limit_asks(slot, market_type, market_index, oracle_price_data)
+                .into_iter(),
+            oracle_price_data,
+            slot,
+        );
 
-        // let fallback_ask_generators = 
+        let fallback_ask_generators = fallback_l2_generators
+            .iter()
+            .map(|generator| generator.get_l2_asks())
+            .collect();
 
         todo!()
     }

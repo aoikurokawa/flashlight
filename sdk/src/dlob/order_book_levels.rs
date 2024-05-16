@@ -28,7 +28,7 @@ use super::dlob_node::DLOBNode;
 pub type GetL2BidsFn = fn(&mut L2Bids) -> Option<L2Level>;
 pub type GetL2AsksFn = fn(&mut L2Asks) -> Option<L2Level>;
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub(crate) enum LiquiditySource {
     Serum,
     Vamm,
@@ -293,7 +293,7 @@ impl VammL2Generator {
         top_of_book_quote_amounts: Option<Vec<u64>>,
     ) -> SdkResult<Self> {
         let mut num_base_orders = num_orders;
-        if let Some(amounts) = top_of_book_quote_amounts {
+        if let Some(ref amounts) = top_of_book_quote_amounts {
             num_base_orders = num_orders - amounts.len();
             assert!(amounts.len() < num_orders);
         }
@@ -329,8 +329,6 @@ impl VammL2Generator {
         bid_amm.base_asset_reserve = bid_reserves.0;
         bid_amm.quote_asset_reserve = bid_reserves.1;
 
-        let mut num_asks = 0;
-        let top_of_book_ask_size = 0;
         let ask_size = open_asks.abs().div(num_base_orders as i128);
         let mut ask_amm = updated_amm.clone();
         ask_amm.base_asset_reserve = ask_reserves.0;
@@ -405,8 +403,8 @@ pub fn get_l2_generator_from_dlob_nodes<T, I>(
     slot: u64,
 ) -> impl Iterator<Item = L2Level>
 where
-    I: Iterator<Item = T>,
     T: DLOBNode,
+    I: Iterator<Item = T>,
 {
     std::iter::from_fn(move || {
         if let Some(dlob_node) = dlob_nodes.next() {
@@ -425,23 +423,55 @@ where
     })
 }
 
+pub(crate) fn merge_l2_level_generators<I, F>(
+    mut l2_level_generators: Vec<I>,
+    compare: F,
+) -> impl Iterator<Item = L2Level>
+where
+    I: Iterator<Item = L2Level>,
+    F: Fn(&L2Level, &L2Level) -> bool,
+{
+    std::iter::from_fn(move || {
+        let mut next = None;
+
+        for generator in &mut l2_level_generators {
+            if let Some(candidate) = generator.next() {
+                match &next {
+                    None => next = Some(candidate),
+                    Some(best) => {
+                        if compare(&candidate, &best) {
+                            next = Some(candidate);
+                        }
+                    }
+                }
+            }
+        }
+
+        next
+    })
+}
+
 pub(crate) fn create_l2_levels(
     mut generator: impl Iterator<Item = L2Level>,
     depth: usize,
 ) -> Vec<L2Level> {
     let mut levels: Vec<L2Level> = Vec::new();
 
-    if let Some(mut level) = generator.next() {
+    if let Some(level) = generator.next() {
         let price = level.price;
         let size = level.size;
+        let len = levels.len();
 
-        if !levels.is_empty() && levels[levels.len() - 1].price == price {
-            let mut current_level = levels[levels.len() - 1];
+        if !levels.is_empty() && levels[len - 1].price == price {
+            let current_level = &mut levels[len - 1];
             current_level.size += size;
 
-            for (source, size) in level.sources {
-                let entry = level.sources.entry(source).or_insert(size);
-                *entry += size;
+            for (source, size) in level.sources.iter() {
+                current_level
+                    .sources
+                    .entry(source.clone())
+                    .and_modify(|entry| *entry += size)
+                    .or_insert(*size);
             }
         } else if levels.len() == depth {
             return levels;
