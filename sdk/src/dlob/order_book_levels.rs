@@ -25,21 +25,18 @@ use crate::{
 
 use super::dlob_node::DLOBNode;
 
-pub type GetL2BidsFn = fn(&mut L2Bids) -> Option<L2Level>;
-pub type GetL2AsksFn = fn(&mut L2Asks) -> Option<L2Level>;
-
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub(crate) enum LiquiditySource {
+pub enum LiquiditySource {
     Serum,
     Vamm,
     Dlob,
     Phoenix,
 }
 
-pub(crate) struct L2Level {
-    pub(crate) price: u128,
-    pub(crate) size: i128,
-    pub(crate) sources: HashMap<LiquiditySource, i128>,
+pub struct L2Level {
+    pub price: u128,
+    pub size: i128,
+    pub sources: HashMap<LiquiditySource, i128>,
 }
 
 impl L2Level {
@@ -52,10 +49,10 @@ impl L2Level {
     }
 }
 
-pub(crate) struct L2OrderBook {
-    pub(crate) asks: Vec<L2Level>,
-    pub(crate) bids: Vec<L2Level>,
-    pub(crate) slot: u64,
+pub struct L2OrderBook {
+    pub asks: Vec<L2Level>,
+    pub bids: Vec<L2Level>,
+    pub slot: u64,
 }
 
 pub(crate) trait L2OrderBookGenerator {

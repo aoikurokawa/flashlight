@@ -106,14 +106,14 @@ where
     }
 
     pub async fn get_l2<L>(
-        &self,
+        &mut self,
         market_name: Option<&str>,
         mut market_index: Option<u16>,
         mut market_type: Option<MarketType>,
-        depth: u16,
+        depth: usize,
         include_vamm: bool,
         num_vamm_orders: u16,
-        fallback_l2_generators: Vec<L>,
+        fallback_l2_generators: &mut Vec<L>,
     ) -> SdkResult<L2OrderBook>
     where
         L: L2OrderBookGenerator,
@@ -144,13 +144,15 @@ where
         let market_index = market_index.unwrap();
         let is_perp = market_type == MarketType::Perp;
 
-        let oracle_data = if is_perp {
+        let oracle_price_data = if is_perp {
             let perp_market_account = self.drift_client.get_perp_market_info(market_index).await?;
             self.drift_client
                 .get_oracle_price_data_and_slot_for_perp_market(perp_market_account.market_index)
+                .ok_or_else(|| SdkError::Generic("".to_string()))?
         } else {
             self.drift_client
                 .get_oracle_price_data_and_slot_for_spot_market(market_index)
+                .ok_or_else(|| SdkError::Generic("".to_string()))?
         };
 
         if is_perp && include_vamm {
@@ -159,15 +161,18 @@ where
                     "include_vamm can only be used if fallbackL2Generators is empty".to_string(),
                 ));
             }
-
-            
         }
 
-        Ok(L2OrderBook {
-            asks: todo!(),
-            bids: todo!(),
-            slot: todo!(),
-        })
+        Ok(self.dlob.get_l2(
+            market_index,
+            market_type,
+            self.slot_source.get_slot(),
+            oracle_price_data.data,
+            depth,
+            include_vamm,
+            num_vamm_orders,
+            fallback_l2_generators,
+        ))
     }
 
     pub fn get_l3() {}
