@@ -15,6 +15,7 @@ use drift::{
         user::AssetType,
     },
 };
+use solana_sdk::pubkey::Pubkey;
 
 use crate::{
     math::amm::{
@@ -55,9 +56,22 @@ pub struct L2OrderBook {
     pub slot: u64,
 }
 
-pub(crate) trait L2OrderBookGenerator {
+pub trait L2OrderBookGenerator {
     fn get_l2_asks(&mut self) -> Box<dyn Iterator<Item = L2Level>>;
     fn get_l2_bids(&mut self) -> Box<dyn Iterator<Item = L2Level>>;
+}
+
+pub struct L3Level {
+    price: u128,
+    size: i128,
+    maker: Pubkey,
+    order_id: u64,
+}
+
+pub struct L3OrderBook {
+    pub asks: Vec<L3Level>,
+    pub bids: Vec<L3Level>,
+    pub slot: u64,
 }
 
 struct L2Bids {

@@ -14,7 +14,7 @@ use crate::{
 
 use super::{
     dlob::DLOB,
-    order_book_levels::{L2OrderBook, L2OrderBookGenerator},
+    order_book_levels::{L2OrderBook, L2OrderBookGenerator, L3OrderBook},
     types::{DLOBSource, DLOBSubscriptionConfig, SlotSource},
 };
 
@@ -175,5 +175,49 @@ where
         ))
     }
 
-    pub fn get_l3() {}
+    pub async fn get_l3(
+        &mut self,
+        market_name: Option<&str>,
+        mut market_index: Option<u16>,
+        mut market_type: Option<MarketType>,
+    ) -> SdkResult<L3OrderBook> {
+        match market_name {
+            Some(name) => {
+                let derive_market_info = self.drift_client.market_lookup(name);
+
+                match derive_market_info {
+                    Some(info) => {
+                        market_index = Some(info.index);
+                        market_type = Some(info.kind);
+                    }
+                    None => return Err(SdkError::Generic(format!("Market ${name} not found"))),
+                }
+            }
+            None => {
+                if market_index.is_none() || market_type.is_none() {
+                    return Err(SdkError::Generic(
+                        "Either marketName or marketIndex and marketType must be provided"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
+
+        let market_type = market_type.unwrap();
+        let market_index = market_index.unwrap();
+        let is_perp = market_type == MarketType::Perp;
+
+        let oracle_price_data = if is_perp {
+            // let perp_market_account = self.drift_client.get_perp_market_info(market_index).await?;
+            self.drift_client
+                .get_oracle_price_data_and_slot_for_perp_market(market_index)
+                .ok_or_else(|| SdkError::Generic("".to_string()))?
+        } else {
+            self.drift_client
+                .get_oracle_price_data_and_slot_for_spot_market(market_index)
+                .ok_or_else(|| SdkError::Generic("".to_string()))?
+        };
+
+        todo!()
+    }
 }
