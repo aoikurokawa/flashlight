@@ -7,7 +7,7 @@ use drift::{
     controller::amm::SwapDirection,
     math::{
         amm::{calculate_market_open_bids_asks, calculate_quote_asset_amount_swapped},
-        constants::BASE_PRECISION,
+        constants::{BASE_PRECISION, QUOTE_PRECISION},
     },
     state::{
         oracle::OraclePriceData,
@@ -25,6 +25,13 @@ use crate::{
 };
 
 use super::dlob_node::DLOBNode;
+
+pub const DEFAULT_TOP_OF_BOOK_QUOTE_AMOUNTS: [u64; 4] = [
+    500 * QUOTE_PRECISION as u64,
+    1000 * QUOTE_PRECISION as u64,
+    2000 * QUOTE_PRECISION as u64,
+    5000 * QUOTE_PRECISION as u64,
+];
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum LiquiditySource {
@@ -62,10 +69,10 @@ pub trait L2OrderBookGenerator {
 }
 
 pub struct L3Level {
-    price: u128,
-    size: i128,
-    maker: Pubkey,
-    order_id: u64,
+    pub price: u64,
+    pub size: u64,
+    pub maker: Pubkey,
+    pub order_id: u32,
 }
 
 pub struct L3OrderBook {

@@ -7,6 +7,7 @@ use rayon::prelude::*;
 use solana_sdk::pubkey::Pubkey;
 use std::any::Any;
 use std::collections::BinaryHeap;
+use std::ops::Sub;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -14,14 +15,14 @@ use crate::dlob::dlob_node::{
     create_node, get_order_signature, DLOBNode, DirectionalNode, Node, NodeType,
 };
 use crate::dlob::market::{get_node_subtype_and_type, Exchange, OpenOrders, SubType};
-use crate::dlob::order_book_levels::{create_l2_levels, merge_l2_level_generators, L2Level};
+use crate::dlob::order_book_levels::{create_l2_levels, merge_l2_level_generators};
 use crate::event_emitter::Event;
 use crate::math::order::is_resting_limit_order;
 use crate::usermap::UserMap;
 use crate::utils::market_type_to_string;
 
 use super::order_book_levels::{
-    get_l2_generator_from_dlob_nodes, L2OrderBook, L2OrderBookGenerator,
+    get_l2_generator_from_dlob_nodes, L2OrderBook, L2OrderBookGenerator, L3Level, L3OrderBook,
 };
 
 #[derive(Clone)]
@@ -297,13 +298,8 @@ impl DLOB {
         slot: u64,
         oracle_price_data: OraclePriceData,
         depth: usize,
-        include_vamm: bool,
-        num_vamm_orders: u16,
-        fallback_l2_generators: &mut Vec<T>,
-    ) -> L2OrderBook
-    where
-        T: L2OrderBookGenerator,
-    {
+        fallback_l2_generators: &mut Vec<Box<dyn L2OrderBookGenerator>>,
+    ) -> L2OrderBook {
         let maker_ask_l2_level_generator = get_l2_generator_from_dlob_nodes(
             self.get_resting_limit_asks(slot, market_type, market_index, oracle_price_data)
                 .into_iter(),
@@ -343,6 +339,49 @@ impl DLOB {
         let bids = create_l2_levels(bid_l2_level_generator, depth);
 
         L2OrderBook { asks, bids, slot }
+    }
+
+    pub fn get_l3(
+        &mut self,
+        market_index: u16,
+        market_type: MarketType,
+        slot: u64,
+        oracle_price_data: OraclePriceData,
+    ) -> L3OrderBook {
+        let mut bids = Vec::new();
+        let mut asks = Vec::new();
+
+        let resting_asks =
+            self.get_resting_limit_asks(slot, market_type, market_index, oracle_price_data);
+
+        for ask in resting_asks {
+            asks.push(L3Level {
+                price: ask.get_price(oracle_price_data, slot),
+                size: ask
+                    .get_order()
+                    .base_asset_amount
+                    .sub(ask.get_order().base_asset_amount_filled),
+                maker: ask.get_user_account(),
+                order_id: ask.get_order().order_id,
+            });
+        }
+
+        let resting_bids =
+            self.get_resting_limit_bids(slot, market_type, market_index, oracle_price_data);
+
+        for bid in resting_bids {
+            bids.push(L3Level {
+                price: bid.get_price(oracle_price_data, slot),
+                size: bid
+                    .get_order()
+                    .base_asset_amount
+                    .sub(bid.get_order().base_asset_amount_filled),
+                maker: bid.get_user_account(),
+                order_id: bid.get_order().order_id,
+            });
+        }
+
+        L3OrderBook { asks, bids, slot }
     }
 }
 
