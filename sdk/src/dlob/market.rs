@@ -8,7 +8,7 @@ use crate::is_one_of_variant;
 use crate::math::order::is_resting_limit_order;
 
 #[derive(Clone)]
-pub(crate) struct Market {
+pub struct Market {
     pub resting_limit_orders: Orderlist,
     pub floating_limit_orders: Orderlist,
     pub taking_limit_orders: Orderlist,

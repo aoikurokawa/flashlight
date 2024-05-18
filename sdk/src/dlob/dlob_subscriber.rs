@@ -14,7 +14,10 @@ use crate::{
 
 use super::{
     dlob::DLOB,
-    order_book_levels::{L2OrderBook, L2OrderBookGenerator, L3OrderBook},
+    order_book_levels::{
+        L2OrderBook, L2OrderBookGenerator, L3OrderBook, VammL2Generator,
+        DEFAULT_TOP_OF_BOOK_QUOTE_AMOUNTS,
+    },
     types::{DLOBSource, DLOBSubscriptionConfig, SlotSource},
 };
 
@@ -54,7 +57,7 @@ where
     }
 
     pub async fn subscribe(dlob_subscriber: Arc<Mutex<Self>>) -> SdkResult<()> {
-        if dlob_subscriber.clone().lock().await.interval_id.is_none() {
+        if dlob_subscriber.clone().lock().await.interval_id.is_some() {
             return Ok(());
         }
 
@@ -105,19 +108,16 @@ where
         &self.dlob
     }
 
-    pub async fn get_l2<L>(
+    pub async fn get_l2(
         &mut self,
         market_name: Option<&str>,
         mut market_index: Option<u16>,
         mut market_type: Option<MarketType>,
         depth: usize,
         include_vamm: bool,
-        num_vamm_orders: u16,
-        fallback_l2_generators: &mut Vec<L>,
-    ) -> SdkResult<L2OrderBook>
-    where
-        L: L2OrderBookGenerator,
-    {
+        num_vamm_orders: Option<usize>,
+        mut fallback_l2_generators: Vec<Box<dyn L2OrderBookGenerator>>,
+    ) -> SdkResult<L2OrderBook> {
         match market_name {
             Some(name) => {
                 let derive_market_info = self.drift_client.market_lookup(name);
@@ -161,17 +161,32 @@ where
                     "include_vamm can only be used if fallbackL2Generators is empty".to_string(),
                 ));
             }
+
+            let num_orders = match num_vamm_orders {
+                Some(orders) => orders,
+                None => depth,
+            };
+            let vamm_l2_generator = VammL2Generator::new(
+                self.drift_client
+                    .get_perp_market_account(market_index)
+                    .ok_or(SdkError::Generic(
+                        "could not find the perp market".to_string(),
+                    ))?,
+                &oracle_price_data.data,
+                num_orders,
+                None,
+                Some(DEFAULT_TOP_OF_BOOK_QUOTE_AMOUNTS.to_vec()),
+            )?;
+            fallback_l2_generators = vec![Box::new(vamm_l2_generator)];
         }
 
-        Ok(self.dlob.get_l2(
+        Ok(self.dlob.get_l2::<VammL2Generator>(
             market_index,
             market_type,
             self.slot_source.get_slot(),
             oracle_price_data.data,
             depth,
-            include_vamm,
-            num_vamm_orders,
-            fallback_l2_generators,
+            &mut fallback_l2_generators,
         ))
     }
 
@@ -218,6 +233,17 @@ where
                 .ok_or_else(|| SdkError::Generic("".to_string()))?
         };
 
-        todo!()
+        Ok(self.dlob.get_l3(
+            market_index,
+            market_type,
+            self.slot_source.get_slot(),
+            oracle_price_data.data,
+        ))
+    }
+
+    pub async fn unsubscribe(&mut self) {
+        if self.interval_id.is_some() {
+            self.interval_id = None
+        }
     }
 }
