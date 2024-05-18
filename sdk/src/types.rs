@@ -98,6 +98,12 @@ impl From<SinkError> for SdkError {
     }
 }
 
+impl From<drift::error::ErrorCode> for SdkError {
+    fn from(value: drift::error::ErrorCode) -> Self {
+        Self::DriftProgramError(value)
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum SdkError {
     #[error("{0}")]
@@ -152,6 +158,8 @@ pub enum SdkError {
     MaxReconnectionAttemptsReached,
     #[error("jit taker order not found")]
     JitOrderNotFound,
+    #[error("Drift Program occured. Error Code: {0}")]
+    DriftProgramError(drift::error::ErrorCode),
 }
 
 impl SdkError {

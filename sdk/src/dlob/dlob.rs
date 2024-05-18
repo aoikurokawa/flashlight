@@ -14,10 +14,15 @@ use crate::dlob::dlob_node::{
     create_node, get_order_signature, DLOBNode, DirectionalNode, Node, NodeType,
 };
 use crate::dlob::market::{get_node_subtype_and_type, Exchange, OpenOrders, SubType};
+use crate::dlob::order_book_levels::{create_l2_levels, merge_l2_level_generators, L2Level};
 use crate::event_emitter::Event;
 use crate::math::order::is_resting_limit_order;
 use crate::usermap::UserMap;
 use crate::utils::market_type_to_string;
+
+use super::order_book_levels::{
+    get_l2_generator_from_dlob_nodes, L2OrderBook, L2OrderBookGenerator,
+};
 
 #[derive(Clone)]
 pub struct DLOB {
@@ -283,6 +288,61 @@ impl DLOB {
         });
 
         all_orders
+    }
+
+    pub fn get_l2<T>(
+        &mut self,
+        market_index: u16,
+        market_type: MarketType,
+        slot: u64,
+        oracle_price_data: OraclePriceData,
+        depth: usize,
+        include_vamm: bool,
+        num_vamm_orders: u16,
+        fallback_l2_generators: &mut Vec<T>,
+    ) -> L2OrderBook
+    where
+        T: L2OrderBookGenerator,
+    {
+        let maker_ask_l2_level_generator = get_l2_generator_from_dlob_nodes(
+            self.get_resting_limit_asks(slot, market_type, market_index, oracle_price_data)
+                .into_iter(),
+            oracle_price_data,
+            slot,
+        );
+
+        let fallback_ask_generators: Vec<_> = fallback_l2_generators
+            .iter_mut()
+            .map(|generator| generator.get_l2_asks())
+            .collect();
+
+        let mut l2_level_generators = vec![maker_ask_l2_level_generator];
+        l2_level_generators.extend(fallback_ask_generators);
+        let ask_l2_level_generator =
+            merge_l2_level_generators(l2_level_generators, |a, b| a.price < b.price);
+
+        let asks = create_l2_levels(ask_l2_level_generator, depth);
+
+        let maker_bid_generator = get_l2_generator_from_dlob_nodes(
+            self.get_resting_limit_bids(slot, market_type, market_index, oracle_price_data)
+                .into_iter(),
+            oracle_price_data,
+            slot,
+        );
+
+        let fallback_bid_generators: Vec<_> = fallback_l2_generators
+            .iter_mut()
+            .map(|generator| generator.get_l2_bids())
+            .collect();
+
+        let mut l2_level_generators = vec![maker_bid_generator];
+        l2_level_generators.extend(fallback_bid_generators);
+        let bid_l2_level_generator =
+            merge_l2_level_generators(l2_level_generators, |a, b| a.price > b.price);
+
+        let bids = create_l2_levels(bid_l2_level_generator, depth);
+
+        L2OrderBook { asks, bids, slot }
     }
 }
 

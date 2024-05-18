@@ -1,6 +1,9 @@
 use std::sync::OnceLock;
 
-use drift::state::{perp_market::PerpMarket, spot_market::SpotMarket};
+use drift::{
+    math::constants::PEG_PRECISION,
+    state::{perp_market::PerpMarket, spot_market::SpotMarket},
+};
 pub use drift::{
     math::constants::{
         BASE_PRECISION_U64 as BASE_PRECISION, PRICE_PRECISION,
@@ -13,6 +16,7 @@ use solana_sdk::{address_lookup_table_account::AddressLookupTableAccount, pubkey
 use crate::types::Context;
 
 pub const DEFAULT_PUBKEY: Pubkey = solana_sdk::pubkey!("11111111111111111111111111111111");
+pub const PRICE_DIV_PEG: u128 = PRICE_PRECISION / PEG_PRECISION; //10^1
 
 static STATE_ACCOUNT: OnceLock<Pubkey> = OnceLock::new();
 
