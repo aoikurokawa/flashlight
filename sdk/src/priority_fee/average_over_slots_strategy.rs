@@ -1,5 +1,6 @@
 use super::types::{PriorityFeeResponse, PriorityFeeStrategy};
 
+#[derive(Debug, Clone)]
 pub(crate) struct AverageOverSlotsStrategy;
 
 impl PriorityFeeStrategy for AverageOverSlotsStrategy {

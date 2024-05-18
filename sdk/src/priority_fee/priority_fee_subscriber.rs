@@ -1,4 +1,8 @@
-use crate::priority_fee::types::DEFAULT_PRIORITY_FEE_MAP_FREQUENCY_MS;
+use crate::{
+    priority_fee::types::DEFAULT_PRIORITY_FEE_MAP_FREQUENCY_MS,
+    types::{SdkError, SdkResult},
+    AccountProvider, DriftClient,
+};
 
 use super::{
     average_over_slots_strategy::AverageOverSlotsStrategy,
@@ -8,8 +12,9 @@ use super::{
     types::{PriorityFeeMethod, PriorityFeeStrategy, PriorityFeeSubscriberConfig},
 };
 
-pub struct PriorityFeeSubscriber {
+pub struct PriorityFeeSubscriber<T: AccountProvider> {
     // connection: Connection,
+    drift_client: Option<DriftClient<T>>,
     frequency_ms: u64,
     addresses: Vec<String>,
     drift_markets: Option<Vec<DriftMarketInfo>>,
@@ -19,7 +24,7 @@ pub struct PriorityFeeSubscriber {
     priority_fee_method: PriorityFeeMethod,
     lookback_distance: u64,
     max_fee_micro_lamports: Option<u64>,
-    priority_fee_multiplier: Option<u64>,
+    priority_fee_multiplier: Option<f64>,
 
     drift_priority_fee_endpoint: Option<String>,
     helius_rpc_url: Option<String>,
@@ -33,8 +38,9 @@ pub struct PriorityFeeSubscriber {
     last_slot_seen: u64,
 }
 
-impl PriorityFeeSubscriber {
-    pub fn new(config: PriorityFeeSubscriberConfig) -> Self {
+impl<T: AccountProvider> PriorityFeeSubscriber<T> {
+    pub fn new(config: PriorityFeeSubscriberConfig<T>) -> SdkResult<Self> {
+        let drift_client = config.drift_client;
         let frequency_ms = match config.frequency_ms {
             Some(ms) => ms,
             None => DEFAULT_PRIORITY_FEE_MAP_FREQUENCY_MS,
@@ -48,7 +54,7 @@ impl PriorityFeeSubscriber {
         let average_strategy = AverageOverSlotsStrategy;
         let custom_strategy = match config.custom_strategy {
             Some(strategy) => strategy,
-            None => Box::new(average_strategy),
+            None => Box::new(average_strategy.clone()),
         };
 
         let lookback_distance = match config.slots_to_check {
@@ -59,40 +65,65 @@ impl PriorityFeeSubscriber {
         let mut priority_fee_method = None;
         let mut helius_rpc_url = None;
         let mut drift_priority_fee_endpoint = None;
-        if let Some(priority_fee_method) = config.priority_fee_method {
-            priority_fee_method = priority_fee_method;
+        if let Some(method) = config.priority_fee_method {
+            priority_fee_method = Some(method.clone());
 
-            if priority_fee_method == PriorityFeeMethod::Helius {
+            if method == PriorityFeeMethod::Helius {
                 match config.helius_rpc_url {
+                    None => {
+                        if let Some(ref client) = drift_client {
+                            if client
+                                .backend
+                                .account_provider
+                                .endpoint()
+                                .contains("helius")
+                            {
+                                helius_rpc_url = Some(client.backend.account_provider.endpoint());
+                            } else {
+                                return Err(SdkError::Generic("Connection must be helius, or helius_rpc_url must be provided to use PriorityFeeMethod::Helius".to_string()));
+                            }
+                        }
+                    }
                     Some(rpc) => {
                         helius_rpc_url = Some(rpc);
                     }
-                    None => {}
                 }
-            } else if priority_fee_method == PriorityFeeMethod::Drift {
+            } else if method == PriorityFeeMethod::Drift {
                 drift_priority_fee_endpoint = config.drift_priority_fee_endpoint;
             }
         }
 
-        Self {
+        if priority_fee_method == Some(PriorityFeeMethod::Solana) && drift_client.is_none() {
+            return Err(SdkError::Generic(
+                "connection must be provided to use SOLANA priority fee API".to_string(),
+            ));
+        }
+
+        let priority_fee_multiplier = match config.priority_fee_multiplier {
+            Some(fee_multiplier) => fee_multiplier,
+            None => 1.0,
+        };
+
+        Ok(Self {
+            drift_client,
             frequency_ms,
             addresses,
             drift_markets: config.drift_markets,
             custom_strategy: Some(custom_strategy),
             average_strategy,
-            max_strategy: (),
-            priority_fee_method: (),
+            max_strategy: MaxOverSlotsStrategy {},
+            priority_fee_method: PriorityFeeMethod::Solana,
             lookback_distance,
-            max_fee_micro_lamports: (),
-            priority_fee_multiplier: (),
+            max_fee_micro_lamports: config.max_fee_micro_lamports,
+            priority_fee_multiplier: Some(priority_fee_multiplier),
             drift_priority_fee_endpoint,
             helius_rpc_url,
-            last_helius_sample: (),
-            latest_priority_fee: (),
-            last_custom_strategy_result: (),
-            last_avg_strategy_result: (),
-            last_max_strategy_result: (),
-            last_slot_seen: (),
-        }
+            last_helius_sample: None,
+            latest_priority_fee: 0,
+            last_custom_strategy_result: 0,
+            last_avg_strategy_result: 0,
+            last_max_strategy_result: 0,
+            last_slot_seen: 0,
+        })
     }
 }

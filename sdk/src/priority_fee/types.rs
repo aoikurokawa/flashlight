@@ -1,5 +1,7 @@
 use solana_sdk::pubkey::Pubkey;
 
+use crate::{AccountProvider, DriftClient};
+
 use super::{
     drift_priority_fee_method::{DriftMarketInfo, DriftPriorityFeeResponse},
     helius_priority_fee_method::HeliusPriorityFeeResponse,
@@ -18,7 +20,7 @@ pub trait PriorityFeeStrategy {
     fn calculate(&self, samples: PriorityFeeResponse) -> u64;
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PriorityFeeMethod {
     Solana,
     Helius,
@@ -36,9 +38,10 @@ impl From<&str> for PriorityFeeMethod {
     }
 }
 
-pub struct PriorityFeeSubscriberConfig {
+pub struct PriorityFeeSubscriberConfig<T: AccountProvider> {
     /// rpc connection, optional if using priorityFeeMethod.HELIUS
     //connection?: Connection;
+    pub drift_client: Option<DriftClient<T>>,
 
     /// frequency to make RPC calls to update priority fee samples, in milliseconds
     pub frequency_ms: Option<u64>,
@@ -68,5 +71,5 @@ pub struct PriorityFeeSubscriberConfig {
     pub max_fee_micro_lamports: Option<u64>,
 
     /// multiplier applied to priority fee before maxFeeMicroLamports, defaults to 1.0
-    pub priority_fee_multiplier: Option<u64>,
+    pub priority_fee_multiplier: Option<f64>,
 }
