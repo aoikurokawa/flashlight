@@ -22,6 +22,8 @@ use solana_client::rpc_response::{OptionalContext, RpcKeyedAccount};
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 
+pub mod user_stats_map;
+
 pub struct UserMap {
     subscribed: bool,
     subscription: WebsocketProgramAccountSubscriber,

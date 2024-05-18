@@ -17,3 +17,8 @@ sdk = { path = "../sdk" }
 solana-sdk = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+
+[dependencies.drift]
+git = "https://github.com/drift-labs/protocol-v2.git"
+rev = "2bbe28c"
+features = [ "mainnet-beta", "drift-rs" ] 
