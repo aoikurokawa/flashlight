@@ -12,4 +12,3 @@ where
     drift_client: DriftClient<T>,
     bulk_account_provider: BulkAccountLoader,
 }
-

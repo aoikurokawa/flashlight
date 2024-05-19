@@ -133,4 +133,3 @@ pub(crate) async fn fetch_helius_priority_fee(
         }
     }
 }
-

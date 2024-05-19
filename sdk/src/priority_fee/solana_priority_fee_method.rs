@@ -31,5 +31,8 @@ pub(crate) async fn fetch_solana_priority_fee<T: AccountProvider>(
     results.sort_by(|a, b| b.slot.cmp(&a.slot));
     let cutoff_slot = results[0].slot - lookback_distance;
 
-    Ok(results.into_iter().filter(|x| x.slot >= cutoff_slot).collect())
+    Ok(results
+        .into_iter()
+        .filter(|x| x.slot >= cutoff_slot)
+        .collect())
 }

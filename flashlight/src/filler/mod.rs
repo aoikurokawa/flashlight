@@ -1,5 +1,5 @@
 // use std::{collections::HashMap, time::Instant};
-// 
+//
 // use drift::state::user_map::UserStatsMap;
 // use sdk::{
 //     blockhash_subscriber::BlockhashSubscriber, dlob::dlob_subscriber::DLOBSubscriber,
@@ -7,7 +7,7 @@
 //     DriftClient, UserSubscriptionConfig,
 // };
 // use solana_sdk::address_lookup_table_account::AddressLookupTableAccount;
-// 
+//
 // use crate::{
 //     bundle_sender::BundleSender,
 //     config::{FillerConfig, GlobalConfig},
@@ -22,7 +22,7 @@
 //     name: String,
 //     dry_run: bool,
 //     default_interval_ms: u16,
-// 
+//
 //     slot_subscriber: SlotSubscriber,
 //     bulk_account_loader: Option<BulkAccountLoader>,
 //     user_stats_map_subscription_config: UserSubscriptionConfig<T>,
@@ -34,29 +34,29 @@
 //     simulate_tx_for_cu_estimate: Option<bool>,
 //     lookup_table_account: Option<AddressLookupTableAccount>,
 //     bundle_sender: Option<BundleSender>,
-// 
+//
 //     filler_config: FillerConfig,
 //     global_config: GlobalConfig,
 //     dlob_subscriber: Option<DLOBSubscriber<T, D, S>>,
-// 
+//
 //     user_map: Option<UserMap>,
 //     user_stats_map: Option<UserStatsMap<'a>>,
-// 
+//
 //     // periodic_task_mutex = new Mutex();
-// 
+//
 //     // watchdogTimerMutex = new Mutex();
 //     watchdog_timer_last_pat_time: std::time::SystemTime,
-// 
+//
 //     interval_ids: Vec<Instant>,
 //     throttled_nodes: HashMap<String, u16>,
 //     filling_nodes: HashMap<String, u16>,
 //     triggering_nodes: HashMap<String, u16>,
-// 
+//
 //     use_burst_cu_limit: bool,
 //     fill_tx_since_burst_cu: u16,
 //     fill_tx_id: u16,
 //     last_settle_pnl: std::time::SystemTime,
-// 
+//
 //     priority_fee_subscriber: PriorityFeeSubscriber,
 //     blockhash_subscriber: BlockhashSubscriber,
 //     /// stores txSigs that need to been confirmed in a slower loop, and the time they were confirmed
@@ -72,15 +72,15 @@
 //     // expiredNodesSet: LRUCache<string, boolean>;
 //     confirm_loop_running: bool,
 //     confirm_loop_rate_limit_ts: std::time::SystemTime,
-// 
+//
 //     jupiter_client: Option<JupiterClient>,
-// 
+//
 //     // metrics
 //     metrics_initialized: bool,
 //     metrics_port: Option<u16>,
 //     metrics: Option<Metrics>,
 //     boot_time_ms: Option<u16>,
-// 
+//
 //     runtime_spec: RuntimeSpec,
 //     runtime_specs_gauge: Option<GaugeValue>,
 //     try_fill_duration_histogram: Option<HistogramValue>,
@@ -101,13 +101,13 @@
 //     jito_dropped_bundle_gauge: Option<GaugeValue>,
 //     jito_landed_tips_gauge: Option<GaugeValue>,
 //     jito_bundle_count: Option<GaugeValue>,
-// 
+//
 //     has_enough_sol_to_fill: bool,
 //     rebalance_filler: bool,
 //     min_gas_balance_to_fill: u16,
 //     // rebalance_settled_pnl_threshold: BN;
 // }
-// 
+//
 // // impl FillerBot {
 // //     pub fn new(global_config: GlobalConfig, filler_config: FillerConfig) -> Self {}
 // // }

@@ -98,10 +98,10 @@ fn calculate_leverage(total_liability_value: u128, net_asset_value: i128) -> u12
 //     use super::*;
 //     use crate::{Context, RpcAccountProvider, Wallet};
 //     use solana_sdk::signature::Keypair;
-// 
+//
 //     const RPC: &'static str = "rpc";
 //     const PRIVATE_KEY: &'static str = "private key";
-// 
+//
 //     #[tokio::test]
 //     #[cfg(feature = "rpc_tests")]
 //     async fn test_get_spot_market_value() {
@@ -111,9 +111,9 @@ fn calculate_leverage(total_liability_value: u128, net_asset_value: i128) -> u12
 //             .await
 //             .expect("drift client");
 //         drift_client.subscribe().await.expect("subscribe");
-// 
+//
 //         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-// 
+//
 //         let mut user = crate::user::DriftUser::new(
 //             Wallet::derive_user_account(&pubkey, 0, &drift::ID),
 //             drift_client.clone(),
@@ -121,12 +121,12 @@ fn calculate_leverage(total_liability_value: u128, net_asset_value: i128) -> u12
 //         .await
 //         .expect("drift user");
 //         user.subscribe().await.expect("subscribe");
-// 
+//
 //         let spot_asset_value = get_spot_asset_value(&drift_client, &user.get_user_account())
 //             .expect("spot asset value");
 //         println!("spot_asset_value: {}", spot_asset_value);
 //     }
-// 
+//
 //     #[tokio::test]
 //     #[cfg(feature = "rpc_tests")]
 //     async fn test_leverage() {
@@ -136,9 +136,9 @@ fn calculate_leverage(total_liability_value: u128, net_asset_value: i128) -> u12
 //             .await
 //             .expect("drift client");
 //         drift_client.subscribe().await.expect("subscribe");
-// 
+//
 //         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-// 
+//
 //         let mut user = crate::user::DriftUser::new(
 //             Wallet::derive_user_account(&pubkey, 0, &drift::ID),
 //             drift_client.clone(),
@@ -146,7 +146,7 @@ fn calculate_leverage(total_liability_value: u128, net_asset_value: i128) -> u12
 //         .await
 //         .expect("drift user");
 //         user.subscribe().await.expect("subscribe");
-// 
+//
 //         let leverage = get_leverage(&drift_client, &user.get_user_account()).expect("leverage");
 //         println!("leverage: {}", leverage);
 //     }
