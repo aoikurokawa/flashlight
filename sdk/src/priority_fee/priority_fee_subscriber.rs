@@ -136,7 +136,39 @@ impl<T: AccountProvider> PriorityFeeSubscriber<T> {
         // if self.
     }
 
-    pub async fn load_for_solana(&mut self) -> SdkResult<()> {
+    async fn load_for_solana(&mut self) -> SdkResult<()> {
+        match &self.drift_client {
+            Some(client) => {
+                let samples =
+                    fetch_solana_priority_fee(&client, self.lookback_distance, &self.addresses)
+                        .await?;
+
+                if let Some(first) = samples.first() {
+                    self.latest_priority_fee = first.prioritization_fee;
+                    self.last_slot_seen = first.slot;
+
+                    self.last_avg_strategy_result = self
+                        .average_strategy
+                        .calculate(PriorityFeeResponse::Solana(&samples));
+                    self.last_max_strategy_result = self
+                        .max_strategy
+                        .calculate(PriorityFeeResponse::Solana(&samples));
+
+                    if let Some(custom_strategy) = &self.custom_strategy {
+                        self.last_custom_strategy_result =
+                            custom_strategy.calculate(PriorityFeeResponse::Solana(&samples));
+                    }
+                }
+
+                Ok(())
+            }
+            None => Err(SdkError::Generic(
+                "Could not find the drift client".to_string(),
+            )),
+        }
+    }
+
+    async fn load_for_helius(&mut self) -> SdkResult<()> {
         match &self.drift_client {
             Some(client) => {
                 let samples =
