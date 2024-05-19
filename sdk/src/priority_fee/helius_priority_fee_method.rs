@@ -78,9 +78,9 @@ pub(crate) struct HeliusPriorityFeeResponse {
 
 pub(crate) async fn fetch_helius_priority_fee(
     helius_rpc_url: &str,
-    lookback_distance: u64,
+    lookback_distance: u8,
     addresses: &[Pubkey],
-) -> SdkResult<HeliusPriorityFeeResponse> {
+) -> SdkResult<HeliusPriorityFeeResult> {
     let addresses = addresses
         .iter()
         .map(|address| address.to_string())
@@ -94,7 +94,7 @@ pub(crate) async fn fetch_helius_priority_fee(
             account_keys: Some(addresses),
             options: Some(HeliusPriorityFeeOptions {
                 include_all_priority_fee_levels: Some(true),
-                lookback_slots: None,
+                lookback_slots: Some(lookback_distance),
                 priority_level: None,
                 transaction_encoding: None,
             }),
@@ -110,7 +110,7 @@ pub(crate) async fn fetch_helius_priority_fee(
 
     if status.is_success() {
         match serde_json::from_str::<HeliusPriorityFeeResponse>(&body_text) {
-            Ok(json) => Ok(json),
+            Ok(json) => Ok(json.result),
             Err(e) => Err(SdkError::Generic(format!(
                 "Deserialization Error: {e}, Raw JSON: {body_text}"
             ))),
