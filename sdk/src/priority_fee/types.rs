@@ -8,8 +8,8 @@ use super::{
     solana_priority_fee_method::SolanaPriorityFeeResponse,
 };
 
-pub(crate) enum PriorityFeeResponse {
-    Solana(Vec<SolanaPriorityFeeResponse>),
+pub(crate) enum PriorityFeeResponse<'a> {
+    Solana(&'a [SolanaPriorityFeeResponse]),
     Helius(HeliusPriorityFeeResponse),
     Drift(DriftPriorityFeeResponse),
 }

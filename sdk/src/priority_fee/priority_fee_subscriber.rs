@@ -1,3 +1,5 @@
+use solana_sdk::pubkey::Pubkey;
+
 use crate::{
     priority_fee::types::DEFAULT_PRIORITY_FEE_MAP_FREQUENCY_MS,
     types::{SdkError, SdkResult},
@@ -9,14 +11,17 @@ use super::{
     drift_priority_fee_method::DriftMarketInfo,
     helius_priority_fee_method::HeliusPriorityFeeLevels,
     max_over_slots_strategy::MaxOverSlotsStrategy,
-    types::{PriorityFeeMethod, PriorityFeeStrategy, PriorityFeeSubscriberConfig},
+    solana_priority_fee_method::fetch_solana_priority_fee,
+    types::{
+        PriorityFeeMethod, PriorityFeeResponse, PriorityFeeStrategy, PriorityFeeSubscriberConfig,
+    },
 };
 
 pub struct PriorityFeeSubscriber<T: AccountProvider> {
     // connection: Connection,
     drift_client: Option<DriftClient<T>>,
     frequency_ms: u64,
-    addresses: Vec<String>,
+    addresses: Vec<Pubkey>,
     drift_markets: Option<Vec<DriftMarketInfo>>,
     custom_strategy: Option<Box<dyn PriorityFeeStrategy>>,
     average_strategy: AverageOverSlotsStrategy,
@@ -47,7 +52,7 @@ impl<T: AccountProvider> PriorityFeeSubscriber<T> {
         };
 
         let addresses = match config.addresses {
-            Some(keys) => keys.iter().map(|key| key.to_string()).collect(),
+            Some(keys) => keys,
             None => vec![],
         };
 
@@ -126,4 +131,42 @@ impl<T: AccountProvider> PriorityFeeSubscriber<T> {
             last_slot_seen: 0,
         })
     }
+
+    pub async fn subscribe(&mut self) {
+        // if self.
+    }
+
+    pub async fn load_for_solana(&mut self) -> SdkResult<()> {
+        match &self.drift_client {
+            Some(client) => {
+                let samples =
+                    fetch_solana_priority_fee(&client, self.lookback_distance, &self.addresses)
+                        .await?;
+
+                if let Some(first) = samples.first() {
+                    self.latest_priority_fee = first.prioritization_fee;
+                    self.last_slot_seen = first.slot;
+
+                    self.last_avg_strategy_result = self
+                        .average_strategy
+                        .calculate(PriorityFeeResponse::Solana(&samples));
+                    self.last_max_strategy_result = self
+                        .max_strategy
+                        .calculate(PriorityFeeResponse::Solana(&samples));
+
+                    if let Some(custom_strategy) = &self.custom_strategy {
+                        self.last_custom_strategy_result =
+                            custom_strategy.calculate(PriorityFeeResponse::Solana(&samples));
+                    }
+                }
+
+                Ok(())
+            }
+            None => Err(SdkError::Generic(
+                "Could not find the drift client".to_string(),
+            )),
+        }
+    }
+
+    pub async fn load(&self) {}
 }
