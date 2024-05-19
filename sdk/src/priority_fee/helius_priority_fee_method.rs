@@ -134,25 +134,3 @@ pub(crate) async fn fetch_helius_priority_fee(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
-
-    use solana_sdk::pubkey::Pubkey;
-
-    use super::fetch_helius_priority_fee;
-
-    #[tokio::test]
-    async fn test_fetch_helius_priority_fee() {
-        let rpc_url =
-            "https://mainnet.helius-rpc.com/?api-key=ff28efe6-4fe6-4cf5-9525-01adeed6ee0b";
-        let res = fetch_helius_priority_fee(
-            rpc_url,
-            1,
-            &[Pubkey::from_str("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4").unwrap()],
-        )
-        .await;
-
-        println!("{res:?}");
-    }
-}
