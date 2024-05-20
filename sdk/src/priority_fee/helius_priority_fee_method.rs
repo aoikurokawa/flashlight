@@ -6,7 +6,7 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::types::{SdkError, SdkResult};
 
-#[derive(Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
 pub(crate) enum HeliusPriorityLevel {
     /// 25th percentile
     MIN,
@@ -36,11 +36,11 @@ impl From<&str> for HeliusPriorityLevel {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct HeliusPriorityFeeLevels(pub(crate) HashMap<HeliusPriorityLevel, u64>);
 
 #[derive(Debug, Deserialize)]
-struct HeliusPriorityFeeResult {
+pub(crate) struct HeliusPriorityFeeResult {
     pub(crate) priority_fee_estimate: Option<u64>,
     pub(crate) priority_fee_levels: Option<HeliusPriorityFeeLevels>,
 }

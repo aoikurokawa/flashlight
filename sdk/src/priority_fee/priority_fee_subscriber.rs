@@ -8,7 +8,7 @@ use crate::{
 
 use super::{
     average_over_slots_strategy::AverageOverSlotsStrategy,
-    drift_priority_fee_method::DriftMarketInfo,
+    drift_priority_fee_method::{fetch_drift_priority_fee, DriftMarketInfo},
     helius_priority_fee_method::{
         fetch_helius_priority_fee, HeliusPriorityFeeLevels, HeliusPriorityLevel,
     },
@@ -171,49 +171,81 @@ impl<T: AccountProvider> PriorityFeeSubscriber<T> {
     }
 
     async fn load_for_helius(&mut self) -> SdkResult<()> {
-        match &self.drift_client {
-            Some(client) => {
-                if let Some(helius_rpc_url) = self.helius_rpc_url {
-                    let result = fetch_helius_priority_fee(
-                        &helius_rpc_url,
-                        self.lookback_distance,
-                        &self.addresses,
-                    )
-                    .await;
+        match &self.helius_rpc_url {
+            Some(helius_rpc_url) => {
+                let result = fetch_helius_priority_fee(
+                    &helius_rpc_url,
+                    self.lookback_distance,
+                    &self.addresses,
+                )
+                .await;
 
-                    match result {
-                        Ok(res) => {
-                            self.last_helius_sample = res.result.priority_fee_levels;
+                match result {
+                    Ok(res) => {
+                        self.last_helius_sample = res.result.priority_fee_levels.clone();
 
-                            self.last_avg_strategy_result = *self
-                                .last_helius_sample
-                                .unwrap()
-                                .0
-                                .get(&HeliusPriorityLevel::MEDIUM)
-                                .unwrap();
+                        if let Some(sample) = &self.last_helius_sample {
+                            self.last_avg_strategy_result =
+                                *sample.0.get(&HeliusPriorityLevel::MEDIUM).unwrap();
 
-                            self.last_max_strategy_result = *self
-                                .last_helius_sample
-                                .unwrap()
-                                .0
-                                .get(&HeliusPriorityLevel::UNSAFEMAX)
-                                .unwrap();
-
-                            if let Some(custom_strategy) = &self.custom_strategy {
-                                self.last_custom_strategy_result =
-                                    custom_strategy.calculate(PriorityFeeResponse::Helius(res));
-                            }
+                            self.last_max_strategy_result =
+                                *sample.0.get(&HeliusPriorityLevel::UNSAFEMAX).unwrap();
                         }
-                        Err(_e) => {
-                            self.last_helius_sample = None;
+
+                        if let Some(custom_strategy) = &self.custom_strategy {
+                            self.last_custom_strategy_result =
+                                custom_strategy.calculate(PriorityFeeResponse::Helius(res));
+                        }
+                    }
+                    Err(_e) => {
+                        self.last_helius_sample = None;
+                    }
+                }
+                Ok(())
+            }
+
+            None => Err(SdkError::Generic(
+                "Could not find helius rpc url".to_string(),
+            )),
+        }
+    }
+
+    async fn load_for_drift(&mut self) -> SdkResult<()> {
+        match &self.drift_priority_fee_endpoint {
+            Some(endpoint) => {
+                if let Some(drift_market) = &self.drift_markets {
+                    let market_types: Vec<&str> = drift_market
+                        .iter()
+                        .map(|market| market.market_type.as_str())
+                        .collect();
+                    let market_indexes: Vec<u16> = drift_market
+                        .iter()
+                        .map(|market| market.market_index)
+                        .collect();
+                    let sample =
+                        fetch_drift_priority_fee(&endpoint, &market_types, &market_indexes).await?;
+
+                    if !sample.0.is_empty() {
+                        if let Some(sample) = &self.last_helius_sample {
+                            self.last_avg_strategy_result =
+                                *sample.0.get(&HeliusPriorityLevel::MEDIUM).unwrap();
+
+                            self.last_max_strategy_result =
+                                *sample.0.get(&HeliusPriorityLevel::UNSAFEMAX).unwrap();
+                        }
+
+                        if let Some(custom_strategy) = &self.custom_strategy {
+                            self.last_custom_strategy_result =
+                                custom_strategy.calculate(PriorityFeeResponse::Drift(sample));
                         }
                     }
                 }
 
                 Ok(())
             }
+
             None => Err(SdkError::Generic(
-                "Could not find the drift client".to_string(),
+                "Could not find drift priority fee endpoint".to_string(),
             )),
         }
     }
