@@ -134,8 +134,10 @@ impl<T: AccountProvider> PriorityFeeSubscriber<T> {
         })
     }
 
-    pub async fn subscribe(&mut self) {
-        // if self.
+    pub async fn subscribe(&mut self) -> SdkResult<()> {
+        self.load().await?;
+
+        Ok(())
     }
 
     async fn load_for_solana(&mut self) -> SdkResult<()> {
@@ -250,5 +252,92 @@ impl<T: AccountProvider> PriorityFeeSubscriber<T> {
         }
     }
 
-    pub async fn load(&self) {}
+    pub fn get_max_priority_fee(&self) -> Option<u64> {
+        self.max_fee_micro_lamports
+    }
+
+    pub fn update_max_priority_fee(&mut self, new_max_fee: Option<u64>) {
+        self.max_fee_micro_lamports = new_max_fee;
+    }
+
+    pub fn get_priority_fee_multiplier(&self) -> f64 {
+        match self.priority_fee_multiplier {
+            Some(multiplier) => multiplier,
+            None => 1.0,
+        }
+    }
+
+    pub fn update_priority_fee_multiplier(&mut self, new_priority_fee_multiplier: Option<f64>) {
+        self.priority_fee_multiplier = new_priority_fee_multiplier
+    }
+
+    pub fn update_custom_strategy(&mut self, new_strategy: Option<Box<dyn PriorityFeeStrategy>>) {
+        self.custom_strategy = new_strategy;
+    }
+
+    pub fn get_helius_priority_fee_level(&self, level: Option<HeliusPriorityLevel>) -> u64 {
+        let level = match level {
+            Some(priority_level) => priority_level,
+            None => HeliusPriorityLevel::MEDIUM,
+        };
+
+        match &self.last_helius_sample {
+            Some(helius_sample) => {
+                let last_helius_sample = helius_sample.0.get(&level).unwrap();
+
+                match &self.max_fee_micro_lamports {
+                    Some(micro_lamports) => *std::cmp::min(micro_lamports, last_helius_sample),
+                    None => *last_helius_sample,
+                }
+            }
+            None => 0,
+        }
+    }
+
+    pub fn get_custom_strategy_result(&self) -> f64 {
+        let result = self.last_custom_strategy_result as f64 * self.get_priority_fee_multiplier();
+
+        match self.max_fee_micro_lamports {
+            Some(max_fee_micro_lamports) => (max_fee_micro_lamports as f64).min(result),
+            None => result,
+        }
+    }
+
+    pub fn get_avg_strategy_result(&self) -> f64 {
+        let result = self.last_avg_strategy_result as f64 * self.get_priority_fee_multiplier();
+
+        match self.max_fee_micro_lamports {
+            Some(max_fee_micro_lamports) => (max_fee_micro_lamports as f64).min(result),
+            None => result,
+        }
+    }
+
+    pub fn get_max_strategy_result(&self) -> f64 {
+        let result = self.last_max_strategy_result as f64 * self.get_priority_fee_multiplier();
+
+        match self.max_fee_micro_lamports {
+            Some(max_fee_micro_lamports) => (max_fee_micro_lamports as f64).min(result),
+            None => result,
+        }
+    }
+
+    pub async fn load(&mut self) -> SdkResult<()> {
+        match self.priority_fee_method {
+            PriorityFeeMethod::Solana => self.load_for_solana().await?,
+            PriorityFeeMethod::Helius => self.load_for_helius().await?,
+            PriorityFeeMethod::Drift => self.load_for_drift().await?,
+        }
+
+        Ok(())
+    }
+
+    pub async fn unsubscribe(&mut self) {}
+
+    pub fn update_addresses(&mut self, addresses: &[Pubkey]) {
+        self.addresses = addresses.to_vec();
+    }
+
+    pub fn update_market_type_and_index(&mut self, drift_markets: &[DriftMarketInfo]) {
+        self.drift_markets = Some(drift_markets.to_vec());
+    }
 }

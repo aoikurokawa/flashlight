@@ -7,7 +7,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::types::{SdkError, SdkResult};
 
 #[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
-pub(crate) enum HeliusPriorityLevel {
+pub enum HeliusPriorityLevel {
     /// 25th percentile
     MIN,
     /// 25th percentile

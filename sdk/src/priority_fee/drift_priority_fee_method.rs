@@ -7,9 +7,10 @@ use crate::types::{SdkError, SdkResult};
 
 use super::helius_priority_fee_method::HeliusPriorityLevel;
 
-pub(crate) struct DriftMarketInfo {
-    pub(crate) market_type: String,
-    pub(crate) market_index: u16,
+#[derive(Debug, Clone)]
+pub struct DriftMarketInfo {
+    pub market_type: String,
+    pub market_index: u16,
 }
 
 #[derive(Debug, Clone, Deserialize)]
