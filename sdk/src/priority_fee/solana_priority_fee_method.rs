@@ -9,7 +9,7 @@ pub(crate) struct SolanaPriorityFeeResponse {
 
 pub(crate) async fn fetch_solana_priority_fee<T: AccountProvider>(
     drift_client: &DriftClient<T>,
-    lookback_distance: u64,
+    lookback_distance: u8,
     addresses: &[Pubkey],
 ) -> SdkResult<Vec<SolanaPriorityFeeResponse>> {
     let mut results: Vec<SolanaPriorityFeeResponse> = drift_client
@@ -29,7 +29,7 @@ pub(crate) async fn fetch_solana_priority_fee<T: AccountProvider>(
     }
 
     results.sort_by(|a, b| b.slot.cmp(&a.slot));
-    let cutoff_slot = results[0].slot - lookback_distance;
+    let cutoff_slot = results[0].slot - lookback_distance as u64;
 
     Ok(results
         .into_iter()

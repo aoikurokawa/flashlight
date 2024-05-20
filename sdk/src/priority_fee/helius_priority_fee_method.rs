@@ -37,12 +37,12 @@ impl From<&str> for HeliusPriorityLevel {
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct HeliusPriorityFeeLevels(HashMap<HeliusPriorityLevel, u64>);
+pub(crate) struct HeliusPriorityFeeLevels(pub(crate) HashMap<HeliusPriorityLevel, u64>);
 
 #[derive(Debug, Deserialize)]
 struct HeliusPriorityFeeResult {
-    priority_fee_estimate: Option<u64>,
-    priority_fee_levels: Option<HeliusPriorityFeeLevels>,
+    pub(crate) priority_fee_estimate: Option<u64>,
+    pub(crate) priority_fee_levels: Option<HeliusPriorityFeeLevels>,
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -73,14 +73,14 @@ pub(crate) struct GetPriorityFeeEstimateRequest {
 pub(crate) struct HeliusPriorityFeeResponse {
     jsonrpc: String,
     id: String,
-    result: HeliusPriorityFeeResult,
+    pub(crate) result: HeliusPriorityFeeResult,
 }
 
 pub(crate) async fn fetch_helius_priority_fee(
     helius_rpc_url: &str,
     lookback_distance: u8,
     addresses: &[Pubkey],
-) -> SdkResult<HeliusPriorityFeeResult> {
+) -> SdkResult<HeliusPriorityFeeResponse> {
     let addresses = addresses
         .iter()
         .map(|address| address.to_string())
@@ -110,7 +110,7 @@ pub(crate) async fn fetch_helius_priority_fee(
 
     if status.is_success() {
         match serde_json::from_str::<HeliusPriorityFeeResponse>(&body_text) {
-            Ok(json) => Ok(json.result),
+            Ok(json) => Ok(json),
             Err(e) => Err(SdkError::Generic(format!(
                 "Deserialization Error: {e}, Raw JSON: {body_text}"
             ))),

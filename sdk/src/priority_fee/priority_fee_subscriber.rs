@@ -9,7 +9,9 @@ use crate::{
 use super::{
     average_over_slots_strategy::AverageOverSlotsStrategy,
     drift_priority_fee_method::DriftMarketInfo,
-    helius_priority_fee_method::HeliusPriorityFeeLevels,
+    helius_priority_fee_method::{
+        fetch_helius_priority_fee, HeliusPriorityFeeLevels, HeliusPriorityLevel,
+    },
     max_over_slots_strategy::MaxOverSlotsStrategy,
     solana_priority_fee_method::fetch_solana_priority_fee,
     types::{
@@ -27,7 +29,7 @@ pub struct PriorityFeeSubscriber<T: AccountProvider> {
     average_strategy: AverageOverSlotsStrategy,
     max_strategy: MaxOverSlotsStrategy,
     priority_fee_method: PriorityFeeMethod,
-    lookback_distance: u64,
+    lookback_distance: u8,
     max_fee_micro_lamports: Option<u64>,
     priority_fee_multiplier: Option<f64>,
 
@@ -171,24 +173,40 @@ impl<T: AccountProvider> PriorityFeeSubscriber<T> {
     async fn load_for_helius(&mut self) -> SdkResult<()> {
         match &self.drift_client {
             Some(client) => {
-                let samples =
-                    fetch_solana_priority_fee(&client, self.lookback_distance, &self.addresses)
-                        .await?;
+                if let Some(helius_rpc_url) = self.helius_rpc_url {
+                    let result = fetch_helius_priority_fee(
+                        &helius_rpc_url,
+                        self.lookback_distance,
+                        &self.addresses,
+                    )
+                    .await;
 
-                if let Some(first) = samples.first() {
-                    self.latest_priority_fee = first.prioritization_fee;
-                    self.last_slot_seen = first.slot;
+                    match result {
+                        Ok(res) => {
+                            self.last_helius_sample = res.result.priority_fee_levels;
 
-                    self.last_avg_strategy_result = self
-                        .average_strategy
-                        .calculate(PriorityFeeResponse::Solana(&samples));
-                    self.last_max_strategy_result = self
-                        .max_strategy
-                        .calculate(PriorityFeeResponse::Solana(&samples));
+                            self.last_avg_strategy_result = *self
+                                .last_helius_sample
+                                .unwrap()
+                                .0
+                                .get(&HeliusPriorityLevel::MEDIUM)
+                                .unwrap();
 
-                    if let Some(custom_strategy) = &self.custom_strategy {
-                        self.last_custom_strategy_result =
-                            custom_strategy.calculate(PriorityFeeResponse::Solana(&samples));
+                            self.last_max_strategy_result = *self
+                                .last_helius_sample
+                                .unwrap()
+                                .0
+                                .get(&HeliusPriorityLevel::UNSAFEMAX)
+                                .unwrap();
+
+                            if let Some(custom_strategy) = &self.custom_strategy {
+                                self.last_custom_strategy_result =
+                                    custom_strategy.calculate(PriorityFeeResponse::Helius(res));
+                            }
+                        }
+                        Err(_e) => {
+                            self.last_helius_sample = None;
+                        }
                     }
                 }
 

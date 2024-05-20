@@ -59,7 +59,7 @@ pub struct PriorityFeeSubscriberConfig<T: AccountProvider> {
     pub priority_fee_method: Option<PriorityFeeMethod>,
 
     /// lookback window to determine priority fees, in slots.
-    pub slots_to_check: Option<u64>,
+    pub slots_to_check: Option<u8>,
 
     /// url for helius rpc, required if using priorityFeeMethod.HELIUS
     pub helius_rpc_url: Option<String>,
