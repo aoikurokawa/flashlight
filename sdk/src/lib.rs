@@ -67,6 +67,7 @@ pub mod blockhash_subscriber;
 pub mod constants;
 pub mod dlob;
 pub mod event_emitter;
+pub mod jupiter;
 pub mod marketmap;
 pub mod math;
 pub mod memcmp;
