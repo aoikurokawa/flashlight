@@ -1,16 +1,24 @@
 // use std::{collections::HashMap, time::Instant};
-// 
+//
+// use drift::state::user_map::UserStatsMap;
 // use sdk::{
-//     slot_subscriber::SlotSubscriber, BulkAccountLoader, DriftClient, UserSubscriptionConfig,
+//     blockhash_subscriber::BlockhashSubscriber, dlob::dlob_subscriber::DLOBSubscriber,
+//     slot_subscriber::SlotSubscriber, usermap::UserMap, AccountProvider, BulkAccountLoader,
+//     DriftClient, UserSubscriptionConfig,
 // };
 // use solana_sdk::address_lookup_table_account::AddressLookupTableAccount;
-// 
+//
 // use crate::{
 //     bundle_sender::BundleSender,
 //     config::{FillerConfig, GlobalConfig},
 // };
 
-// struct FillerBot<T> {
+// struct FillerBot<'a, T, D, S>
+// where
+//     T: AccountProvider,
+//     S: sdk::dlob::types::SlotSource,
+//     D: sdk::dlob::types::DLOBSource,
+// {
 //     name: String,
 //     dry_run: bool,
 //     default_interval_ms: u16,
@@ -29,10 +37,10 @@
 //
 //     filler_config: FillerConfig,
 //     global_config: GlobalConfig,
-//     dlob_subscriber: Option<DLOBSubscriber>,
+//     dlob_subscriber: Option<DLOBSubscriber<T, D, S>>,
 //
 //     user_map: Option<UserMap>,
-//     user_stats_map: Option<UserStatsMap>,
+//     user_stats_map: Option<UserStatsMap<'a>>,
 //
 //     // periodic_task_mutex = new Mutex();
 //
@@ -100,6 +108,6 @@
 //     // rebalance_settled_pnl_threshold: BN;
 // }
 //
-// impl FillerBot {
-//     pub fn new(global_config: GlobalConfig, filler_config: FillerConfig) -> Self {}
-// }
+// // impl FillerBot {
+// //     pub fn new(global_config: GlobalConfig, filler_config: FillerConfig) -> Self {}
+// // }

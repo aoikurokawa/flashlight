@@ -203,18 +203,18 @@ impl WebsocketProgramAccountSubscriber {
 
 // #[cfg(test)]
 // mod tests {
-// 
+//
 //     use std::str::FromStr;
-// 
+//
 //     use anchor_client::Cluster;
 //     use drift::state::user::User;
-// 
+//
 //     use super::*;
 //     use crate::{
 //         memcmp::{get_non_idle_user_filter, get_user_filter},
 //         utils::envs::mainnet_endpoint,
 //     };
-// 
+//
 //     #[cfg(feature = "rpc_tests")]
 //     #[tokio::test]
 //     async fn test_subscribe() {
@@ -228,17 +228,17 @@ impl WebsocketProgramAccountSubscriber {
 //         let cluster = Cluster::from_str(&mainnet_endpoint()).unwrap();
 //         let url = cluster.ws_url().to_string();
 //         let subscription_name = "Test".to_string();
-// 
+//
 //         let mut ws_subscriber = WebsocketProgramAccountSubscriber::new(
 //             subscription_name,
 //             url,
 //             options,
 //             EventEmitter::new(),
 //         );
-// 
+//
 //         let _ = ws_subscriber.subscribe::<User>().await;
 //         dbg!("sub'd");
-// 
+//
 //         ws_subscriber
 //             .event_emitter
 //             .clone()
@@ -247,7 +247,7 @@ impl WebsocketProgramAccountSubscriber {
 //                     dbg!(event);
 //                 }
 //             });
-// 
+//
 //         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 //         let _ = ws_subscriber.unsubscribe().await;
 //         dbg!("unsub'd");

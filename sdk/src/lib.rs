@@ -71,6 +71,7 @@ pub mod marketmap;
 pub mod math;
 pub mod memcmp;
 pub mod oraclemap;
+pub mod priority_fee;
 pub mod slot_subscriber;
 pub mod types;
 pub mod user;
