@@ -3,15 +3,24 @@ use std::{collections::HashMap, str::FromStr};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{address_lookup_table_account::AddressLookupTableAccount, pubkey::Pubkey};
+use solana_sdk::{
+    address_lookup_table_account::AddressLookupTableAccount, pubkey::Pubkey,
+    transaction::VersionedTransaction,
+};
 
 use crate::{
     jupiter::serde_helpers::field_as_string,
     types::{SdkError, SdkResult},
-    AccountProvider, DriftClient,
+};
+
+use self::{
+    swap::{SwapRequest, SwapResponse},
+    transaction_config::TransactionConfig,
 };
 
 mod serde_helpers;
+mod swap;
+mod transaction_config;
 
 #[derive(Serialize, Deserialize, Default, PartialEq, Clone, Debug)]
 pub enum SwapMode {
@@ -152,14 +161,14 @@ pub struct QuoteResponse {
     pub time_taken: f64,
 }
 
-pub struct JupiterClient<T: AccountProvider> {
+pub struct JupiterClient {
     url: String,
     rpc_client: RpcClient,
     lookup_table_cache: HashMap<String, AddressLookupTableAccount>,
 }
 
-impl<T: AccountProvider> JupiterClient<T> {
-    pub fn new(drift_client: DriftClient<T>, url: Option<String>) -> Self {
+impl JupiterClient {
+    pub fn new(rpc_client: RpcClient, url: Option<String>) -> Self {
         let url = match url {
             Some(url) => url,
             None => "https://quote-api.jup.ag".to_string(),
@@ -167,12 +176,13 @@ impl<T: AccountProvider> JupiterClient<T> {
 
         Self {
             url,
-            drift_client,
+            rpc_client,
             lookup_table_cache: HashMap::new(),
         }
     }
 
-    pub async fn quote(
+    /// Get routes for a swap
+    pub async fn get_quote(
         &self,
         input_mint: Pubkey,
         output_mint: Pubkey,
@@ -226,19 +236,125 @@ impl<T: AccountProvider> JupiterClient<T> {
             )))
         }
     }
+
+    /// Get a swap transaction for quote
+    pub async fn get_swap(
+        &self,
+        mut quote_response: QuoteResponse,
+        user_public_key: Pubkey,
+        slippage_bps: Option<u16>,
+    ) -> SdkResult<VersionedTransaction> {
+        let slippage_bps = match slippage_bps {
+            Some(n) => n,
+            None => 50,
+        };
+        let api_version_param = if self.url == "https://quote-api.jup.ag" {
+            "/v6"
+        } else {
+            ""
+        };
+
+        quote_response.slippage_bps = slippage_bps;
+        let swap_request = SwapRequest {
+            user_public_key,
+            quote_response,
+            config: TransactionConfig::default(),
+        };
+        let response = Client::new()
+            .post(format!("{}{api_version_param}/swap", self.url))
+            .json(&swap_request)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let res = response
+                .json::<SwapResponse>()
+                .await
+                .map_err(|e| SdkError::Generic(format!("failed to get json: {e}")))?;
+
+            let versioned_transaction: VersionedTransaction =
+                bincode::deserialize(&res.swap_transaction)
+                    .map_err(|_e| SdkError::Deserializing)?;
+
+            Ok(versioned_transaction)
+        } else {
+            Err(SdkError::Generic(format!(
+                "Request status not ok: {}, body: {}",
+                response.status(),
+                response
+                    .text()
+                    .await
+                    .map_err(|e| SdkError::Generic(format!("failed to get text: {e}")))?
+            )))
+        }
+    }
+
+    async fn get_lookup_table(&self, account_key: Pubkey) -> SdkResult<&AddressLookupTableAccount> {
+        match self.lookup_table_cache.get(&account_key.to_string()) {
+            Some(table_account) => Ok(table_account),
+            None => Err(SdkError::Generic("Not found".to_string())),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::env;
+    use solana_client::nonblocking::rpc_client::RpcClient;
+    use solana_sdk::pubkey;
+    use solana_sdk::pubkey::Pubkey;
 
-    use crate::{jupiter::JupiterClient, types::Context, DriftClient};
+    use crate::jupiter::JupiterClient;
+
+    const USDC_MINT: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    const NATIVE_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+    const TEST_WALLET: Pubkey = pubkey!("2AQdpHJ2JpcEgPiATUXjQxA8QmafFegfQwSLWSprPicm");
 
     #[tokio::test]
-    async fn test_quote() {
-        let account_provider = 
-        let drift_client = DriftClient::new(Context::DevNet, account_provider, wallet)
-            .expect("construct drift client");
-        let jupiter_swap_api_client = JupiterClient::new(None);
+    async fn test_get_quote() {
+        let rpc_client = RpcClient::new("".to_string());
+        let jupiter_client = JupiterClient::new(rpc_client, None);
+
+        // GET /quote
+        let quote_response = jupiter_client
+            .get_quote(
+                USDC_MINT,
+                NATIVE_MINT,
+                1_000_000,
+                None,
+                50,
+                None,
+                None,
+                None,
+            )
+            .await;
+
+        assert!(quote_response.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_swap() {
+        let rpc_client = RpcClient::new("".to_string());
+        let jupiter_client = JupiterClient::new(rpc_client, None);
+
+        let quote_response = jupiter_client
+            .get_quote(
+                USDC_MINT,
+                NATIVE_MINT,
+                1_000_000,
+                None,
+                50,
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("failed to get quote");
+
+        // GET /swap
+        let swap_response = jupiter_client
+            .get_swap(quote_response, TEST_WALLET, None)
+            .await;
+
+        assert!(swap_response.is_ok());
     }
 }
