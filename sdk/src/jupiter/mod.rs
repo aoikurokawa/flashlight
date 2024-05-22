@@ -4,8 +4,14 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcAccountInfoConfig};
 use solana_sdk::{
-    account::ReadableAccount, address_lookup_table_account::AddressLookupTableAccount,
-    pubkey::Pubkey, transaction::VersionedTransaction,
+    account::ReadableAccount,
+    address_lookup_table_account::AddressLookupTableAccount,
+    instruction::Instruction,
+    message::{v0, VersionedMessage},
+    pubkey::Pubkey,
+    signature::Keypair,
+    signer::Signer,
+    transaction::VersionedTransaction,
 };
 
 use crate::{
@@ -293,7 +299,9 @@ impl JupiterClient {
     pub async fn get_transaction_message_and_lookup_tables(
         &self,
         transaction: VersionedTransaction,
-    ) -> SdkResult<()> {
+        instruction: Instruction,
+        payer: &Keypair,
+    ) -> SdkResult<(VersionedTransaction, Vec<AddressLookupTableAccount>)> {
         let message = transaction.message;
 
         let lookup_tables_futures = match message.address_table_lookups() {
@@ -304,16 +312,31 @@ impl JupiterClient {
             None => vec![],
         };
 
-        let lookup_tables:  = futures_util::future::join_all(lookup_tables_futures)
-            .await
-            .into_iter()
-            .filter(|lookup| lookup.is_ok())
-            .collect::<Vec<Option<AddressLookupTableAccount>>>()
+        let lookup_tables: Vec<AddressLookupTableAccount> =
+            futures_util::future::join_all(lookup_tables_futures)
+                .await
                 .into_iter()
-            .filter(|lookup| lookup.is_some())
-            .collect();
+                .filter_map(|result| match result {
+                    Ok(Some(account)) => Some(account),
+                    _ => None,
+                })
+                .collect();
 
-        Ok(())
+        let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
+        let tx = VersionedTransaction::try_new(
+            VersionedMessage::V0(
+                v0::Message::try_compile(
+                    &payer.pubkey(),
+                    &[instruction],
+                    &lookup_tables,
+                    recent_blockhash,
+                )
+                .map_err(|e| SdkError::Generic(format!("failed to compile: {e}")))?,
+            ),
+            &[payer],
+        )?;
+
+        Ok((tx, lookup_tables))
     }
 
     async fn get_lookup_table(
@@ -327,8 +350,7 @@ impl JupiterClient {
         let account_info = self
             .rpc_client
             .get_account_with_config(&account_key, RpcAccountInfoConfig::default())
-            .await
-            .map_err(|e| SdkError::Rpc(e))?;
+            .await?;
 
         let mut value = None;
         if let Some(account) = account_info.value {
