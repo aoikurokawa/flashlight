@@ -20,7 +20,7 @@ use crate::{
 };
 
 use self::{
-    swap::{SwapRequest, SwapResponse},
+    swap::{SwapInstructionsResponse, SwapInstructionsResponseInternal, SwapRequest, SwapResponse},
     transaction_config::TransactionConfig,
 };
 
@@ -45,36 +45,6 @@ impl FromStr for SwapMode {
             _ => Err(SdkError::Generic(format!("{} is not a valid SwapMode", s))),
         }
     }
-}
-
-pub struct MarketInfo {
-    id: String,
-    in_amount: u64,
-    input_mint: Pubkey,
-    label: String,
-    lp_fee: Fee,
-    not_enough_liquidity: bool,
-    out_amount: u64,
-    output_mint: Pubkey,
-    platform_fee: Fee,
-    price_impact_pct: String,
-}
-
-pub struct Fee {
-    amount: u64,
-    mint: Pubkey,
-    pct: String,
-}
-
-pub struct Route {
-    amount: u64,
-    in_amount: u64,
-    market_infos: Vec<MarketInfo>,
-    other_amount_threshold: u64,
-    out_amount: u64,
-    price_impact_pct: String,
-    slippage_bps: u64,
-    swap_mode: SwapMode,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -296,6 +266,7 @@ impl JupiterClient {
     }
 
     /// Get the transaction message and lookup tables for a transaction
+    /// https://solana.stackexchange.com/questions/12811/lookuptables-in-rust
     pub async fn get_transaction_message_and_lookup_tables(
         &self,
         transaction: VersionedTransaction,
@@ -367,6 +338,47 @@ impl JupiterClient {
 
         Ok(value)
     }
+
+    pub async fn get_swap_instructions(
+        &self,
+        quote_response: QuoteResponse,
+        user_public_key: Pubkey,
+    ) -> SdkResult<SwapInstructionsResponse> {
+        let api_version_param = if self.url == "https://quote-api.jup.ag" {
+            "/v6"
+        } else {
+            ""
+        };
+
+        let swap_request = SwapRequest {
+            user_public_key,
+            quote_response,
+            config: TransactionConfig::default(),
+        };
+        let response = Client::new()
+            .post(format!("{}{api_version_param}/swap-instructions", self.url))
+            .json(&swap_request)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let swap_instruction_res_internal = response
+                .json::<SwapInstructionsResponseInternal>()
+                .await
+                .map_err(|e| SdkError::Generic(format!("failed to get json: {e}")))?;
+
+            Ok(swap_instruction_res_internal.into())
+        } else {
+            Err(SdkError::Generic(format!(
+                "Request status not ok: {}, body: {}",
+                response.status(),
+                response
+                    .text()
+                    .await
+                    .map_err(|e| SdkError::Generic(format!("failed to get text: {e}")))?
+            )))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -376,18 +388,16 @@ mod tests {
     use solana_sdk::pubkey::Pubkey;
 
     use crate::jupiter::JupiterClient;
+    use crate::types::SdkResult;
+
+    use super::QuoteResponse;
 
     const USDC_MINT: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
     const NATIVE_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
     const TEST_WALLET: Pubkey = pubkey!("2AQdpHJ2JpcEgPiATUXjQxA8QmafFegfQwSLWSprPicm");
 
-    #[tokio::test]
-    async fn test_get_quote() {
-        let rpc_client = RpcClient::new("".to_string());
-        let jupiter_client = JupiterClient::new(rpc_client, None);
-
-        // GET /quote
-        let quote_response = jupiter_client
+    async fn request_get_quote(client: &JupiterClient) -> SdkResult<QuoteResponse> {
+        let quote_response = client
             .get_quote(
                 USDC_MINT,
                 NATIVE_MINT,
@@ -399,6 +409,17 @@ mod tests {
                 None,
             )
             .await;
+
+        quote_response
+    }
+
+    #[tokio::test]
+    async fn test_get_quote() {
+        let rpc_client = RpcClient::new("".to_string());
+        let jupiter_client = JupiterClient::new(rpc_client, None);
+
+        // GET /quote
+        let quote_response = request_get_quote(&jupiter_client).await;
 
         assert!(quote_response.is_ok());
     }
@@ -408,25 +429,32 @@ mod tests {
         let rpc_client = RpcClient::new("".to_string());
         let jupiter_client = JupiterClient::new(rpc_client, None);
 
-        let quote_response = jupiter_client
-            .get_quote(
-                USDC_MINT,
-                NATIVE_MINT,
-                1_000_000,
-                None,
-                50,
-                None,
-                None,
-                None,
-            )
+        let quote_response = request_get_quote(&jupiter_client)
             .await
             .expect("failed to get quote");
 
-        // GET /swap
+        // POST /swap
         let swap_response = jupiter_client
             .get_swap(quote_response, TEST_WALLET, None)
             .await;
 
         assert!(swap_response.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_swap_instructions() {
+        let rpc_client = RpcClient::new("".to_string());
+        let jupiter_client = JupiterClient::new(rpc_client, None);
+
+        let quote_response = request_get_quote(&jupiter_client)
+            .await
+            .expect("failed to get quote");
+
+        // POST /swap-instructions
+        let swap_instructions = jupiter_client
+            .get_swap_instructions(quote_response, TEST_WALLET)
+            .await;
+
+        assert!(swap_instructions.is_ok());
     }
 }
