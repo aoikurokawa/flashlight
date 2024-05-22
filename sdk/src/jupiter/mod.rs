@@ -2,10 +2,10 @@ use std::{collections::HashMap, str::FromStr};
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcAccountInfoConfig};
 use solana_sdk::{
-    address_lookup_table_account::AddressLookupTableAccount, pubkey::Pubkey,
-    transaction::VersionedTransaction,
+    account::ReadableAccount, address_lookup_table_account::AddressLookupTableAccount,
+    pubkey::Pubkey, transaction::VersionedTransaction,
 };
 
 use crate::{
@@ -289,11 +289,61 @@ impl JupiterClient {
         }
     }
 
-    async fn get_lookup_table(&self, account_key: Pubkey) -> SdkResult<&AddressLookupTableAccount> {
-        match self.lookup_table_cache.get(&account_key.to_string()) {
-            Some(table_account) => Ok(table_account),
-            None => Err(SdkError::Generic("Not found".to_string())),
+    /// Get the transaction message and lookup tables for a transaction
+    pub async fn get_transaction_message_and_lookup_tables(
+        &self,
+        transaction: VersionedTransaction,
+    ) -> SdkResult<()> {
+        let message = transaction.message;
+
+        let lookup_tables_futures = match message.address_table_lookups() {
+            Some(lookups) => lookups
+                .iter()
+                .map(|lookup| self.get_lookup_table(lookup.account_key))
+                .collect(),
+            None => vec![],
+        };
+
+        let lookup_tables:  = futures_util::future::join_all(lookup_tables_futures)
+            .await
+            .into_iter()
+            .filter(|lookup| lookup.is_ok())
+            .collect::<Vec<Option<AddressLookupTableAccount>>>()
+                .into_iter()
+            .filter(|lookup| lookup.is_some())
+            .collect();
+
+        Ok(())
+    }
+
+    async fn get_lookup_table(
+        &self,
+        account_key: Pubkey,
+    ) -> SdkResult<Option<AddressLookupTableAccount>> {
+        if let Some(table_account) = self.lookup_table_cache.get(&account_key.to_string()) {
+            return Ok(Some(table_account.clone()));
         }
+
+        let account_info = self
+            .rpc_client
+            .get_account_with_config(&account_key, RpcAccountInfoConfig::default())
+            .await
+            .map_err(|e| SdkError::Rpc(e))?;
+
+        let mut value = None;
+        if let Some(account) = account_info.value {
+            let table =
+                solana_address_lookup_table_program::state::AddressLookupTable::deserialize(
+                    account.data(),
+                )
+                .map_err(|_e| SdkError::Deserializing)?;
+            value = Some(AddressLookupTableAccount {
+                key: account_key,
+                addresses: table.addresses.to_vec(),
+            });
+        }
+
+        Ok(value)
     }
 }
 
