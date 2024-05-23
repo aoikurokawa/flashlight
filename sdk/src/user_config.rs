@@ -1,6 +1,6 @@
 use solana_sdk::commitment_config::CommitmentLevel;
 
-use crate::BulkAccountLoader;
+use crate::accounts::BulkAccountLoader;
 
 pub enum UserSubscriptionConfig<T> {
     WebSocket {

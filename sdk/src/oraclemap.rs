@@ -22,7 +22,7 @@ pub struct Oracle {
     pub raw: Vec<u8>,
 }
 
-pub(crate) struct OracleMap {
+pub struct OracleMap {
     subscribed: AtomicBool,
     pub(crate) oraclemap: Arc<DashMap<Pubkey, Oracle>>,
     event_emitter: &'static EventEmitter,
