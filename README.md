@@ -74,4 +74,5 @@ DLOB
 
 ## REFERENCES
 - [Overview](https://exercism.org/tracks/rust)
+- [rust-jup-ag](https://github.com/mvines/rust-jup-ag)
 
