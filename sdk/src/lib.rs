@@ -1,6 +1,5 @@
 use std::{borrow::Cow, sync::Arc, time::Duration};
 
-use accounts::*;
 use anchor_lang::{AccountDeserialize, Discriminator, InstructionData, ToAccountMetas};
 use async_utils::{retry_policy, spawn_retry_task};
 use blockhash_subscriber::BlockhashSubscriber;
@@ -306,8 +305,8 @@ impl AccountProvider for WsAccountProvider {
 #[derive(Clone)]
 #[must_use]
 pub struct DriftClient<T: AccountProvider> {
-    backend: &'static DriftClientBackend<T>,
-    wallet: Wallet,
+    pub backend: &'static DriftClientBackend<T>,
+    pub wallet: Wallet,
     pub active_sub_account_id: u16,
     pub sub_account_ids: Vec<u16>,
     pub users: Vec<DriftUser>,
@@ -674,14 +673,14 @@ impl<T: AccountProvider> DriftClient<T> {
 /// Provides the heavy-lifting and network facing features of the SDK
 /// It is intended to be a singleton
 pub struct DriftClientBackend<T: AccountProvider> {
-    rpc_client: RpcClient,
-    account_provider: T,
-    program_data: ProgramData,
-    perp_market_map: MarketMap<PerpMarket>,
-    spot_market_map: MarketMap<SpotMarket>,
-    oracle_map: Arc<OracleMap>,
-    state_account: Arc<std::sync::RwLock<State>>,
-    blockhash_subscriber: Arc<RwLock<BlockhashSubscriber>>,
+    pub rpc_client: RpcClient,
+    pub account_provider: T,
+    pub program_data: ProgramData,
+    pub perp_market_map: MarketMap<PerpMarket>,
+    pub spot_market_map: MarketMap<SpotMarket>,
+    pub oracle_map: Arc<OracleMap>,
+    pub state_account: Arc<std::sync::RwLock<State>>,
+    pub blockhash_subscriber: Arc<RwLock<BlockhashSubscriber>>,
 }
 
 impl<T: AccountProvider> DriftClientBackend<T> {
