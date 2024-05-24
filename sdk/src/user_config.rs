@@ -8,9 +8,9 @@ pub enum UserSubscriptionConfig<T> {
         log_resub_messages: bool,
         commitment: CommitmentLevel,
     },
-    Polling {
-        account_loader: BulkAccountLoader,
-    },
+    // Polling {
+    //     account_loader: BulkAccountLoader,
+    // },
     Custom {
         user_account_subscriber: Box<T>,
     },

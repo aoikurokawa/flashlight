@@ -19,3 +19,8 @@ pub trait UserAccountSubscriber {
 
     async fn get_user_account_and_slot(&self) -> SdkResult<DataAndSlot<UserAccount>>;
 }
+
+pub(crate) struct BufferAndSlot {
+    pub(crate) slot: u64,
+    pub(crate) buffer: Option<Vec<u8>>,
+}
