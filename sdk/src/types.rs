@@ -7,7 +7,6 @@ use anchor_lang::AccountDeserialize;
 use drift::{error::ErrorCode, state::user::MarketType};
 use futures_util::Sink;
 use solana_sdk::{
-    commitment_config::CommitmentLevel,
     instruction::{AccountMeta, InstructionError},
     pubkey::Pubkey,
     transaction::TransactionError,
@@ -15,8 +14,6 @@ use solana_sdk::{
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
-
-use crate::{accounts::BulkAccountLoader, user_config::UserSubscriptionConfig};
 
 pub type SdkResult<T> = Result<T, SdkError>;
 
@@ -260,4 +257,3 @@ impl From<RemainingAccount> for AccountMeta {
         }
     }
 }
-

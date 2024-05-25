@@ -1,17 +1,15 @@
-use std::sync::Arc;
-
 use solana_sdk::commitment_config::CommitmentLevel;
 
 use crate::{accounts::BulkAccountLoader, user_config::UserSubscriptionConfig};
 
 #[derive(Clone)]
-pub struct ClientOpts<F, E> {
-    account_subscription: Option<DriftClientSubscriptionConfig<F, E>>,
+pub struct ClientOpts {
+    account_subscription: Option<DriftClientSubscriptionConfig>,
     active_sub_account_id: u16,
     sub_account_ids: Vec<u16>,
 }
 
-impl<F, E> Default for ClientOpts<F, E> {
+impl Default for ClientOpts {
     fn default() -> Self {
         Self {
             account_subscription: None,
@@ -21,11 +19,11 @@ impl<F, E> Default for ClientOpts<F, E> {
     }
 }
 
-impl<F, E> ClientOpts<F, E> {
+impl ClientOpts {
     pub fn new(
         active_sub_account_id: u16,
         sub_account_ids: Option<Vec<u16>>,
-        account_subscription: Option<DriftClientSubscriptionConfig<F, E>>,
+        account_subscription: Option<DriftClientSubscriptionConfig>,
     ) -> Self {
         let sub_account_ids = sub_account_ids.unwrap_or(vec![active_sub_account_id]);
 
@@ -40,35 +38,39 @@ impl<F, E> ClientOpts<F, E> {
         self.active_sub_account_id
     }
 
-    pub fn sub_account_ids(self) -> Vec<u16> {
+    pub fn sub_account_ids(&self) -> Vec<u16> {
         self.sub_account_ids
     }
 
-    pub fn account_subscription(&self) -> Option<DriftClientSubscriptionConfig<F, E>> {
+    pub fn account_subscription<U>(&self) -> Option<UserSubscriptionConfig<U>> {
         match self.account_subscription {
-            DriftClientSubscriptionConfig::WebSocket {
-                resub_timeout_ms,
-                log_resub_messages,
-                commitment,
-            } => UserSubscriptionConfig::WebSocket,
-            DriftClientSubscriptionConfig::Polling { account_loader } => {
-                UserSubscriptionConfig::Polling { account_loader: () }
-            }
+            Some(subscription) => match subscription {
+                DriftClientSubscriptionConfig::WebSocket {
+                    resub_timeout_ms,
+                    log_resub_messages,
+                    commitment,
+                } => Some(UserSubscriptionConfig::WebSocket {
+                    resub_timeout_ms,
+                    log_resub_messages,
+                    commitment,
+                }),
+                DriftClientSubscriptionConfig::Polling { account_loader } => {
+                    Some(UserSubscriptionConfig::Polling { account_loader })
+                }
+            },
+            None => None,
         }
     }
 }
 
-pub enum DriftClientSubscriptionConfig<F, E>
-where
-    F: Fn(Vec<u8>, u64) + Send + Sync + 'static,
-    E: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync + 'static,
-{
+#[derive(Clone)]
+pub enum DriftClientSubscriptionConfig {
     WebSocket {
         resub_timeout_ms: u16,
         log_resub_messages: bool,
         commitment: CommitmentLevel,
     },
     Polling {
-        account_loader: BulkAccountLoader<F, E>,
+        account_loader: BulkAccountLoader,
     },
 }

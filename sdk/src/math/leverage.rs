@@ -8,8 +8,8 @@ use drift::math::margin::{
 use drift::state::margin_calculation::MarginContext;
 use drift::state::user::User;
 
-pub fn get_leverage<T: AccountProvider, F, E>(
-    client: &DriftClient<T, F, E>,
+pub fn get_leverage<T: AccountProvider, U>(
+    client: &DriftClient<T, U>,
     user: &User,
 ) -> SdkResult<u128> {
     let mut accounts_builder = AccountMapBuilder::default();
@@ -49,8 +49,8 @@ pub fn get_leverage<T: AccountProvider, F, E>(
     Ok(leverage)
 }
 
-pub fn get_spot_asset_value<T: AccountProvider, F, E>(
-    client: &DriftClient<T, F, E>,
+pub fn get_spot_asset_value<T: AccountProvider, U>(
+    client: &DriftClient<T, U>,
     user: &User,
 ) -> SdkResult<i128> {
     let mut accounts_builder = AccountMapBuilder::default();

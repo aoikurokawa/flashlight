@@ -307,7 +307,7 @@ impl AccountProvider for WsAccountProvider {
 /// as network connections or memory allocations
 #[derive(Clone)]
 #[must_use]
-pub struct DriftClient<T, F, E>
+pub struct DriftClient<T, U>
 where
     T: AccountProvider,
 {
@@ -316,10 +316,10 @@ where
     pub active_sub_account_id: u16,
     pub sub_account_ids: Vec<u16>,
     pub users: Vec<DriftUser>,
-    pub user_account_subscription_config: UserSubscriptionConfig<T, F, E>,
+    pub user_account_subscription_config: Option<UserSubscriptionConfig<U>>,
 }
 
-impl<T, F, E> DriftClient<T, F, E>
+impl<T, U> DriftClient<T, U>
 where
     T: AccountProvider,
 {
@@ -331,7 +331,7 @@ where
         context: Context,
         account_provider: T,
         wallet: Wallet,
-        opts: ClientOpts<F, E>,
+        opts: ClientOpts,
     ) -> SdkResult<Self> {
         Ok(Self {
             backend: Box::leak(Box::new(

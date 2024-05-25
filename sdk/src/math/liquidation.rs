@@ -37,8 +37,8 @@ pub struct LiquidationAndPnlInfo {
 }
 
 /// Calculate the liquidation price and unrealized PnL of a user's perp position (given by `market_index`)
-pub fn calculate_liquidation_price_and_unrealized_pnl<T: AccountProvider, F, E>(
-    client: &DriftClient<T, F, E>,
+pub fn calculate_liquidation_price_and_unrealized_pnl<T: AccountProvider, U>(
+    client: &DriftClient<T, U>,
     user: &User,
     market_index: u16,
 ) -> SdkResult<LiquidationAndPnlInfo> {
@@ -58,8 +58,8 @@ pub fn calculate_liquidation_price_and_unrealized_pnl<T: AccountProvider, F, E>(
 }
 
 /// Calculate the unrealized pnl for user perp position, given by `market_index`
-pub fn calculate_unrealized_pnl<T: AccountProvider, F, E>(
-    client: &DriftClient<T, F, E>,
+pub fn calculate_unrealized_pnl<T: AccountProvider, U>(
+    client: &DriftClient<T, U>,
     user: &User,
     market_index: u16,
 ) -> SdkResult<i128> {
@@ -101,8 +101,8 @@ pub fn calculate_unrealized_pnl_inner(
 /// Calculate the liquidation price of a user's perp position (given by `market_index`)
 ///
 /// Returns the liquidaton price (PRICE_PRECISION / 1e6)
-pub fn calculate_liquidation_price<T: AccountProvider, F, E>(
-    client: &DriftClient<T, F, E>,
+pub fn calculate_liquidation_price<T: AccountProvider, U>(
+    client: &DriftClient<T, U>,
     user: &User,
     market_index: u16,
 ) -> SdkResult<i64> {
@@ -270,8 +270,8 @@ pub struct MarginRequirementInfo {
 }
 
 /// Calculate the margin requirements of `user`
-pub fn calculate_margin_requirements<T: AccountProvider, F, E>(
-    client: &DriftClient<T, F, E>,
+pub fn calculate_margin_requirements<T: AccountProvider, U>(
+    client: &DriftClient<T, U>,
     user: &User,
 ) -> SdkResult<MarginRequirementInfo> {
     let mut accounts_builder = AccountMapBuilder::default();
@@ -336,8 +336,8 @@ impl Into<MarginRequirementType> for MarginCategory {
     }
 }
 
-pub fn calculate_collateral<T: AccountProvider, F, E>(
-    client: &DriftClient<T, F, E>,
+pub fn calculate_collateral<T: AccountProvider, U>(
+    client: &DriftClient<T, U>,
     user: &User,
     margin_category: MarginCategory,
 ) -> SdkResult<CollateralInfo> {

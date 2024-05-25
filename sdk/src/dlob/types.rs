@@ -4,8 +4,8 @@ use crate::{AccountProvider, DriftClient};
 
 use super::dlob::DLOB;
 
-pub struct DLOBSubscriptionConfig<T: AccountProvider, D: DLOBSource, S: SlotSource, F, E> {
-    pub(crate) drift_client: DriftClient<T, F, E>,
+pub struct DLOBSubscriptionConfig<T: AccountProvider, D: DLOBSource, S: SlotSource, U> {
+    pub(crate) drift_client: DriftClient<T, U>,
     pub(crate) dlob_source: D,
     pub(crate) slot_source: S,
     pub(crate) update_frequency: Duration,

@@ -51,10 +51,10 @@ impl BulkAccountLoader {
         }
     }
 
-    pub async fn add_account<F: AccountCallback>(
+    pub async fn add_account(
         &mut self,
         public_key: Pubkey,
-        callback: F,
+        callback: Box<dyn AccountCallback>,
     ) -> String {
         let callback_id = Uuid::new_v4().to_string();
 
@@ -64,7 +64,7 @@ impl BulkAccountLoader {
             if let Some(account_to_load) = accounts_to_load.get_mut(&public_key.to_string()) {
                 account_to_load
                     .callbacks
-                    .insert(callback_id.clone(), callback);
+                    .insert(callback_id.clone(), Box::new(callback));
             } else {
                 let mut callbacks = HashMap::new();
                 callbacks.insert(callback_id.clone(), callback);
@@ -103,10 +103,10 @@ impl BulkAccountLoader {
         }
     }
 
-    pub async fn add_error_callback<E: ErrorCallback>(&self, callback: E) -> String {
+    pub async fn add_error_callback(&self, callback: Box<dyn ErrorCallback>) -> String {
         let mut error_callbacks = self.error_callbacks.lock().await;
         let callback_id = Uuid::new_v4().to_string();
-        error_callbacks.insert(callback_id.clone(), callback);
+        error_callbacks.insert(callback_id.clone(), Box::new(callback));
         callback_id
     }
 

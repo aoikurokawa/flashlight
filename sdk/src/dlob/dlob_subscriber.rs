@@ -22,8 +22,8 @@ use super::{
 };
 
 // https://github.com/drift-labs/protocol-v2/blob/master/sdk/src/dlob/DLOBSubscriber.ts
-pub struct DLOBSubscriber<T: AccountProvider, D: DLOBSource, S: SlotSource, F, E> {
-    drift_client: DriftClient<T, F, E>,
+pub struct DLOBSubscriber<T: AccountProvider, D: DLOBSource, S: SlotSource, U> {
+    drift_client: DriftClient<T, U>,
 
     dlob_source: D,
 
@@ -38,15 +38,14 @@ pub struct DLOBSubscriber<T: AccountProvider, D: DLOBSource, S: SlotSource, F, E
     event_emitter: EventEmitter,
 }
 
-impl<T, D, S, F, E> DLOBSubscriber<T, D, S, F, E>
+impl<T, D, S, U> DLOBSubscriber<T, D, S, U>
 where
     T: AccountProvider,
     D: DLOBSource + Send + Sync + 'static,
     S: SlotSource + Send + Sync + 'static,
-    F: Send + 'static,
-    E: Send + 'static,
+    U: Send + Sync + 'static,
 {
-    pub fn new(config: DLOBSubscriptionConfig<T, D, S, F, E>) -> Self {
+    pub fn new(config: DLOBSubscriptionConfig<T, D, S, U>) -> Self {
         Self {
             drift_client: config.drift_client,
             dlob_source: config.dlob_source,
