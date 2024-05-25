@@ -10,5 +10,5 @@ where
 {
     user_stats_map: HashMap<String, UserStats>,
     drift_client: DriftClient<T>,
-    bulk_account_provider: BulkAccountLoader,
+//    bulk_account_provider: BulkAccountLoader,
 }
