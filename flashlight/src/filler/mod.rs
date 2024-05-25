@@ -15,7 +15,7 @@ use crate::{
     config::{FillerConfig, GlobalConfig},
 };
 
-struct FillerBot<'a, T, D, S>
+struct FillerBot<'a, T, D, S, F, Fut, G>
 where
     T: AccountProvider,
     S: sdk::dlob::types::SlotSource,
@@ -26,7 +26,7 @@ where
     default_interval_ms: u16,
 
     slot_subscriber: SlotSubscriber,
-    bulk_account_loader: Option<BulkAccountLoader>,
+    bulk_account_loader: Option<BulkAccountLoader<F, Fut, G>>,
     user_stats_map_subscription_config: UserSubscriptionConfig<T>,
     drift_client: DriftClient<T>,
     /// Connection to use specifically for confirming transactions
@@ -109,7 +109,7 @@ where
     // rebalance_settled_pnl_threshold: BN;
 }
 
-impl<T, D, S> FillerBot<'_, T, D, S>
+impl<T, D, S, F, Fut, G> FillerBot<'_, T, D, S, F, Fut, G>
 where
     T: AccountProvider,
     S: sdk::dlob::types::SlotSource,
@@ -117,7 +117,7 @@ where
 {
     pub fn new(
         slot_subscriber: SlotSubscriber,
-        bulk_account_loader: Option<BulkAccountLoader>,
+        bulk_account_loader: Option<BulkAccountLoader<F, Fut, G>>,
         drift_client: DriftClient<T>,
         user_map: UserMap,
         global_config: GlobalConfig,
@@ -126,31 +126,34 @@ where
         blockhash_subscriber: BlockhashSubscriber,
         bundle_sender: Option<BundleSender>,
     ) -> Self {
-        todo!()
-        // let tx_confirmation_connection = match global_config.tx_confirmation_endpoint {
-        //     Some(endpoint) => RpcClient::new(endpoint),
-        //     None => drift_client.backend.rpc_client,
-        // };
+        // todo!()
+        let tx_confirmation_connection = match global_config.tx_confirmation_endpoint {
+            Some(endpoint) => RpcClient::new(endpoint),
+            None => drift_client.backend.rpc_client,
+        };
 
-        // let user_stats_map_subscription_config = match bulk_account_loader {
-        //     Some(account_loader) => {
-        //         let loader = BulkAccountLoader {
+        let user_stats_map_subscription_config = match bulk_account_loader {
+            Some(account_loader) => {
+                let loader =
+                    BulkAccountLoader::new(drift_client.backend.rpc_client, polling_frequency);
+                UserSubscriptionConfig::Polling {
+                    account_loader: loader,
+                }
+            }
+            None => {
+                drift_client.get_user_stats(authority)
+            }
+        };
 
-        //         };
-        //         UserSubscriptionConfig::Polling { account_loader: () }
-        //     }
-        //     None => {}
-        // };
-
-        // Self {
-        //     global_config,
-        //     filler_config,
-        //     name: filler_config.base_config.bot_id,
-        //     dry_run: filler_config.base_config.dry_run,
-        //     slot_subscriber,
-        //     tx_confirmation_connection,
-        //     bulk_account_loader,
-        //     user_stats_map_subscription_config,
-        // }
+        Self {
+            global_config,
+            filler_config,
+            name: filler_config.base_config.bot_id,
+            dry_run: filler_config.base_config.dry_run,
+            slot_subscriber,
+            tx_confirmation_connection,
+            bulk_account_loader,
+            user_stats_map_subscription_config,
+        }
     }
 }
