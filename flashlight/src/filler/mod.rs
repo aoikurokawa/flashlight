@@ -1,6 +1,7 @@
 use std::{collections::HashMap, time::Instant};
 
 use drift::state::user_map::UserStatsMap;
+use log::info;
 use sdk::{
     accounts::BulkAccountLoader, blockhash_subscriber::BlockhashSubscriber,
     dlob::dlob_subscriber::DLOBSubscriber, jupiter::JupiterClient,
@@ -8,14 +9,20 @@ use sdk::{
     user_config::UserSubscriptionConfig, usermap::UserMap, AccountProvider, DriftClient,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::address_lookup_table_account::AddressLookupTableAccount;
+use solana_sdk::{
+    address_lookup_table_account::AddressLookupTableAccount, native_token::LAMPORTS_PER_SOL,
+};
 
 use crate::{
     bundle_sender::BundleSender,
     config::{FillerConfig, GlobalConfig},
+    metrics::RuntimeSpec,
+    util::valid_minimum_gas_amount,
 };
 
-struct FillerBot<'a, T, D, S, F, Fut, G>
+const DEFAULT_INTERVAL_MS: u16 = 6000;
+
+struct FillerBot<'a, T, D, S, U>
 where
     T: AccountProvider,
     S: sdk::dlob::types::SlotSource,
@@ -26,9 +33,9 @@ where
     default_interval_ms: u16,
 
     slot_subscriber: SlotSubscriber,
-    bulk_account_loader: Option<BulkAccountLoader<F, Fut, G>>,
-    user_stats_map_subscription_config: UserSubscriptionConfig<T, F, Fut, G>,
-    drift_client: DriftClient<T>,
+    bulk_account_loader: Option<BulkAccountLoader>,
+    user_stats_map_subscription_config: UserSubscriptionConfig<U>,
+    drift_client: DriftClient<T, U>,
     /// Connection to use specifically for confirming transactions
     tx_confirmation_connection: RpcClient,
     polling_interval_ms: u16,
@@ -39,7 +46,7 @@ where
 
     filler_config: FillerConfig,
     global_config: GlobalConfig,
-    dlob_subscriber: Option<DLOBSubscriber<T, D, S>>,
+    dlob_subscriber: Option<DLOBSubscriber<T, D, S, U>>,
 
     user_map: Option<UserMap>,
     user_stats_map: Option<UserStatsMap<'a>>,
@@ -59,7 +66,7 @@ where
     fill_tx_id: u16,
     last_settle_pnl: std::time::SystemTime,
 
-    priority_fee_subscriber: PriorityFeeSubscriber<T>,
+    priority_fee_subscriber: PriorityFeeSubscriber<T, U>,
     blockhash_subscriber: BlockhashSubscriber,
     /// stores txSigs that need to been confirmed in a slower loop, and the time they were confirmed
     // protected pendingTxSigsToconfirm: LRUCache<
@@ -82,8 +89,7 @@ where
     // metrics_port: Option<u16>,
     // metrics: Option<Metrics>,
     // boot_time_ms: Option<u16>,
-
-    // runtime_spec: RuntimeSpec,
+    runtime_spec: RuntimeSpec,
     // runtime_specs_gauge: Option<GaugeValue>,
     // try_fill_duration_histogram: Option<HistogramValue>,
     // est_tx_cu_histogram: Option<HistogramValue>,
@@ -105,11 +111,11 @@ where
     // jito_bundle_count: Option<GaugeValue>,
     has_enough_sol_to_fill: bool,
     rebalance_filler: bool,
-    min_gas_balance_to_fill: u16,
+    min_gas_balance_to_fill: f64,
     // rebalance_settled_pnl_threshold: BN;
 }
 
-impl<T, D, S, F, Fut, G> FillerBot<'_, T, D, S, F, Fut, G>
+impl<'a, T, D, S, U> FillerBot<'a, T, D, S, U>
 where
     T: AccountProvider,
     S: sdk::dlob::types::SlotSource,
@@ -117,12 +123,13 @@ where
 {
     pub fn new(
         slot_subscriber: SlotSubscriber,
-        bulk_account_loader: Option<BulkAccountLoader<F, Fut, G>>,
-        drift_client: DriftClient<T>,
+        bulk_account_loader: Option<BulkAccountLoader>,
+        drift_client: DriftClient<T, U>,
         user_map: UserMap,
+        runtime_spec: RuntimeSpec,
         global_config: GlobalConfig,
         filler_config: FillerConfig,
-        priority_fee_subscriber: PriorityFeeSubscriber<T>,
+        priority_fee_subscriber: PriorityFeeSubscriber<T, U>,
         blockhash_subscriber: BlockhashSubscriber,
         bundle_sender: Option<BundleSender>,
     ) -> Self {
@@ -134,14 +141,46 @@ where
 
         let user_stats_map_subscription_config = match bulk_account_loader {
             Some(account_loader) => {
-                let loader =
-                    BulkAccountLoader::new(drift_client.backend.rpc_client, polling_frequency);
-                UserSubscriptionConfig::Polling {
-                    account_loader: loader,
-                }
+                // let loader = BulkAccountLoader::new(account_leader.rpc_client, account_leader.commitment, polling_frequency);
+                UserSubscriptionConfig::Polling { account_loader }
             }
-            None => drift_client.get_user_stats(authority),
+            None => drift_client.user_account_subscription_config.unwrap(),
         };
+
+        info!(
+            "{}: revert_on_failure: {}, simulate_tx_for_cu_estimate: {}",
+            filler_config.base_config.bot_id,
+            filler_config.revert_on_failure.unwrap_or(true),
+            filler_config.simulate_tx_for_cu_estimate.unwrap_or(true),
+        );
+
+        info!(
+            "{}: jito enabled: {}",
+            filler_config.base_config.bot_id,
+            bundle_sender.is_some()
+        );
+
+        let jupiter_client = if filler_config.rebalance_filler.is_some()
+            && runtime_spec.drift_env == "mainnet-beta"
+        {
+            let client = JupiterClient::new(drift_client.backend.rpc_client, None);
+            Some(client)
+        } else {
+            None
+        };
+
+        info!(
+            "{}: rebalancing enabled: {}",
+            filler_config.base_config.bot_id,
+            jupiter_client.is_some()
+        );
+
+        let min_gas_balance_to_fill =
+            if !valid_minimum_gas_amount(filler_config.min_gas_balance_to_fill) {
+                0.2 * LAMPORTS_PER_SOL as f64
+            } else {
+                filler_config.min_gas_balance_to_fill.unwrap() * LAMPORTS_PER_SOL as f64
+            };
 
         Self {
             global_config,
@@ -152,6 +191,19 @@ where
             tx_confirmation_connection,
             bulk_account_loader,
             user_stats_map_subscription_config,
+            runtime_spec,
+            polling_interval_ms: filler_config
+                .filler_polling_interval
+                .unwrap_or(DEFAULT_INTERVAL_MS),
+            user_map: Some(user_map),
+            revert_on_failure: Some(filler_config.revert_on_failure.unwrap_or(true)),
+            simulate_tx_for_cu_estimate: Some(
+                filler_config.simulate_tx_for_cu_estimate.unwrap_or(true),
+            ),
+            bundle_sender,
+            jupiter_client,
+            rebalance_filler: filler_config.rebalance_filler.unwrap_or(false),
+            min_gas_balance_to_fill
         }
     }
 }

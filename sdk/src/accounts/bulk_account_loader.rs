@@ -8,18 +8,18 @@ use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
 use uuid::Uuid;
 
-trait AccountCallback: Fn(Vec<u8>, u64) + Send + Sync {}
+pub trait AccountCallback: Fn(Vec<u8>, u64) + Send + Sync {}
 impl<T> AccountCallback for T where T: Fn(Vec<u8>, u64) + Send + Sync {}
 
-trait ErrorCallback: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
+pub trait ErrorCallback: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
 impl<T> ErrorCallback for T where T: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
 
-struct AccountToLoad {
+pub struct AccountToLoad {
     public_key: Pubkey,
     callbacks: HashMap<String, Box<dyn AccountCallback>>,
 }
 
-struct BufferAndSlot {
+pub struct BufferAndSlot {
     buffer: Vec<u8>,
     slot: u64,
 }
