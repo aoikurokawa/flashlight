@@ -1,154 +1,218 @@
-// use solana_rpc::rpc::rpc_accounts::gen_client::Client;
-//
-
-use std::{
-    collections::HashMap,
-    future::Future,
-    ops::Sub,
-    time::{Duration, Instant, SystemTime},
-};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
+use tokio::sync::Mutex;
+use tokio::time::{interval, Duration};
 use uuid::Uuid;
 
-use crate::types::SdkResult;
+trait AccountCallback: Fn(Vec<u8>, u64) + Send + Sync {}
+impl<T> AccountCallback for T where T: Fn(Vec<u8>, u64) + Send + Sync {}
 
-use super::BufferAndSlot;
+trait ErrorCallback: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
+impl<T> ErrorCallback for T where T: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
 
-struct AccountToLoad<F> {
+struct AccountToLoad {
     public_key: Pubkey,
-    callbacks: HashMap<String, F>,
+    callbacks: HashMap<String, Box<dyn AccountCallback>>,
 }
 
-const GET_MULTIPLE_ACCOUNTS_CHUNK_SIZE: u8 = 99;
-
-pub struct BulkAccountLoader<F, Fut, G> {
-    rpc_client: RpcClient,
-    polling_frequency: u64,
-    accounts_to_load: HashMap<Pubkey, AccountToLoad<F>>,
-    buffer_and_slot_map: HashMap<Pubkey, BufferAndSlot>,
-    error_callbacks: HashMap<String, G>,
-    load_promise: Option<Fut>,
-    last_time_loading_promise_cleared: Instant,
+struct BufferAndSlot {
+    buffer: Vec<u8>,
+    slot: u64,
 }
 
-impl<F, Fut, G> BulkAccountLoader<F, Fut, G>
-where
-    Fut: Future<Output = ()>,
-{
-    pub fn new(rpc_client: RpcClient, polling_frequency: u64) -> Self {
-        Self {
-            rpc_client,
+pub struct BulkAccountLoader {
+    client: Arc<RpcClient>,
+    commitment: CommitmentConfig,
+    polling_frequency: Duration,
+    accounts_to_load: Arc<Mutex<HashMap<String, AccountToLoad>>>,
+    buffer_and_slot_map: Arc<Mutex<HashMap<String, BufferAndSlot>>>,
+    error_callbacks: Arc<Mutex<HashMap<String, Box<dyn ErrorCallback>>>>,
+    interval_handle: Option<tokio::task::JoinHandle<()>>,
+}
+
+impl BulkAccountLoader {
+    pub fn new(
+        client: RpcClient,
+        commitment: CommitmentConfig,
+        polling_frequency: Duration,
+    ) -> Self {
+        BulkAccountLoader {
+            client: Arc::new(client),
+            commitment,
             polling_frequency,
-            accounts_to_load: HashMap::new(),
-            buffer_and_slot_map: HashMap::new(),
-            error_callbacks: HashMap::new(),
-            load_promise: None,
-            last_time_loading_promise_cleared: Instant::now(),
+            accounts_to_load: Arc::new(Mutex::new(HashMap::new())),
+            buffer_and_slot_map: Arc::new(Mutex::new(HashMap::new())),
+            error_callbacks: Arc::new(Mutex::new(HashMap::new())),
+            interval_handle: None,
         }
     }
 
-    pub async fn add_account(mut self, public_key: &Pubkey, callback: F) -> SdkResult<String> {
-        let callback_id = Uuid::new_v4();
-        match self.accounts_to_load.get_mut(public_key) {
-            Some(account_to_load) => {
+    pub async fn add_account<F: AccountCallback>(
+        &mut self,
+        public_key: Pubkey,
+        callback: F,
+    ) -> String {
+        let callback_id = Uuid::new_v4().to_string();
+
+        {
+            let mut accounts_to_load = self.accounts_to_load.lock().await;
+
+            if let Some(account_to_load) = accounts_to_load.get_mut(&public_key.to_string()) {
                 account_to_load
                     .callbacks
-                    .insert(callback_id.to_string(), callback);
-            }
-            None => {
+                    .insert(callback_id.clone(), callback);
+            } else {
                 let mut callbacks = HashMap::new();
-                callbacks.insert(callback_id.to_string(), callback);
-                let new_account_to_load = AccountToLoad {
-                    public_key: *public_key,
+                callbacks.insert(callback_id.clone(), callback);
+                let account_to_load = AccountToLoad {
+                    public_key,
                     callbacks,
                 };
-                self.accounts_to_load
-                    .insert(*public_key, new_account_to_load);
+                accounts_to_load.insert(public_key.to_string(), account_to_load);
             }
         }
 
-        if self.accounts_to_load.is_empty() {
-            self.start_polling();
+        if self.accounts_to_load.lock().await.len() == 1 {
+            self.start_polling().await;
         }
 
-        // resolve the current load_promise in case client wants to call load
-        let load_promise = self.load_promise.unwrap();
-        load_promise.await;
-
-        Ok(callback_id.to_string())
+        callback_id
     }
 
-    pub fn remove_account(&mut self, public_key: &Pubkey, callback_id: String) -> SdkResult<()> {
-        let mut is_empty = false;
-        let mut pubkey = Pubkey::new_unique();
-
-        if let Some(existing_account_to_load) = self.accounts_to_load.get_mut(public_key) {
-            existing_account_to_load.callbacks.remove(&callback_id);
-
-            if existing_account_to_load.callbacks.is_empty() {
-                self.buffer_and_slot_map.remove(public_key);
-                is_empty = true;
-                pubkey = existing_account_to_load.public_key;
+    pub async fn remove_account(&mut self, public_key: Pubkey, callback_id: String) {
+        {
+            let mut accounts_to_load = self.accounts_to_load.lock().await;
+            if let Some(account_to_load) = accounts_to_load.get_mut(&public_key.to_string()) {
+                account_to_load.callbacks.remove(&callback_id);
+                if account_to_load.callbacks.is_empty() {
+                    accounts_to_load.remove(&public_key.to_string());
+                    self.buffer_and_slot_map
+                        .lock()
+                        .await
+                        .remove(&public_key.to_string());
+                }
             }
         }
 
-        if is_empty {
-            self.accounts_to_load.remove(&pubkey);
-        }
-
-        if self.accounts_to_load.is_empty() {
+        if self.accounts_to_load.lock().await.is_empty() {
             self.stop_polling();
         }
-
-        Ok(())
     }
 
-    pub fn add_error_callbacks(&mut self, callback: G) -> SdkResult<String> {
-        let callback_id = Uuid::new_v4();
-        self.error_callbacks
-            .insert(callback_id.to_string(), callback);
-
-        Ok(callback_id.to_string())
+    pub async fn add_error_callback<E: ErrorCallback>(&self, callback: E) -> String {
+        let mut error_callbacks = self.error_callbacks.lock().await;
+        let callback_id = Uuid::new_v4().to_string();
+        error_callbacks.insert(callback_id.clone(), callback);
+        callback_id
     }
 
-    pub fn remove_error_callbacks(&mut self, callback_id: String) -> SdkResult<()> {
-        self.error_callbacks.remove(&callback_id);
-
-        Ok(())
+    pub async fn remove_error_callback(&self, callback_id: String) {
+        self.error_callbacks.lock().await.remove(&callback_id);
     }
 
-    fn chunks<T: Clone>(array: &[T], size: usize) -> Vec<Vec<T>> {
-        let mut result = Vec::new();
-        let mut index = 0;
+    async fn load(&self) {
+        let accounts_to_load = self.accounts_to_load.lock().await;
+        let account_chunks: Vec<Vec<&AccountToLoad>> = accounts_to_load
+            .values()
+            .collect::<Vec<_>>()
+            .chunks(99)
+            .map(|chunk| chunk.to_vec())
+            .collect();
 
-        while index < array.len() {
-            let end = std::cmp::min(index + size, array.len());
-            result.push(array[index..end].to_vec());
-            index += size;
+        let mut futures = Vec::new();
+
+        for chunk in account_chunks {
+            futures.push(self.load_chunk(chunk));
         }
 
-        result
+        futures_util::future::join_all(futures).await;
     }
 
-    pub async fn load(&mut self) -> SdkResult<()> {
-        if let Some(_load_promise) = &self.load_promise {
-            let now = Instant::now();
+    async fn load_chunk(&self, chunk: Vec<&AccountToLoad>) {
+        let client = self.client.clone();
+        let commitment = self.commitment.clone();
 
-            if now.sub(self.last_time_loading_promise_cleared) > Duration::new(60, 0) {
-                self.load_promise = None;
-            } else {
-                // return self.load_promise;
+        let pubkeys: Vec<Pubkey> = chunk.iter().map(|a| a.public_key).collect();
+        let responses = match client
+            .get_multiple_accounts_with_commitment(&pubkeys, commitment)
+            .await
+        {
+            Ok(response) => response.value,
+            Err(e) => {
+                self.handle_error(Arc::new(e)).await;
+                return;
+            }
+        };
+
+        for (i, response) in responses.iter().enumerate() {
+            if let Some(account_data) = response {
+                let account_to_load = chunk[i];
+                let buffer = account_data.data.clone();
+                let slot = account_data.lamports;
+
+                let mut buffer_and_slot_map = self.buffer_and_slot_map.lock().await;
+                let old_data = buffer_and_slot_map.get(&account_to_load.public_key.to_string());
+
+                if old_data.is_none() || old_data.unwrap().slot < slot {
+                    buffer_and_slot_map.insert(
+                        account_to_load.public_key.to_string(),
+                        BufferAndSlot {
+                            buffer: buffer.clone(),
+                            slot,
+                        },
+                    );
+                    for callback in account_to_load.callbacks.values() {
+                        callback(buffer.clone(), slot);
+                    }
+                }
             }
         }
-
-        // self.load_promise = 
-
-        Ok(())
     }
 
-    pub fn start_polling(&self) {}
+    async fn handle_error(&self, error: Arc<dyn std::error::Error + Send + Sync>) {
+        let error_callbacks = self.error_callbacks.lock().await;
+        for callback in error_callbacks.values() {
+            callback(error.clone());
+        }
+    }
 
-    pub fn stop_polling(&self) {}
+    async fn start_polling(&mut self) {
+        let polling_frequency = self.polling_frequency.clone();
+        let loader = self.clone();
+
+        let handle = tokio::spawn(async move {
+            let mut interval = interval(polling_frequency);
+            loop {
+                interval.tick().await;
+                loader.load().await;
+            }
+        });
+
+        self.interval_handle = Some(handle);
+    }
+
+    fn stop_polling(&mut self) {
+        if let Some(handle) = &self.interval_handle {
+            handle.abort();
+            self.interval_handle = None;
+        }
+    }
+}
+
+impl Clone for BulkAccountLoader {
+    fn clone(&self) -> Self {
+        BulkAccountLoader {
+            client: self.client.clone(),
+            commitment: self.commitment.clone(),
+            polling_frequency: self.polling_frequency,
+            accounts_to_load: self.accounts_to_load.clone(),
+            buffer_and_slot_map: self.buffer_and_slot_map.clone(),
+            error_callbacks: self.error_callbacks.clone(),
+            interval_handle: None,
+        }
+    }
 }

@@ -38,10 +38,10 @@ impl From<&str> for PriorityFeeMethod {
     }
 }
 
-pub struct PriorityFeeSubscriberConfig<T: AccountProvider> {
+pub struct PriorityFeeSubscriberConfig<T: AccountProvider, F, E> {
     /// rpc connection, optional if using priorityFeeMethod.HELIUS
     //connection?: Connection;
-    pub drift_client: Option<DriftClient<T>>,
+    pub drift_client: Option<DriftClient<T, F, E>>,
 
     /// frequency to make RPC calls to update priority fee samples, in milliseconds
     pub frequency_ms: Option<u64>,

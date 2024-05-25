@@ -19,6 +19,7 @@ use drift::{
         user::{MarketType, Order, OrderStatus, PerpPosition, SpotPosition, User, UserStats},
     },
 };
+use drift_client_config::ClientOpts;
 use event_emitter::*;
 use fnv::FnvHashMap;
 use futures_util::{future::BoxFuture, FutureExt, StreamExt, TryFutureExt};
@@ -55,6 +56,7 @@ use tokio::{
 };
 use types::*;
 use user::DriftUser;
+use user_config::UserSubscriptionConfig;
 use utils::{decode, get_ws_url};
 use websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber};
 
@@ -65,6 +67,7 @@ pub mod async_utils;
 pub mod blockhash_subscriber;
 pub mod constants;
 pub mod dlob;
+pub mod drift_client_config;
 pub mod event_emitter;
 pub mod jupiter;
 pub mod marketmap;
@@ -304,15 +307,22 @@ impl AccountProvider for WsAccountProvider {
 /// as network connections or memory allocations
 #[derive(Clone)]
 #[must_use]
-pub struct DriftClient<T: AccountProvider> {
+pub struct DriftClient<T, F, E>
+where
+    T: AccountProvider,
+{
     pub backend: &'static DriftClientBackend<T>,
     pub wallet: Wallet,
     pub active_sub_account_id: u16,
     pub sub_account_ids: Vec<u16>,
     pub users: Vec<DriftUser>,
+    pub user_account_subscription_config: UserSubscriptionConfig<T, F, E>,
 }
 
-impl<T: AccountProvider> DriftClient<T> {
+impl<T, F, E> DriftClient<T, F, E>
+where
+    T: AccountProvider,
+{
     pub async fn new(context: Context, account_provider: T, wallet: Wallet) -> SdkResult<Self> {
         Self::new_with_opts(context, account_provider, wallet, ClientOpts::default()).await
     }
@@ -321,7 +331,7 @@ impl<T: AccountProvider> DriftClient<T> {
         context: Context,
         account_provider: T,
         wallet: Wallet,
-        opts: ClientOpts,
+        opts: ClientOpts<F, E>,
     ) -> SdkResult<Self> {
         Ok(Self {
             backend: Box::leak(Box::new(
@@ -331,6 +341,7 @@ impl<T: AccountProvider> DriftClient<T> {
             active_sub_account_id: opts.active_sub_account_id(),
             sub_account_ids: opts.sub_account_ids(),
             users: vec![],
+            user_account_subscription_config: opts.account_subscription(),
         })
     }
 

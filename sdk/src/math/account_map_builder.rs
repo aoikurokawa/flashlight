@@ -29,9 +29,9 @@ pub(crate) struct AccountMapBuilder {
 
 impl AccountMapBuilder {
     /// Constructs the account map + drift state account
-    pub fn build<T: AccountProvider>(
+    pub fn build<T: AccountProvider, F, E>(
         &mut self,
-        client: &DriftClient<T>,
+        client: &DriftClient<T, F, E>,
         user: &User,
     ) -> SdkResult<AccountMaps> {
         let mut oracles = FnvHashSet::<Pubkey>::default();

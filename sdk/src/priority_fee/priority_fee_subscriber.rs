@@ -19,9 +19,9 @@ use super::{
     },
 };
 
-pub struct PriorityFeeSubscriber<T: AccountProvider> {
+pub struct PriorityFeeSubscriber<T: AccountProvider, F, E> {
     // connection: Connection,
-    drift_client: Option<DriftClient<T>>,
+    drift_client: Option<DriftClient<T, F, E>>,
     frequency_ms: u64,
     addresses: Vec<Pubkey>,
     drift_markets: Option<Vec<DriftMarketInfo>>,
@@ -45,8 +45,8 @@ pub struct PriorityFeeSubscriber<T: AccountProvider> {
     last_slot_seen: u64,
 }
 
-impl<T: AccountProvider> PriorityFeeSubscriber<T> {
-    pub fn new(config: PriorityFeeSubscriberConfig<T>) -> SdkResult<Self> {
+impl<T: AccountProvider, F, E> PriorityFeeSubscriber<T, F, E> {
+    pub fn new(config: PriorityFeeSubscriberConfig<T, F, E>) -> SdkResult<Self> {
         let drift_client = config.drift_client;
         let frequency_ms = match config.frequency_ms {
             Some(ms) => ms,

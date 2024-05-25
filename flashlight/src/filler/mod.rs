@@ -27,7 +27,7 @@ where
 
     slot_subscriber: SlotSubscriber,
     bulk_account_loader: Option<BulkAccountLoader<F, Fut, G>>,
-    user_stats_map_subscription_config: UserSubscriptionConfig<T>,
+    user_stats_map_subscription_config: UserSubscriptionConfig<T, F, Fut, G>,
     drift_client: DriftClient<T>,
     /// Connection to use specifically for confirming transactions
     tx_confirmation_connection: RpcClient,
@@ -140,9 +140,7 @@ where
                     account_loader: loader,
                 }
             }
-            None => {
-                drift_client.get_user_stats(authority)
-            }
+            None => drift_client.get_user_stats(authority),
         };
 
         Self {

@@ -7,6 +7,7 @@ use anchor_lang::AccountDeserialize;
 use drift::{error::ErrorCode, state::user::MarketType};
 use futures_util::Sink;
 use solana_sdk::{
+    commitment_config::CommitmentLevel,
     instruction::{AccountMeta, InstructionError},
     pubkey::Pubkey,
     transaction::TransactionError,
@@ -14,6 +15,8 @@ use solana_sdk::{
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
+
+use crate::{accounts::BulkAccountLoader, user_config::UserSubscriptionConfig};
 
 pub type SdkResult<T> = Result<T, SdkError>;
 
@@ -258,35 +261,3 @@ impl From<RemainingAccount> for AccountMeta {
     }
 }
 
-#[derive(Clone)]
-pub struct ClientOpts {
-    active_sub_account_id: u16,
-    sub_account_ids: Vec<u16>,
-}
-
-impl Default for ClientOpts {
-    fn default() -> Self {
-        Self {
-            active_sub_account_id: 0,
-            sub_account_ids: vec![0],
-        }
-    }
-}
-
-impl ClientOpts {
-    pub fn new(active_sub_account_id: u16, sub_account_ids: Option<Vec<u16>>) -> Self {
-        let sub_account_ids = sub_account_ids.unwrap_or(vec![active_sub_account_id]);
-        Self {
-            active_sub_account_id,
-            sub_account_ids,
-        }
-    }
-
-    pub fn active_sub_account_id(&self) -> u16 {
-        self.active_sub_account_id
-    }
-
-    pub fn sub_account_ids(self) -> Vec<u16> {
-        self.sub_account_ids
-    }
-}
