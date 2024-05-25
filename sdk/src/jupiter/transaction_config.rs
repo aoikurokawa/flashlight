@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::jupiter::serde_helpers::option_field_as_string;
