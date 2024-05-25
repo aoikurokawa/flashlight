@@ -30,7 +30,7 @@ pub(crate) struct FillerConfig {
 
     pub(crate) rebalance_filler: Option<bool>,
 
-    pub(crate) rebalance_settled_pnl_threshold: Option<u16>,
+    pub(crate) rebalance_settled_pnl_threshold: Option<f64>,
 
     pub(crate) min_gas_balance_to_fill: Option<f64>,
 }

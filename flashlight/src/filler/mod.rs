@@ -1,4 +1,8 @@
-use std::{collections::HashMap, time::Instant};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    time::{Duration, Instant},
+};
 
 use drift::state::user_map::UserStatsMap;
 use log::info;
@@ -11,13 +15,14 @@ use sdk::{
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount, native_token::LAMPORTS_PER_SOL,
+    pubkey::Pubkey,
 };
 
 use crate::{
     bundle_sender::BundleSender,
     config::{FillerConfig, GlobalConfig},
     metrics::RuntimeSpec,
-    util::valid_minimum_gas_amount,
+    util::{valid_minimum_gas_amount, valid_rebalance_settled_pnl_threshold},
 };
 
 const DEFAULT_INTERVAL_MS: u16 = 6000;
@@ -30,8 +35,7 @@ where
 {
     name: String,
     dry_run: bool,
-    default_interval_ms: u16,
-
+    // default_interval_ms: u16,
     slot_subscriber: SlotSubscriber,
     bulk_account_loader: Option<BulkAccountLoader>,
     user_stats_map_subscription_config: UserSubscriptionConfig<U>,
@@ -54,7 +58,7 @@ where
     // periodic_task_mutex = new Mutex();
 
     // watchdogTimerMutex = new Mutex();
-    watchdog_timer_last_pat_time: std::time::SystemTime,
+    watchdog_timer_last_pat_time: Instant,
 
     interval_ids: Vec<Instant>,
     throttled_nodes: HashMap<String, u16>,
@@ -64,7 +68,7 @@ where
     use_burst_cu_limit: bool,
     fill_tx_since_burst_cu: u16,
     fill_tx_id: u16,
-    last_settle_pnl: std::time::SystemTime,
+    last_settle_pnl: Instant,
 
     priority_fee_subscriber: PriorityFeeSubscriber<T, U>,
     blockhash_subscriber: BlockhashSubscriber,
@@ -80,7 +84,7 @@ where
     // >;
     // expiredNodesSet: LRUCache<string, boolean>;
     confirm_loop_running: bool,
-    confirm_loop_rate_limit_ts: std::time::SystemTime,
+    confirm_loop_rate_limit_ts: Instant,
 
     jupiter_client: Option<JupiterClient>,
 
@@ -112,7 +116,7 @@ where
     has_enough_sol_to_fill: bool,
     rebalance_filler: bool,
     min_gas_balance_to_fill: f64,
-    // rebalance_settled_pnl_threshold: BN;
+    rebalance_settled_pnl_threshold: f64,
 }
 
 impl<'a, T, D, S, U> FillerBot<'a, T, D, S, U>
@@ -182,6 +186,31 @@ where
                 filler_config.min_gas_balance_to_fill.unwrap() * LAMPORTS_PER_SOL as f64
             };
 
+        let rebalance_settled_pnl_threshold = if !valid_rebalance_settled_pnl_threshold(
+            filler_config.rebalance_settled_pnl_threshold,
+        ) {
+            20_f64
+        } else {
+            filler_config.rebalance_settled_pnl_threshold.unwrap()
+        };
+
+        info!(
+            "{}: minimum_amount_to_fill: {}",
+            filler_config.base_config.bot_id, min_gas_balance_to_fill
+        );
+
+        info!(
+            "{}: minimum_amount_to_settle: {}",
+            filler_config.base_config.bot_id, rebalance_settled_pnl_threshold
+        );
+
+        // Openbook SOL/USDC
+        // sol-perp
+        priority_fee_subscriber.update_addresses(&[
+            Pubkey::from_str("8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6").unwrap(),
+            Pubkey::from_str("8UJgxaiQx5nTrdDgph5FiahMmzduuLTLf5WmsPegYA6W").unwrap(),
+        ]);
+
         Self {
             global_config,
             filler_config,
@@ -203,7 +232,26 @@ where
             bundle_sender,
             jupiter_client,
             rebalance_filler: filler_config.rebalance_filler.unwrap_or(false),
-            min_gas_balance_to_fill
+            min_gas_balance_to_fill,
+            rebalance_settled_pnl_threshold,
+            priority_fee_subscriber,
+            blockhash_subscriber,
+            confirm_loop_running: false,
+            confirm_loop_rate_limit_ts: Instant::now() - Duration::from_secs(5_000),
+            dlob_subscriber: None,
+            drift_client,
+            fill_tx_id: 0,
+            fill_tx_since_burst_cu: 0,
+            filling_nodes: HashMap::new(),
+            has_enough_sol_to_fill: false,
+            interval_ids: vec![],
+            last_settle_pnl: Instant::now() - Duration::from_secs(60_000),
+            lookup_table_account: None,
+            throttled_nodes: HashMap::new(),
+            triggering_nodes: HashMap::new(),
+            user_stats_map: None,
+            use_burst_cu_limit: false,
+            watchdog_timer_last_pat_time: Instant::now(),
         }
     }
 }
