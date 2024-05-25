@@ -38,24 +38,26 @@ impl ClientOpts {
         self.active_sub_account_id
     }
 
-    pub fn sub_account_ids(&self) -> Vec<u16> {
-        self.sub_account_ids
+    pub fn sub_account_ids(&self) -> &[u16] {
+        &self.sub_account_ids
     }
 
     pub fn account_subscription<U>(&self) -> Option<UserSubscriptionConfig<U>> {
-        match self.account_subscription {
+        match &self.account_subscription {
             Some(subscription) => match subscription {
                 DriftClientSubscriptionConfig::WebSocket {
                     resub_timeout_ms,
                     log_resub_messages,
                     commitment,
                 } => Some(UserSubscriptionConfig::WebSocket {
-                    resub_timeout_ms,
-                    log_resub_messages,
-                    commitment,
+                    resub_timeout_ms: *resub_timeout_ms,
+                    log_resub_messages: *log_resub_messages,
+                    commitment: *commitment,
                 }),
                 DriftClientSubscriptionConfig::Polling { account_loader } => {
-                    Some(UserSubscriptionConfig::Polling { account_loader })
+                    Some(UserSubscriptionConfig::Polling {
+                        account_loader: account_loader.clone(),
+                    })
                 }
             },
             None => None,

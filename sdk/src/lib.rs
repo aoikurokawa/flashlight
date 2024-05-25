@@ -339,7 +339,7 @@ where
             )),
             wallet,
             active_sub_account_id: opts.active_sub_account_id(),
-            sub_account_ids: opts.sub_account_ids(),
+            sub_account_ids: opts.sub_account_ids().to_vec(),
             users: vec![],
             user_account_subscription_config: opts.account_subscription(),
         })
