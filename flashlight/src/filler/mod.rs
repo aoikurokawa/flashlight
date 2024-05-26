@@ -13,7 +13,9 @@ use sdk::{
     user_config::UserSubscriptionConfig, usermap::UserMap, AccountProvider, DriftClient,
 };
 use solana_sdk::{
-    address_lookup_table_account::AddressLookupTableAccount, native_token::LAMPORTS_PER_SOL,
+    address_lookup_table_account::AddressLookupTableAccount,
+    commitment_config::{CommitmentConfig, CommitmentLevel},
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
 };
 
@@ -256,5 +258,20 @@ where
             use_burst_cu_limit: false,
             watchdog_timer_last_pat_time: Instant::now(),
         }
+    }
+
+    pub fn base_init(&mut self) {
+        let start_init_user_stats_map = Instant::now();
+        info!("Initializing user_stats_map");
+
+        let user_stats_loader = BulkAccountLoader::new(
+            self.drift_client.backend.rpc_client,
+            CommitmentConfig {
+                commitment: CommitmentLevel::Confirmed,
+            },
+            Duration::from_secs(0),
+        );
+
+        // self.user_stats_map = UserStatsMap::
     }
 }
