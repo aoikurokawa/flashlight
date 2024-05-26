@@ -1,8 +1,5 @@
-use std::sync::{Arc, Mutex};
-
 use async_trait::async_trait;
 use drift::state::user::User as UserAccount;
-use tokio::sync::broadcast::Sender;
 
 use crate::{
     types::{DataAndSlot, SdkError, UserStatsAccount},
@@ -41,12 +38,8 @@ pub trait UserStatsAccountEvents {
 
 #[async_trait]
 pub trait UserStatsAccountSubscriber {
-    fn event_emitter(&self) -> Arc<Mutex<Sender<Box<dyn UserStatsAccountEvents>>>>;
-    fn is_subscribed(&self) -> bool;
-
-    async fn subscribe(&mut self, user_account: Option<UserAccount>) -> bool;
+    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> bool;
     async fn fetch(&self);
-    fn update_data(&self, user_account: UserAccount, slot: usize);
     async fn unsubscribe(&mut self);
-    fn get_user_account_and_slot(&self) -> DataAndSlot<UserAccount>;
+    fn get_user_account_and_slot(&self) -> DataAndSlot<UserStatsAccount>;
 }

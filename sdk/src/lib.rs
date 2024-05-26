@@ -80,6 +80,7 @@ pub mod types;
 pub mod user;
 pub mod user_config;
 pub mod user_stats;
+pub mod user_stats_config;
 pub mod usermap;
 pub mod utils;
 pub mod websocket_account_subscriber;
