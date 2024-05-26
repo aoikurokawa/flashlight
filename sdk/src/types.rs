@@ -1,10 +1,13 @@
 use std::{
     cell::{BorrowError, BorrowMutError},
-    cmp::Ordering,
+    cmp::Ordering, sync::{Arc, Mutex},
 };
 
 use anchor_lang::AccountDeserialize;
-use drift::{error::ErrorCode, state::user::MarketType};
+use drift::{
+    error::ErrorCode,
+    state::user::{MarketType, UserFees},
+};
 use futures_util::Sink;
 use solana_sdk::{
     instruction::{AccountMeta, InstructionError},
@@ -12,7 +15,7 @@ use solana_sdk::{
     transaction::TransactionError,
 };
 use thiserror::Error;
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, sync::broadcast::Sender};
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
 pub type SdkResult<T> = Result<T, SdkError>;
@@ -257,3 +260,47 @@ impl From<RemainingAccount> for AccountMeta {
         }
     }
 }
+
+#[derive(Eq, PartialEq, Debug)]
+#[repr(C)]
+pub struct UserStatsAccount {
+    /// The authority for all of a users sub accounts
+    pub authority: Pubkey,
+    /// The address that referred this user
+    pub referrer: Pubkey,
+    /// Stats on the fees paid by the user
+    pub fees: UserFees,
+
+    /// The timestamp of the next epoch
+    /// Epoch is used to limit referrer rewards earned in single epoch
+    pub next_epoch_ts: i64,
+
+    /// Rolling 30day maker volume for user
+    /// precision: QUOTE_PRECISION
+    pub maker_volume_30d: u64,
+    /// Rolling 30day taker volume for user
+    /// precision: QUOTE_PRECISION
+    pub taker_volume_30d: u64,
+    /// Rolling 30day filler volume for user
+    /// precision: QUOTE_PRECISION
+    pub filler_volume_30d: u64,
+    /// last time the maker volume was updated
+    pub last_maker_volume_30d_ts: i64,
+    /// last time the taker volume was updated
+    pub last_taker_volume_30d_ts: i64,
+    /// last time the filler volume was updated
+    pub last_filler_volume_30d_ts: i64,
+
+    /// The amount of tokens staked in the quote spot markets if
+    pub if_staked_quote_asset_amount: u64,
+    /// The current number of sub accounts
+    pub number_of_sub_accounts: u16,
+    /// The number of sub accounts created. Can be greater than the number of sub accounts if user
+    /// has deleted sub accounts
+    pub number_of_sub_accounts_created: u16,
+    /// Whether the user is a referrer. Sub account 0 can not be deleted if user is a referrer
+    pub is_referrer: bool,
+    pub disable_update_perp_bid_ask_twap: bool,
+    pub padding: [u8; 50],
+}
+

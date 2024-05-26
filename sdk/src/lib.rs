@@ -79,6 +79,7 @@ pub mod slot_subscriber;
 pub mod types;
 pub mod user;
 pub mod user_config;
+pub mod user_stats;
 pub mod usermap;
 pub mod utils;
 pub mod websocket_account_subscriber;
@@ -684,7 +685,7 @@ where
 /// Provides the heavy-lifting and network facing features of the SDK
 /// It is intended to be a singleton
 pub struct DriftClientBackend<T: AccountProvider> {
-    pub rpc_client: RpcClient,
+    pub rpc_client: Arc<RpcClient>,
     pub account_provider: T,
     pub program_data: ProgramData,
     pub perp_market_map: MarketMap<PerpMarket>,
@@ -742,7 +743,7 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         )));
 
         Ok(Self {
-            rpc_client,
+            rpc_client: Arc::new(rpc_client),
             account_provider,
             program_data: ProgramData::new(
                 spot_market_map.values(),

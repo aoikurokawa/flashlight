@@ -36,12 +36,12 @@ pub struct BulkAccountLoader {
 
 impl BulkAccountLoader {
     pub fn new(
-        client: RpcClient,
+        client: Arc<RpcClient>,
         commitment: CommitmentConfig,
         polling_frequency: Duration,
     ) -> Self {
         BulkAccountLoader {
-            client: Arc::new(client),
+            client,
             commitment,
             polling_frequency,
             accounts_to_load: Arc::new(Mutex::new(HashMap::new())),
