@@ -12,7 +12,6 @@ use sdk::{
     priority_fee::priority_fee_subscriber::PriorityFeeSubscriber, slot_subscriber::SlotSubscriber,
     user_config::UserSubscriptionConfig, usermap::UserMap, AccountProvider, DriftClient,
 };
-use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount, native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
@@ -38,10 +37,10 @@ where
     // default_interval_ms: u16,
     slot_subscriber: SlotSubscriber,
     bulk_account_loader: Option<BulkAccountLoader>,
-    user_stats_map_subscription_config: UserSubscriptionConfig<U>,
+    // user_stats_map_subscription_config: &'a UserSubscriptionConfig<U>,
     drift_client: DriftClient<T, U>,
     /// Connection to use specifically for confirming transactions
-    tx_confirmation_connection: RpcClient,
+    // tx_confirmation_connection: RpcClient,
     polling_interval_ms: u16,
     revert_on_failure: Option<bool>,
     simulate_tx_for_cu_estimate: Option<bool>,
@@ -86,7 +85,7 @@ where
     confirm_loop_running: bool,
     confirm_loop_rate_limit_ts: Instant,
 
-    jupiter_client: Option<JupiterClient>,
+    jupiter_client: Option<JupiterClient<'a>>,
 
     // metrics
     // metrics_initialized: bool,
@@ -133,23 +132,27 @@ where
         runtime_spec: RuntimeSpec,
         global_config: GlobalConfig,
         filler_config: FillerConfig,
-        priority_fee_subscriber: PriorityFeeSubscriber<T, U>,
+        mut priority_fee_subscriber: PriorityFeeSubscriber<T, U>,
         blockhash_subscriber: BlockhashSubscriber,
         bundle_sender: Option<BundleSender>,
     ) -> Self {
         // todo!()
-        let tx_confirmation_connection = match global_config.tx_confirmation_endpoint {
-            Some(endpoint) => RpcClient::new(endpoint),
-            None => drift_client.backend.rpc_client,
-        };
+        // let tx_confirmation_connection = match global_config.tx_confirmation_endpoint {
+        //     Some(ref endpoint) => RpcClient::new(endpoint.to_string()),
+        //     None => drift_client.backend.rpc_client,
+        // };
 
-        let user_stats_map_subscription_config = match bulk_account_loader {
-            Some(account_loader) => {
-                // let loader = BulkAccountLoader::new(account_leader.rpc_client, account_leader.commitment, polling_frequency);
-                UserSubscriptionConfig::Polling { account_loader }
-            }
-            None => drift_client.user_account_subscription_config.unwrap(),
-        };
+        // let user_stats_map_subscription_config = match bulk_account_loader {
+        //     Some(ref account_loader) => {
+        //         // let loader = BulkAccountLoader::new(account_leader.rpc_client, account_leader.commitment, polling_frequency);
+        //         UserSubscriptionConfig::Polling {
+        //             account_loader: account_loader.clone(),
+        //         }
+        //     }
+        //     None => drift_client
+        //         .user_account_subscription_config
+        //         .unwrap(),
+        // };
 
         info!(
             "{}: revert_on_failure: {}, simulate_tx_for_cu_estimate: {}",
@@ -167,7 +170,7 @@ where
         let jupiter_client = if filler_config.rebalance_filler.is_some()
             && runtime_spec.drift_env == "mainnet-beta"
         {
-            let client = JupiterClient::new(drift_client.backend.rpc_client, None);
+            let client = JupiterClient::new(&drift_client.backend.rpc_client, None);
             Some(client)
         } else {
             None
@@ -213,13 +216,13 @@ where
 
         Self {
             global_config,
-            filler_config,
+            filler_config: filler_config.clone(),
             name: filler_config.base_config.bot_id,
             dry_run: filler_config.base_config.dry_run,
             slot_subscriber,
-            tx_confirmation_connection,
+            // tx_confirmation_connection,
             bulk_account_loader,
-            user_stats_map_subscription_config,
+            // user_stats_map_subscription_config: &user_stats_map_subscription_config,
             runtime_spec,
             polling_interval_ms: filler_config
                 .filler_polling_interval

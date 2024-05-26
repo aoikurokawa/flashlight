@@ -137,14 +137,14 @@ pub struct QuoteResponse {
     pub time_taken: f64,
 }
 
-pub struct JupiterClient {
+pub struct JupiterClient<'a> {
     url: String,
-    rpc_client: RpcClient,
+    rpc_client: &'a RpcClient,
     lookup_table_cache: HashMap<String, AddressLookupTableAccount>,
 }
 
-impl JupiterClient {
-    pub fn new(rpc_client: RpcClient, url: Option<String>) -> Self {
+impl<'a> JupiterClient<'a> {
+    pub fn new(rpc_client: &'a RpcClient, url: Option<String>) -> Self {
         let url = match url {
             Some(url) => url,
             None => "https://quote-api.jup.ag".to_string(),
@@ -396,7 +396,7 @@ mod tests {
     const NATIVE_MINT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
     const TEST_WALLET: Pubkey = pubkey!("2AQdpHJ2JpcEgPiATUXjQxA8QmafFegfQwSLWSprPicm");
 
-    async fn request_get_quote(client: &JupiterClient) -> SdkResult<QuoteResponse> {
+    async fn request_get_quote(client: &JupiterClient<'_>) -> SdkResult<QuoteResponse> {
         let quote_response = client
             .get_quote(
                 USDC_MINT,
@@ -416,7 +416,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_quote() {
         let rpc_client = RpcClient::new("".to_string());
-        let jupiter_client = JupiterClient::new(rpc_client, None);
+        let jupiter_client = JupiterClient::new(&rpc_client, None);
 
         // GET /quote
         let quote_response = request_get_quote(&jupiter_client).await;
@@ -427,7 +427,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_swap() {
         let rpc_client = RpcClient::new("".to_string());
-        let jupiter_client = JupiterClient::new(rpc_client, None);
+        let jupiter_client = JupiterClient::new(&rpc_client, None);
 
         let quote_response = request_get_quote(&jupiter_client)
             .await
@@ -444,7 +444,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_swap_instructions() {
         let rpc_client = RpcClient::new("".to_string());
-        let jupiter_client = JupiterClient::new(rpc_client, None);
+        let jupiter_client = JupiterClient::new(&rpc_client, None);
 
         let quote_response = request_get_quote(&jupiter_client)
             .await
