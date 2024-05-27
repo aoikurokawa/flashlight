@@ -1,14 +1,12 @@
 use std::{
     cell::{BorrowError, BorrowMutError},
     cmp::Ordering,
-    sync::{Arc, Mutex},
 };
 
 use anchor_lang::AccountDeserialize;
-use borsh::BorshDeserialize;
 use drift::{
     error::ErrorCode,
-    state::user::{MarketType, UserFees, UserStats},
+    state::user::{MarketType, UserStats},
 };
 use futures_util::Sink;
 use solana_sdk::{
@@ -17,7 +15,7 @@ use solana_sdk::{
     transaction::TransactionError,
 };
 use thiserror::Error;
-use tokio::{net::TcpStream, sync::broadcast::Sender};
+use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
 use crate::event_emitter::Event;

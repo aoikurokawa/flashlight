@@ -13,12 +13,13 @@ pub trait AccountCallback: FnMut(Vec<u8>, u64) + Send + Sync {}
 impl<T> AccountCallback for T where T: FnMut(Vec<u8>, u64) + Send + Sync {}
 
 pub trait ErrorCallback: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
+
 impl<T> ErrorCallback for T where T: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
 
 #[derive(Clone)]
 pub struct AccountToLoad {
     public_key: Pubkey,
-    callbacks: HashMap<String, Arc<dyn AccountCallback>>,
+    callbacks: HashMap<String, Arc<Mutex<dyn AccountCallback>>>,
 }
 
 pub struct BufferAndSlot {
@@ -28,7 +29,7 @@ pub struct BufferAndSlot {
 
 pub struct BulkAccountLoader {
     client: Arc<RpcClient>,
-    commitment: CommitmentConfig,
+    pub commitment: CommitmentConfig,
     polling_frequency: Duration,
     accounts_to_load: Arc<Mutex<HashMap<String, AccountToLoad>>>,
     buffer_and_slot_map: Arc<Mutex<HashMap<String, BufferAndSlot>>>,
@@ -56,7 +57,7 @@ impl BulkAccountLoader {
     pub async fn add_account(
         &mut self,
         public_key: Pubkey,
-        callback: Arc<dyn AccountCallback>,
+        callback: Arc<Mutex<dyn AccountCallback>>,
     ) -> String {
         let callback_id = Uuid::new_v4().to_string();
 
@@ -165,6 +166,7 @@ impl BulkAccountLoader {
                         },
                     );
                     for callback in account_to_load.callbacks.values_mut() {
+                        let mut callback = callback.lock().await;
                         callback(buffer.clone(), slot);
                     }
                 }
