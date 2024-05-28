@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anchor_client::{Client, Cluster, Program};
+use anchor_client::{Client, Cluster};
 pub use drift::ID as PROGRAM_ID;
 use solana_sdk::pubkey::Pubkey;
 
@@ -10,7 +10,8 @@ use crate::{
         web_socket_user_stats_account_subscriber::WebSocketUserStatsAccountSubscriber, ResubOpts,
         UserStatsAccountSubscriber,
     },
-    types::{SdkError, SdkResult},
+    addresses::pda::{get_user_account_pubkey, get_user_stats_account_pubkey},
+    types::{DataAndSlot, ReferrerInfo, SdkError, SdkResult, UserStatsAccount},
     user_stats_config::{UserStatsConfig, UserStatsSubscriptionConfig},
     AccountProvider, DriftClient,
 };
@@ -68,5 +69,75 @@ impl<T: AccountProvider, U> UserStats<T, U> {
             account_subscriber,
             is_subscribed: false,
         })
+    }
+
+    pub async fn subscribe(
+        &mut self,
+        user_stats_account: Option<UserStatsAccount>,
+    ) -> SdkResult<bool> {
+        self.is_subscribed = self
+            .account_subscriber
+            .subscribe(user_stats_account)
+            .await?;
+
+        Ok(self.is_subscribed)
+    }
+
+    pub async fn fetch_accounts(&mut self) -> SdkResult<()> {
+        self.account_subscriber.fetch().await?;
+
+        Ok(())
+    }
+
+    pub async fn unsubscribe(&mut self) {
+        self.account_subscriber.unsubscribe().await;
+        self.is_subscribed = false;
+    }
+
+    pub fn get_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
+        Ok(self.account_subscriber.get_user_stats_account_and_slot()?)
+    }
+
+    pub fn get_account(&self) -> SdkResult<Option<UserStatsAccount>> {
+        let account_and_slot = self.account_subscriber.get_user_stats_account_and_slot()?;
+
+        if let Some(account) = account_and_slot {
+            return Ok(Some(account.data));
+        }
+
+        Ok(None)
+    }
+
+    pub fn get_referrer_info(&self) -> SdkResult<Option<ReferrerInfo>> {
+        let account = self.get_account()?;
+
+        match account {
+            Some(account) => {
+                if account.referrer.eq(&Pubkey::default()) {
+                    return Ok(None);
+                } else {
+                    return Ok(Some(ReferrerInfo {
+                        referrer: get_user_account_pubkey(&PROGRAM_ID, account.referrer, Some(0)),
+                        referrer_stats: get_user_stats_account_pubkey(
+                            &PROGRAM_ID,
+                            account.referrer,
+                        ),
+                    }));
+                }
+            }
+            None => {
+                return Ok(None);
+            }
+        }
+    }
+
+    pub fn get_oldest_action_ts(account: UserStatsAccount) -> i64 {
+        std::cmp::min(
+            account.last_filler_volume_30d_ts,
+            std::cmp::min(
+                account.last_maker_volume_30d_ts,
+                account.last_taker_volume_30d_ts,
+            ),
+        )
     }
 }

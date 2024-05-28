@@ -63,6 +63,7 @@ use websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber};
 use crate::constants::state_account;
 
 pub mod accounts;
+pub mod addresses;
 pub mod async_utils;
 pub mod blockhash_subscriber;
 pub mod constants;

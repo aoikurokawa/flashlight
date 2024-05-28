@@ -49,5 +49,5 @@ pub trait UserStatsAccountSubscriber {
     async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool>;
     async fn fetch(&mut self) -> SdkResult<()>;
     async fn unsubscribe(&mut self);
-    fn get_user_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>>;
+    fn get_user_stats_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>>;
 }

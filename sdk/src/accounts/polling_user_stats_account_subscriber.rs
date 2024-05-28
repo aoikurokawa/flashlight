@@ -178,7 +178,7 @@ impl UserStatsAccountSubscriber for PollingUserStatsAccountSubscriber {
         self.is_subscribed = false;
     }
 
-    fn get_user_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
+    fn get_user_stats_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
         if !self.does_account_exist() {
             return Err(SdkError::Generic(
                 "You must subscribe or fetch before using this function".to_string(),

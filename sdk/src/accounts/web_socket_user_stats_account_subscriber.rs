@@ -90,7 +90,7 @@ impl UserStatsAccountSubscriber for WebSocketUserStatsAccountSubscriber {
         self.is_subscribed = false;
     }
 
-    fn get_user_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
+    fn get_user_stats_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
         assert!(
             self.is_subscribed,
             "You must call subscribe before using this function"
