@@ -1,9 +1,13 @@
+use std::marker::PhantomData;
+
+use async_trait::async_trait;
 use futures_util::StreamExt;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{nonblocking::pubsub_client::PubsubClient, rpc_config::RpcAccountInfoConfig};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use crate::{
+    accounts::AccountSubscriber,
     event_emitter::{Event, EventEmitter},
     SdkResult,
 };
@@ -26,7 +30,7 @@ impl Event for AccountUpdate {
 }
 
 #[derive(Clone)]
-pub struct WebsocketAccountSubscriber {
+pub struct WebsocketAccountSubscriber<T> {
     subscription_name: &'static str,
     url: String,
     pubkey: Pubkey,
@@ -34,9 +38,10 @@ pub struct WebsocketAccountSubscriber {
     pub subscribed: bool,
     pub event_emitter: EventEmitter,
     unsubscriber: Option<tokio::sync::mpsc::Sender<()>>,
+    _phantom: PhantomData<T>,
 }
 
-impl WebsocketAccountSubscriber {
+impl<T> WebsocketAccountSubscriber<T> {
     pub fn new(
         subscription_name: &'static str,
         url: String,
@@ -52,6 +57,7 @@ impl WebsocketAccountSubscriber {
             subscribed: false,
             event_emitter,
             unsubscriber: None,
+            _phantom: PhantomData,
         }
     }
 
@@ -168,5 +174,22 @@ impl WebsocketAccountSubscriber {
             self.subscribed = false;
         }
         Ok(())
+    }
+}
+
+#[async_trait]
+impl<T> AccountSubscriber<T> for WebsocketAccountSubscriber<T> {
+    async fn subscribe<F: FnMut(T) + std::marker::Send>(&self, on_change: F) {}
+
+    async fn fetch(&self) -> SdkResult<()> {
+        Ok(())
+    }
+
+    async fn unsubscribe(&self) {}
+
+    fn set_data(&mut self, user_account: T, slot: Option<u64>) {
+let new_slot = slot.unwrap_or(0);
+
+        if self
     }
 }

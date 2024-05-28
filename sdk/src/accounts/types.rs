@@ -6,6 +6,14 @@ use crate::{
     SdkResult,
 };
 
+#[async_trait]
+pub trait AccountSubscriber<T> {
+    async fn subscribe<F: FnMut(T) + std::marker::Send >(&self, on_change: F);
+    async fn fetch(&self) -> SdkResult<()>;
+    async fn unsubscribe(&self);
+    fn set_data(&mut self, user_account: T, slot: Option<u64>);
+}
+
 enum UserAccountEvents {
     UserAccountUpdate { payload: UserAccount },
     Update,
@@ -25,9 +33,9 @@ pub trait UserAccountSubscriber {
     async fn get_user_account_and_slot(&self) -> SdkResult<DataAndSlot<UserAccount>>;
 }
 
-pub(crate) struct BufferAndSlot {
-    pub(crate) slot: u64,
-    pub(crate) buffer: Option<Vec<u8>>,
+pub struct ResubOpts {
+    resub_timeout_ms: Option<u64>,
+    log_resub_messages: Option<bool>,
 }
 
 pub trait UserStatsAccountEvents {
