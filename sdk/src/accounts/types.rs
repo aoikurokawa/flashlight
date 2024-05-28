@@ -8,7 +8,7 @@ use crate::{
 
 #[async_trait]
 pub trait AccountSubscriber<T> {
-    async fn subscribe<F: FnMut(T) + std::marker::Send >(&mut self, on_change: F);
+    async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, on_change: F);
     async fn fetch(&mut self) -> SdkResult<()>;
     async fn unsubscribe(&self);
     fn set_data(&mut self, user_account: T, slot: Option<u64>);
