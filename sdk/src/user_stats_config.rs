@@ -1,4 +1,4 @@
-use solana_sdk::{commitment_config::CommitmentLevel, pubkey::Pubkey};
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use crate::{accounts::BulkAccountLoader, AccountProvider, DriftClient};
 
@@ -14,9 +14,9 @@ where
 #[derive(Clone)]
 pub enum UserStatsSubscriptionConfig {
     WebSocket {
-        resub_timeout_ms: Option<u16>,
+        resub_timeout_ms: Option<u64>,
         log_resub_messages: Option<bool>,
-        commitment: Option<CommitmentLevel>,
+        commitment: Option<CommitmentConfig>,
     },
     Polling {
         account_loader: BulkAccountLoader,

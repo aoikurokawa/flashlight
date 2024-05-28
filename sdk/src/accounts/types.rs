@@ -34,8 +34,8 @@ pub trait UserAccountSubscriber {
 }
 
 pub struct ResubOpts {
-    resub_timeout_ms: Option<u64>,
-    log_resub_messages: Option<bool>,
+    pub resub_timeout_ms: Option<u64>,
+    pub log_resub_messages: Option<bool>,
 }
 
 pub trait UserStatsAccountEvents {
