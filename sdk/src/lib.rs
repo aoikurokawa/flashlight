@@ -698,7 +698,7 @@ pub struct DriftClientBackend<T: AccountProvider> {
 
 impl<T: AccountProvider> DriftClientBackend<T> {
     /// Initialize a new `DriftClientBackend`
-    async fn new(context: Context, account_provider: T) -> SdkResult<DriftClientBackend<T>> {
+    async fn new(context: Context, account_provider: T) -> SdkResult<Self> {
         let rpc_client = RpcClient::new_with_commitment(
             account_provider.endpoint(),
             account_provider.commitment_config(),
@@ -784,7 +784,7 @@ impl<T: AccountProvider> DriftClientBackend<T> {
     async fn state_subscribe(&self) -> SdkResult<()> {
         let pubkey = *state_account();
 
-        let mut subscription = WebsocketAccountSubscriber::new(
+        let mut subscription: WebsocketAccountSubscriber<State> = WebsocketAccountSubscriber::new(
             "state",
             get_ws_url(&self.rpc_client.url()).expect("valid url"),
             pubkey,

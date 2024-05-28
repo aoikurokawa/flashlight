@@ -178,18 +178,21 @@ impl<T> WebsocketAccountSubscriber<T> {
 }
 
 #[async_trait]
-impl<T> AccountSubscriber<T> for WebsocketAccountSubscriber<T> {
-    async fn subscribe<F: FnMut(T) + std::marker::Send>(&self, on_change: F) {}
+impl<T> AccountSubscriber<T> for WebsocketAccountSubscriber<T>
+where
+    T: Send + Sync,
+{
+    async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, on_change: F) {}
 
-    async fn fetch(&self) -> SdkResult<()> {
+    async fn fetch(&mut self) -> SdkResult<()> {
         Ok(())
     }
 
     async fn unsubscribe(&self) {}
 
     fn set_data(&mut self, user_account: T, slot: Option<u64>) {
-let new_slot = slot.unwrap_or(0);
+        let new_slot = slot.unwrap_or(0);
 
-        if self
+        // if self
     }
 }

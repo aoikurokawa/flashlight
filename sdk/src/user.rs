@@ -13,7 +13,7 @@ use crate::{
 #[derive(Clone)]
 pub struct DriftUser {
     pub pubkey: Pubkey,
-    subscription: WebsocketAccountSubscriber,
+    subscription: WebsocketAccountSubscriber<User>,
     data_and_slot: Arc<RwLock<DataAndSlot<User>>>,
     pub sub_account: u16,
 }
@@ -21,9 +21,9 @@ pub struct DriftUser {
 impl DriftUser {
     pub const SUBSCRIPTION_ID: &'static str = "user";
 
-    pub async fn new<T: AccountProvider, U>(
+    pub async fn new<A: AccountProvider, U>(
         pubkey: Pubkey,
-        drift_client: &DriftClient<T, U>,
+        drift_client: &DriftClient<A, U>,
         sub_account: u16,
     ) -> SdkResult<Self> {
         let subscription = WebsocketAccountSubscriber::new(

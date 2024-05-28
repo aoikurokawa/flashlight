@@ -114,9 +114,9 @@ impl PollingUserStatsAccountSubscriber {
 
 #[async_trait]
 impl UserStatsAccountSubscriber for PollingUserStatsAccountSubscriber {
-    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> bool {
+    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool> {
         if self.is_subscribed {
-            return true;
+            return Ok(true);
         }
 
         if let Some(user_stats_account) = user_stats_account {
@@ -126,7 +126,7 @@ impl UserStatsAccountSubscriber for PollingUserStatsAccountSubscriber {
             });
         }
 
-        false
+        Ok(false)
     }
 
     async fn fetch(&mut self) -> SdkResult<()> {

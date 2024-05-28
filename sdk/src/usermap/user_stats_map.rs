@@ -1,9 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
-use solana_sdk::{
-    commitment_config::{CommitmentConfig, CommitmentLevel},
-    pubkey::Pubkey,
-};
+use solana_sdk::pubkey::Pubkey;
 
 use crate::{
     accounts::BulkAccountLoader,

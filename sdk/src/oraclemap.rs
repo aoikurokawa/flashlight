@@ -31,7 +31,7 @@ pub struct OracleMap {
     latest_slot: Arc<AtomicU64>,
     commitment: CommitmentConfig,
     rpc: RpcClient,
-    oracle_subscribers: RwLock<Vec<WebsocketAccountSubscriber>>,
+    oracle_subscribers: RwLock<Vec<WebsocketAccountSubscriber<Oracle>>>,
     perp_oracles: DashMap<u16, Pubkey>,
     spot_oracles: DashMap<u16, Pubkey>,
 }

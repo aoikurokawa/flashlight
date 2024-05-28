@@ -8,8 +8,8 @@ use crate::{
 
 #[async_trait]
 pub trait AccountSubscriber<T> {
-    async fn subscribe<F: FnMut(T) + std::marker::Send >(&self, on_change: F);
-    async fn fetch(&self) -> SdkResult<()>;
+    async fn subscribe<F: FnMut(T) + std::marker::Send >(&mut self, on_change: F);
+    async fn fetch(&mut self) -> SdkResult<()>;
     async fn unsubscribe(&self);
     fn set_data(&mut self, user_account: T, slot: Option<u64>);
 }
@@ -46,7 +46,7 @@ pub trait UserStatsAccountEvents {
 
 #[async_trait]
 pub trait UserStatsAccountSubscriber {
-    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> bool;
+    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool>;
     async fn fetch(&mut self) -> SdkResult<()>;
     async fn unsubscribe(&mut self);
     fn get_user_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>>;
