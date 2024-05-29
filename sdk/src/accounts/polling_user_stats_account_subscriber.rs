@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, any::Any};
 
 use anchor_client::Program;
 use async_trait::async_trait;
@@ -110,10 +110,7 @@ impl PollingUserStatsAccountSubscriber {
 
         Ok(())
     }
-}
 
-#[async_trait]
-impl UserStatsAccountSubscriber for PollingUserStatsAccountSubscriber {
     async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool> {
         if self.is_subscribed {
             return Ok(true);
@@ -188,3 +185,8 @@ impl UserStatsAccountSubscriber for PollingUserStatsAccountSubscriber {
         Ok(self.user_stats.clone())
     }
 }
+
+#[async_trait]
+impl UserStatsAccountSubscriber for PollingUserStatsAccountSubscriber {
+}
+

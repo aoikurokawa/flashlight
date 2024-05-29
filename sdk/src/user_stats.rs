@@ -16,15 +16,15 @@ use crate::{
     AccountProvider, DriftClient,
 };
 
-pub struct UserStats<T: AccountProvider, U> {
-    drift_client: DriftClient<T, U>,
-    user_stats_account_pubkey: Pubkey,
-    account_subscriber: Box<dyn UserStatsAccountSubscriber>,
-    is_subscribed: bool,
+pub struct UserStats<'a, T: AccountProvider, U> {
+    pub drift_client: &'a DriftClient<T, U>,
+    pub user_stats_account_pubkey: Pubkey,
+    pub account_subscriber: Box<dyn UserStatsAccountSubscriber>,
+    pub is_subscribed: bool,
 }
 
-impl<T: AccountProvider, U> UserStats<T, U> {
-    pub fn new(config: UserStatsConfig<T, U>) -> SdkResult<Self> {
+impl<'a, T: AccountProvider, U> UserStats<'a, T, U> {
+    pub fn new(config: UserStatsConfig<'a, T, U>) -> SdkResult<Self> {
         let client = Client::new(Cluster::Devnet, config.drift_client.wallet().signer.clone());
 
         let account_subscriber: Box<dyn UserStatsAccountSubscriber> =
@@ -64,7 +64,7 @@ impl<T: AccountProvider, U> UserStats<T, U> {
             };
 
         Ok(Self {
-            drift_client: config.drift_client,
+            drift_client: &config.drift_client,
             user_stats_account_pubkey: config.user_stats_account_public_key,
             account_subscriber,
             is_subscribed: false,

@@ -6,6 +6,11 @@ use crate::{
     SdkResult,
 };
 
+use super::{
+    polling_user_stats_account_subscriber::PollingUserStatsAccountSubscriber,
+    web_socket_user_stats_account_subscriber::WebSocketUserStatsAccountSubscriber,
+};
+
 #[async_trait]
 pub trait AccountSubscriber<T> {
     async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, on_change: F);
@@ -44,9 +49,17 @@ pub trait UserStatsAccountEvents {
     fn error(&self, e: SdkError);
 }
 
-#[async_trait]
-pub trait UserStatsAccountSubscriber {
-    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool>;
+pub enum UserStatsAccountSubscriber {
+    Polling(PollingUserStatsAccountSubscriber),
+    WebSocket(WebSocketUserStatsAccountSubscriber),
+}
+
+impl UserStatsAccountSubscriber {
+    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool> {
+match self {
+            UserStatsAccountSubscriber::Polling(polling) => pol
+        }
+    }
     async fn fetch(&mut self) -> SdkResult<()>;
     async fn unsubscribe(&mut self);
     fn get_user_stats_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>>;
