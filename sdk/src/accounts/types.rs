@@ -55,12 +55,44 @@ pub enum UserStatsAccountSubscriber {
 }
 
 impl UserStatsAccountSubscriber {
-    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool> {
-match self {
-            UserStatsAccountSubscriber::Polling(polling) => pol
+    pub(crate) async fn subscribe(
+        &mut self,
+        user_stats_account: Option<UserStatsAccount>,
+    ) -> SdkResult<bool> {
+        match self {
+            UserStatsAccountSubscriber::Polling(polling) => {
+                polling.subscribe(user_stats_account).await
+            }
+            UserStatsAccountSubscriber::WebSocket(websocket) => {
+                websocket.subscribe(user_stats_account).await
+            }
         }
     }
-    async fn fetch(&mut self) -> SdkResult<()>;
-    async fn unsubscribe(&mut self);
-    fn get_user_stats_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>>;
+
+    pub(crate) async fn fetch(&mut self) -> SdkResult<()> {
+        match self {
+            UserStatsAccountSubscriber::Polling(polling) => polling.fetch().await,
+            UserStatsAccountSubscriber::WebSocket(websocket) => websocket.fetch().await,
+        }
+    }
+
+    pub(crate) async fn unsubscribe(&mut self) {
+        match self {
+            UserStatsAccountSubscriber::Polling(polling) => polling.unsubscribe().await,
+            UserStatsAccountSubscriber::WebSocket(websocket) => websocket.unsubscribe().await,
+        }
+    }
+
+    pub(crate) fn get_user_stats_account_and_slot(
+        &self,
+    ) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
+        match self {
+            UserStatsAccountSubscriber::Polling(polling) => {
+                polling.get_user_stats_account_and_slot()
+            }
+            UserStatsAccountSubscriber::WebSocket(websocket) => {
+                websocket.get_user_stats_account_and_slot()
+            }
+        }
+    }
 }

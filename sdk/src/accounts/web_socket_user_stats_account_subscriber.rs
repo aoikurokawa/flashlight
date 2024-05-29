@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anchor_client::Program;
-use async_trait::async_trait;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair};
 
 use crate::{
@@ -10,7 +9,7 @@ use crate::{
     WebsocketAccountSubscriber,
 };
 
-use super::{AccountSubscriber, ResubOpts, UserStatsAccountSubscriber};
+use super::{AccountSubscriber, ResubOpts};
 
 pub struct WebSocketUserStatsAccountSubscriber {
     is_subscribed: bool,
@@ -47,11 +46,11 @@ impl WebSocketUserStatsAccountSubscriber {
             user_stats_account_subscriber,
         }
     }
-}
 
-#[async_trait]
-impl UserStatsAccountSubscriber for WebSocketUserStatsAccountSubscriber {
-    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool> {
+    pub(crate) async fn subscribe(
+        &mut self,
+        user_stats_account: Option<UserStatsAccount>,
+    ) -> SdkResult<bool> {
         if self.is_subscribed {
             return Ok(true);
         }
@@ -75,12 +74,12 @@ impl UserStatsAccountSubscriber for WebSocketUserStatsAccountSubscriber {
         Ok(true)
     }
 
-    async fn fetch(&mut self) -> SdkResult<()> {
+    pub(crate) async fn fetch(&mut self) -> SdkResult<()> {
         self.user_stats_account_subscriber.fetch().await?;
         Ok(())
     }
 
-    async fn unsubscribe(&mut self) {
+    pub(crate) async fn unsubscribe(&mut self) {
         if !self.is_subscribed {
             return;
         }
@@ -90,7 +89,9 @@ impl UserStatsAccountSubscriber for WebSocketUserStatsAccountSubscriber {
         self.is_subscribed = false;
     }
 
-    fn get_user_stats_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
+    pub(crate) fn get_user_stats_account_and_slot(
+        &self,
+    ) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
         assert!(
             self.is_subscribed,
             "You must call subscribe before using this function"

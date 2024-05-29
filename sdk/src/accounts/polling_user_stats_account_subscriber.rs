@@ -1,7 +1,6 @@
-use std::{sync::{Arc, Mutex}, any::Any};
+use std::sync::{Arc, Mutex};
 
 use anchor_client::Program;
-use async_trait::async_trait;
 use log::warn;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 use tokio::sync::Mutex as TokioMutex;
@@ -11,7 +10,7 @@ use crate::{
     types::{DataAndSlot, SdkError, SdkResult, UserStatsAccount},
 };
 
-use super::{BulkAccountLoader, UserStatsAccountSubscriber};
+use super::BulkAccountLoader;
 
 pub struct PollingUserStatsAccountSubscriber {
     is_subscribed: bool,
@@ -42,7 +41,7 @@ impl PollingUserStatsAccountSubscriber {
         }
     }
 
-    async fn add_to_account_loader(&mut self) {
+    pub(crate) async fn add_to_account_loader(&mut self) {
         if self.callback_id.is_some() {
             return;
         }
@@ -111,7 +110,10 @@ impl PollingUserStatsAccountSubscriber {
         Ok(())
     }
 
-    async fn subscribe(&mut self, user_stats_account: Option<UserStatsAccount>) -> SdkResult<bool> {
+    pub(crate) async fn subscribe(
+        &mut self,
+        user_stats_account: Option<UserStatsAccount>,
+    ) -> SdkResult<bool> {
         if self.is_subscribed {
             return Ok(true);
         }
@@ -126,7 +128,7 @@ impl PollingUserStatsAccountSubscriber {
         Ok(false)
     }
 
-    async fn fetch(&mut self) -> SdkResult<()> {
+    pub(crate) async fn fetch(&mut self) -> SdkResult<()> {
         let slot = self.program.rpc().get_slot()?;
         match self
             .program
@@ -153,7 +155,7 @@ impl PollingUserStatsAccountSubscriber {
         Ok(())
     }
 
-    async fn unsubscribe(&mut self) {
+    pub(crate) async fn unsubscribe(&mut self) {
         if !self.is_subscribed {
             return;
         }
@@ -175,7 +177,9 @@ impl PollingUserStatsAccountSubscriber {
         self.is_subscribed = false;
     }
 
-    fn get_user_stats_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
+    pub(crate) fn get_user_stats_account_and_slot(
+        &self,
+    ) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
         if !self.does_account_exist() {
             return Err(SdkError::Generic(
                 "You must subscribe or fetch before using this function".to_string(),
@@ -185,8 +189,3 @@ impl PollingUserStatsAccountSubscriber {
         Ok(self.user_stats.clone())
     }
 }
-
-#[async_trait]
-impl UserStatsAccountSubscriber for PollingUserStatsAccountSubscriber {
-}
-

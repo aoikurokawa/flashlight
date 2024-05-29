@@ -4,7 +4,10 @@ use drift::ID as PROGRAM_ID;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
-    accounts::{BulkAccountLoader, polling_user_stats_account_subscriber::PollingUserStatsAccountSubscriber},
+    accounts::{
+        polling_user_stats_account_subscriber::PollingUserStatsAccountSubscriber,
+        BulkAccountLoader, UserStatsAccountSubscriber,
+    },
     addresses::pda::get_user_stats_account_pubkey,
     types::{SdkResult, UserStatsAccount},
     user_stats::UserStats,
@@ -71,8 +74,9 @@ where
         })?;
 
         if let Some(true) = skip_fetch {
-            let account_subscriber = user_stat.account_subscriber as PollingUserStatsAccountSubscriber;
-            .add_to_account_loader().await;
+            if let UserStatsAccountSubscriber::Polling(mut polling) = user_stat.account_subscriber {
+                polling.add_to_account_loader().await;
+            }
         }
 
         Ok(())

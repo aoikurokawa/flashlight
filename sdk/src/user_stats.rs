@@ -19,7 +19,7 @@ use crate::{
 pub struct UserStats<'a, T: AccountProvider, U> {
     pub drift_client: &'a DriftClient<T, U>,
     pub user_stats_account_pubkey: Pubkey,
-    pub account_subscriber: Box<dyn UserStatsAccountSubscriber>,
+    pub account_subscriber: UserStatsAccountSubscriber,
     pub is_subscribed: bool,
 }
 
@@ -27,21 +27,21 @@ impl<'a, T: AccountProvider, U> UserStats<'a, T, U> {
     pub fn new(config: UserStatsConfig<'a, T, U>) -> SdkResult<Self> {
         let client = Client::new(Cluster::Devnet, config.drift_client.wallet().signer.clone());
 
-        let account_subscriber: Box<dyn UserStatsAccountSubscriber> =
-            match config.account_subscription {
-                Some(account_sub) => match account_sub {
-                    UserStatsSubscriptionConfig::Polling { account_loader } => {
-                        Box::new(PollingUserStatsAccountSubscriber::new(
-                            Arc::new(client.program(PROGRAM_ID)),
-                            config.user_stats_account_public_key,
-                            account_loader,
-                        ))
-                    }
-                    UserStatsSubscriptionConfig::WebSocket {
-                        resub_timeout_ms,
-                        log_resub_messages,
-                        commitment,
-                    } => Box::new(WebSocketUserStatsAccountSubscriber::new(
+        let account_subscriber = match config.account_subscription {
+            Some(account_sub) => match account_sub {
+                UserStatsSubscriptionConfig::Polling { account_loader } => {
+                    UserStatsAccountSubscriber::Polling(PollingUserStatsAccountSubscriber::new(
+                        Arc::new(client.program(PROGRAM_ID)),
+                        config.user_stats_account_public_key,
+                        account_loader,
+                    ))
+                }
+                UserStatsSubscriptionConfig::WebSocket {
+                    resub_timeout_ms,
+                    log_resub_messages,
+                    commitment,
+                } => {
+                    UserStatsAccountSubscriber::WebSocket(WebSocketUserStatsAccountSubscriber::new(
                         client.program(PROGRAM_ID),
                         config.user_stats_account_public_key,
                         Some(ResubOpts {
@@ -49,19 +49,20 @@ impl<'a, T: AccountProvider, U> UserStats<'a, T, U> {
                             log_resub_messages,
                         }),
                         commitment,
-                    )),
-                    UserStatsSubscriptionConfig::Custom => {
-                        return Err(SdkError::Generic(format!(
-                            "Unknown user stats account subscription type"
-                        )));
-                    }
-                },
-                None => {
+                    ))
+                }
+                UserStatsSubscriptionConfig::Custom => {
                     return Err(SdkError::Generic(format!(
                         "Unknown user stats account subscription type"
                     )));
                 }
-            };
+            },
+            None => {
+                return Err(SdkError::Generic(format!(
+                    "Unknown user stats account subscription type"
+                )));
+            }
+        };
 
         Ok(Self {
             drift_client: &config.drift_client,
