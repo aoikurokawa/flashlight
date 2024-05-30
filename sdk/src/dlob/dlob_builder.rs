@@ -16,11 +16,7 @@ pub struct DLOBBuilder {
 impl DLOBBuilder {
     pub const SUBSCRIPTION_ID: &'static str = "dlob_update";
 
-    pub fn new(
-        slot_subscriber: SlotSubscriber,
-        usermap: UserMap,
-        rebuild_frequency: u64,
-    ) -> DLOBBuilder {
+    pub fn new(slot_subscriber: SlotSubscriber, usermap: UserMap, rebuild_frequency: u64) -> Self {
         DLOBBuilder {
             slot_subscriber,
             usermap,

@@ -109,6 +109,18 @@ impl UserMap {
         Ok(())
     }
 
+    // pub async fn add_pubkey(
+    //     &mut self,
+    //     user_account_pubkey: Pubkey,
+    //     user_account: Option<User>,
+    //     slot: Option<u64>,
+    //     account_subscription: Option<UserSubscriptionConfig<U>>,
+    // ) -> SdkResult<()> {
+    //     let user = DriftUser::new(user_account_pubkey, self.drift_client, None).await?;
+
+    //     Ok(())
+    // }
+
     pub async fn unsubscribe(&mut self) -> SdkResult<()> {
         if self.subscribed {
             self.subscription.unsubscribe().await?;
@@ -131,6 +143,7 @@ impl UserMap {
         self.usermap.get(pubkey).map(|user| *user.value())
     }
 
+    /// Get the User for a particular user_acount_pubkey, if no User exists, new one is created
     pub async fn must_get(&self, pubkey: &str) -> SdkResult<User> {
         if let Some(user) = self.get(pubkey) {
             Ok(user)

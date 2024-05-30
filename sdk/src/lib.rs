@@ -351,14 +351,14 @@ where
     pub async fn add_user(&mut self, sub_account_id: u16) -> SdkResult<()> {
         let pubkey =
             Wallet::derive_user_account(self.wallet.authority(), sub_account_id, &drift::ID);
-        let mut user = DriftUser::new(pubkey, self, sub_account_id).await?;
+        let mut user = DriftUser::new(pubkey, self, Some(sub_account_id)).await?;
         user.subscribe().await?;
         self.users.push(user);
         Ok(())
     }
 
     pub fn get_user(&self, sub_account_id: u16) -> Option<&DriftUser> {
-        self.users.iter().find(|u| u.sub_account == sub_account_id)
+        self.users.iter().find(|u| u.sub_account == Some(sub_account_id))
     }
 
     /// Subscribe to the Drift Client Backend
