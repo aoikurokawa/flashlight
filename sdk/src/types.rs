@@ -267,7 +267,8 @@ pub type UserStatsAccount = UserStats;
 
 impl Event for UserStatsAccount {
     fn box_clone(&self) -> Box<dyn Event> {
-        Box::new(*self).clone()
+        let event = Box::new(*self);
+        event.clone()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

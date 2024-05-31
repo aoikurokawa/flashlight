@@ -54,7 +54,7 @@ where
         }
 
         self.drift_client.subscribe().await?;
-        self.sync(authorities).await;
+        self.sync(authorities).await?;
 
         Ok(())
     }

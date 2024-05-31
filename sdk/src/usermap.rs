@@ -206,7 +206,7 @@ impl UserMap {
 
     pub async fn update_with_order_record(&mut self, record: OrderRecord) -> SdkResult<()> {
         if !self.contains(&record.user.to_string()) {
-            self.add_pubkey(&record.user);
+            self.add_pubkey(&record.user).await?;
         }
 
         Ok(())
