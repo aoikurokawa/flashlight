@@ -1,8 +1,9 @@
 [workspace]
-members = [ "sdk", "flashlight" ]
+members = [ "sdk", "flashlight", "examples" ]
 resolver = "2"
 
 [workspace.dependencies]
+anchor-client = "0.27.0"
 anchor-lang = "0.27.0"
 base64 = "0.22.1"
 futures-util = "0.3.30"
@@ -15,3 +16,4 @@ solana-sdk = "1.14"
 thiserror = "1.0.60"
 tokio = { version = "1.34.0", features = ["full"] }
 tokio-tungstenite = { version = "0.21.0", features = ["native-tls"] }
+

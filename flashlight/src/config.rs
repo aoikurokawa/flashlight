@@ -9,6 +9,7 @@ enum TxSenderType {
     WhileValid,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BaseBotConfig {
     pub(crate) bot_id: String,
 
@@ -19,6 +20,7 @@ pub(crate) struct BaseBotConfig {
     pub(crate) run_once: Option<bool>,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct FillerConfig {
     pub(crate) base_config: BaseBotConfig,
 

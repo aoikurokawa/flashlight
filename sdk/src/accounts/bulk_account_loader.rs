@@ -8,15 +8,18 @@ use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
 use uuid::Uuid;
 
-pub trait AccountCallback: Fn(Vec<u8>, u64) + Send + Sync {}
-impl<T> AccountCallback for T where T: Fn(Vec<u8>, u64) + Send + Sync {}
+pub trait AccountCallback: FnMut(Vec<u8>, u64) + Send + Sync {}
+
+impl<T> AccountCallback for T where T: FnMut(Vec<u8>, u64) + Send + Sync {}
 
 pub trait ErrorCallback: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
+
 impl<T> ErrorCallback for T where T: Fn(Arc<dyn std::error::Error + Send + Sync>) + Send + Sync {}
 
+#[derive(Clone)]
 pub struct AccountToLoad {
     public_key: Pubkey,
-    callbacks: HashMap<String, Box<dyn AccountCallback>>,
+    callbacks: HashMap<String, Arc<Mutex<dyn AccountCallback>>>,
 }
 
 pub struct BufferAndSlot {
@@ -26,7 +29,7 @@ pub struct BufferAndSlot {
 
 pub struct BulkAccountLoader {
     client: Arc<RpcClient>,
-    commitment: CommitmentConfig,
+    pub commitment: CommitmentConfig,
     polling_frequency: Duration,
     accounts_to_load: Arc<Mutex<HashMap<String, AccountToLoad>>>,
     buffer_and_slot_map: Arc<Mutex<HashMap<String, BufferAndSlot>>>,
@@ -36,12 +39,12 @@ pub struct BulkAccountLoader {
 
 impl BulkAccountLoader {
     pub fn new(
-        client: RpcClient,
+        client: Arc<RpcClient>,
         commitment: CommitmentConfig,
         polling_frequency: Duration,
     ) -> Self {
         BulkAccountLoader {
-            client: Arc::new(client),
+            client,
             commitment,
             polling_frequency,
             accounts_to_load: Arc::new(Mutex::new(HashMap::new())),
@@ -54,7 +57,7 @@ impl BulkAccountLoader {
     pub async fn add_account(
         &mut self,
         public_key: Pubkey,
-        callback: Box<dyn AccountCallback>,
+        callback: Arc<Mutex<dyn AccountCallback>>,
     ) -> String {
         let callback_id = Uuid::new_v4().to_string();
 
@@ -64,7 +67,7 @@ impl BulkAccountLoader {
             if let Some(account_to_load) = accounts_to_load.get_mut(&public_key.to_string()) {
                 account_to_load
                     .callbacks
-                    .insert(callback_id.clone(), Box::new(callback));
+                    .insert(callback_id.clone(), callback);
             } else {
                 let mut callbacks = HashMap::new();
                 callbacks.insert(callback_id.clone(), callback);
@@ -114,25 +117,22 @@ impl BulkAccountLoader {
         self.error_callbacks.lock().await.remove(&callback_id);
     }
 
-    async fn load(&self) {
-        let accounts_to_load = self.accounts_to_load.lock().await;
-        let account_chunks: Vec<Vec<&AccountToLoad>> = accounts_to_load
-            .values()
-            .collect::<Vec<_>>()
-            .chunks(99)
-            .map(|chunk| chunk.to_vec())
-            .collect();
+    pub async fn load(&self) {
+        let mut accounts_to_load = self.accounts_to_load.lock().await.clone();
+        let mut account_chunks: Vec<&mut AccountToLoad> = accounts_to_load.values_mut().collect();
+        let mut account_chunks: Vec<&mut [&mut AccountToLoad]> =
+            account_chunks.chunks_mut(99).collect();
 
         let mut futures = Vec::new();
 
-        for chunk in account_chunks {
+        for chunk in account_chunks.iter_mut() {
             futures.push(self.load_chunk(chunk));
         }
 
         futures_util::future::join_all(futures).await;
     }
 
-    async fn load_chunk(&self, chunk: Vec<&AccountToLoad>) {
+    async fn load_chunk(&self, chunk: &mut [&mut AccountToLoad]) {
         let client = self.client.clone();
         let commitment = self.commitment.clone();
 
@@ -150,7 +150,7 @@ impl BulkAccountLoader {
 
         for (i, response) in responses.iter().enumerate() {
             if let Some(account_data) = response {
-                let account_to_load = chunk[i];
+                let account_to_load = &mut chunk[i];
                 let buffer = account_data.data.clone();
                 let slot = account_data.lamports;
 
@@ -165,7 +165,8 @@ impl BulkAccountLoader {
                             slot,
                         },
                     );
-                    for callback in account_to_load.callbacks.values() {
+                    for callback in account_to_load.callbacks.values_mut() {
+                        let mut callback = callback.lock().await;
                         callback(buffer.clone(), slot);
                     }
                 }

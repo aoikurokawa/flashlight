@@ -63,12 +63,14 @@ use websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber};
 use crate::constants::state_account;
 
 pub mod accounts;
+pub mod addresses;
 pub mod async_utils;
 pub mod blockhash_subscriber;
 pub mod constants;
 pub mod dlob;
 pub mod drift_client_config;
 pub mod event_emitter;
+pub mod events;
 pub mod jupiter;
 pub mod marketmap;
 pub mod math;
@@ -79,6 +81,8 @@ pub mod slot_subscriber;
 pub mod types;
 pub mod user;
 pub mod user_config;
+pub mod user_stats;
+pub mod user_stats_config;
 pub mod usermap;
 pub mod utils;
 pub mod websocket_account_subscriber;
@@ -348,14 +352,16 @@ where
     pub async fn add_user(&mut self, sub_account_id: u16) -> SdkResult<()> {
         let pubkey =
             Wallet::derive_user_account(self.wallet.authority(), sub_account_id, &drift::ID);
-        let mut user = DriftUser::new(pubkey, self, sub_account_id).await?;
+        let mut user = DriftUser::new(pubkey, self, Some(sub_account_id)).await?;
         user.subscribe().await?;
         self.users.push(user);
         Ok(())
     }
 
     pub fn get_user(&self, sub_account_id: u16) -> Option<&DriftUser> {
-        self.users.iter().find(|u| u.sub_account == sub_account_id)
+        self.users
+            .iter()
+            .find(|u| u.sub_account == Some(sub_account_id))
     }
 
     /// Subscribe to the Drift Client Backend
@@ -684,7 +690,7 @@ where
 /// Provides the heavy-lifting and network facing features of the SDK
 /// It is intended to be a singleton
 pub struct DriftClientBackend<T: AccountProvider> {
-    pub rpc_client: RpcClient,
+    pub rpc_client: Arc<RpcClient>,
     pub account_provider: T,
     pub program_data: ProgramData,
     pub perp_market_map: MarketMap<PerpMarket>,
@@ -696,7 +702,7 @@ pub struct DriftClientBackend<T: AccountProvider> {
 
 impl<T: AccountProvider> DriftClientBackend<T> {
     /// Initialize a new `DriftClientBackend`
-    async fn new(context: Context, account_provider: T) -> SdkResult<DriftClientBackend<T>> {
+    async fn new(context: Context, account_provider: T) -> SdkResult<Self> {
         let rpc_client = RpcClient::new_with_commitment(
             account_provider.endpoint(),
             account_provider.commitment_config(),
@@ -742,7 +748,7 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         )));
 
         Ok(Self {
-            rpc_client,
+            rpc_client: Arc::new(rpc_client),
             account_provider,
             program_data: ProgramData::new(
                 spot_market_map.values(),
@@ -782,7 +788,7 @@ impl<T: AccountProvider> DriftClientBackend<T> {
     async fn state_subscribe(&self) -> SdkResult<()> {
         let pubkey = *state_account();
 
-        let mut subscription = WebsocketAccountSubscriber::new(
+        let mut subscription: WebsocketAccountSubscriber<State> = WebsocketAccountSubscriber::new(
             "state",
             get_ws_url(&self.rpc_client.url()).expect("valid url"),
             pubkey,

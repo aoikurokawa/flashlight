@@ -4,7 +4,10 @@ use std::{
 };
 
 use anchor_lang::AccountDeserialize;
-use drift::{error::ErrorCode, state::user::MarketType};
+use drift::{
+    error::ErrorCode,
+    state::user::{MarketType, UserStats},
+};
 use futures_util::Sink;
 use solana_sdk::{
     instruction::{AccountMeta, InstructionError},
@@ -14,6 +17,8 @@ use solana_sdk::{
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
+
+use crate::event_emitter::Event;
 
 pub type SdkResult<T> = Result<T, SdkError>;
 
@@ -256,4 +261,21 @@ impl From<RemainingAccount> for AccountMeta {
             is_signer: false,
         }
     }
+}
+
+pub type UserStatsAccount = UserStats;
+
+impl Event for UserStatsAccount {
+    fn box_clone(&self) -> Box<dyn Event> {
+        Box::new(*self).clone()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub struct ReferrerInfo {
+    pub referrer: Pubkey,
+    pub referrer_stats: Pubkey,
 }
