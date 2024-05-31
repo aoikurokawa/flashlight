@@ -70,6 +70,7 @@ pub mod constants;
 pub mod dlob;
 pub mod drift_client_config;
 pub mod event_emitter;
+pub mod events;
 pub mod jupiter;
 pub mod marketmap;
 pub mod math;
@@ -358,7 +359,9 @@ where
     }
 
     pub fn get_user(&self, sub_account_id: u16) -> Option<&DriftUser> {
-        self.users.iter().find(|u| u.sub_account == Some(sub_account_id))
+        self.users
+            .iter()
+            .find(|u| u.sub_account == Some(sub_account_id))
     }
 
     /// Subscribe to the Drift Client Backend

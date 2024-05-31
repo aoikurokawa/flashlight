@@ -117,7 +117,7 @@ impl BulkAccountLoader {
         self.error_callbacks.lock().await.remove(&callback_id);
     }
 
-    async fn load(&self) {
+    pub async fn load(&self) {
         let mut accounts_to_load = self.accounts_to_load.lock().await.clone();
         let mut account_chunks: Vec<&mut AccountToLoad> = accounts_to_load.values_mut().collect();
         let mut account_chunks: Vec<&mut [&mut AccountToLoad]> =
