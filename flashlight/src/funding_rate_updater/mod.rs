@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use log::info;
 use sdk::{
     config::DriftEnv,
     constants::perp_markets::read_perp_markets,
@@ -11,17 +12,17 @@ use sdk::{
     types::SdkResult,
     AccountProvider, DriftClient,
 };
-use solana_sdk::address_lookup_table_account::AddressLookupTableAccount;
+use solana_sdk::{address_lookup_table_account::AddressLookupTableAccount, info};
 
 use crate::{config::BaseBotConfig, util::get_drift_priority_fee_endpoint};
 
-pub struct FundingRateUpdaterBot<'a, T: AccountProvider, U> {
+pub struct FundingRateUpdaterBot<T: AccountProvider, U> {
     name: String,
     dry_run: bool,
     run_once: bool,
     default_interval_ms: u64,
 
-    drift_client: &'a DriftClient<T, U>,
+    drift_client: DriftClient<T, U>,
     interval_ids: Vec<u64>,
     priority_fee_subscriber_map: PriorityFeeSubscriberMap,
     lookup_table_account: Option<AddressLookupTableAccount>,
@@ -30,8 +31,8 @@ pub struct FundingRateUpdaterBot<'a, T: AccountProvider, U> {
     in_progress: bool,
 }
 
-impl<'a, T: AccountProvider, U> FundingRateUpdaterBot<'a, T, U> {
-    pub fn new(drift_client: &'a DriftClient<T, U>, config: BaseBotConfig) -> Self {
+impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
+    pub fn new(drift_client: DriftClient<T, U>, config: BaseBotConfig) -> Self {
         let perp_markets = read_perp_markets(DriftEnv::Devnet);
         let drift_markets = perp_markets
             .iter()
@@ -62,8 +63,28 @@ impl<'a, T: AccountProvider, U> FundingRateUpdaterBot<'a, T, U> {
 
     pub async fn init(&mut self) -> SdkResult<()> {
         self.priority_fee_subscriber_map.subscribe().await?;
-        // self.lookup_table_account = self.drift_client.
+        self.lookup_table_account = Some(self.drift_client.fetch_market_lookup_table_account());
 
+        info!("{} inited", self.name);
+
+        Ok(())
+    }
+
+    pub async fn reset(&mut self) {}
+
+    pub async fn start_interval_loop(&mut self, interval_ms: u64) -> SdkResult<()> {
+        info!("{} Bot started! run_once {}", self.name, self.run_once);
+
+        if self.run_once {
+            self.try_update_funding_rate().await?;
+        } else {
+            self.try_update_funding_rate().await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn try_update_funding_rate(&mut self) -> SdkResult<()> {
         Ok(())
     }
 }

@@ -350,8 +350,8 @@ where
         })
     }
 
-    pub async fn fetch_market_lookup_table_account(&mut self) -> &AddressLookupTableAccount {
-        &self.backend.program_data.lookup_table
+    pub fn fetch_market_lookup_table_account(&self) -> AddressLookupTableAccount {
+        self.backend.program_data.lookup_table.clone()
     }
 
     pub async fn add_user(&mut self, sub_account_id: u16) -> SdkResult<()> {
