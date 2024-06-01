@@ -11,7 +11,7 @@ pub struct PerpMarketConfig {
     pub category: Option<Vec<String>>,
     pub symbol: String,
     pub base_asset_symbol: String,
-    pub market_index: i32,
+    pub market_index: u16,
     pub launch_ts: i64,
     #[serde(deserialize_with = "pubkey_from_str")]
     pub oracle: Pubkey,
