@@ -8,6 +8,7 @@ use sdk::{
         priority_fee_subscriber_map::PriorityFeeSubscriberMap,
         types::PriorityFeeSubscriberMapConfig,
     },
+    types::SdkResult,
     AccountProvider, DriftClient,
 };
 use solana_sdk::address_lookup_table_account::AddressLookupTableAccount;
@@ -59,7 +60,10 @@ impl<'a, T: AccountProvider, U> FundingRateUpdaterBot<'a, T, U> {
         }
     }
 
-    pub async fn init(&self) {
-        // self.priority_fee_subscriber_map.subscribe();
+    pub async fn init(&mut self) -> SdkResult<()> {
+        self.priority_fee_subscriber_map.subscribe().await?;
+        // self.lookup_table_account = self.drift_client.
+
+        Ok(())
     }
 }
