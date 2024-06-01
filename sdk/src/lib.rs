@@ -350,6 +350,10 @@ where
         })
     }
 
+    pub async fn fetch_market_lookup_table_account(&mut self) -> &AddressLookupTableAccount {
+        &self.backend.program_data.lookup_table
+    }
+
     pub async fn add_user(&mut self, sub_account_id: u16) -> SdkResult<()> {
         let pubkey =
             Wallet::derive_user_account(self.wallet.authority(), sub_account_id, &drift::ID);
