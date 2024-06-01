@@ -298,7 +298,7 @@ impl DLOB {
         slot: u64,
         oracle_price_data: OraclePriceData,
         depth: usize,
-        fallback_l2_generators: &mut Vec<Box<dyn L2OrderBookGenerator>>,
+        fallback_l2_generators: &mut [Box<dyn L2OrderBookGenerator>],
     ) -> L2OrderBook {
         let maker_ask_l2_level_generator = get_l2_generator_from_dlob_nodes(
             self.get_resting_limit_asks(slot, market_type, market_index, oracle_price_data)

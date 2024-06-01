@@ -182,10 +182,10 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
 
                         if let Some(sample) = &self.last_helius_sample {
                             self.last_avg_strategy_result =
-                                *sample.0.get(&HeliusPriorityLevel::MEDIUM).unwrap();
+                                *sample.0.get(&HeliusPriorityLevel::Medium).unwrap();
 
                             self.last_max_strategy_result =
-                                *sample.0.get(&HeliusPriorityLevel::UNSAFEMAX).unwrap();
+                                *sample.0.get(&HeliusPriorityLevel::UnsafeMax).unwrap();
                         }
 
                         if let Some(custom_strategy) = &self.custom_strategy {
@@ -224,10 +224,10 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
                     if !sample.0.is_empty() {
                         if let Some(sample) = &self.last_helius_sample {
                             self.last_avg_strategy_result =
-                                *sample.0.get(&HeliusPriorityLevel::MEDIUM).unwrap();
+                                *sample.0.get(&HeliusPriorityLevel::Medium).unwrap();
 
                             self.last_max_strategy_result =
-                                *sample.0.get(&HeliusPriorityLevel::UNSAFEMAX).unwrap();
+                                *sample.0.get(&HeliusPriorityLevel::UnsafeMax).unwrap();
                         }
 
                         if let Some(custom_strategy) = &self.custom_strategy {
@@ -269,7 +269,7 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
     pub fn get_helius_priority_fee_level(&self, level: Option<HeliusPriorityLevel>) -> u64 {
         let level = match level {
             Some(priority_level) => priority_level,
-            None => HeliusPriorityLevel::MEDIUM,
+            None => HeliusPriorityLevel::Medium,
         };
 
         match &self.last_helius_sample {

@@ -31,14 +31,12 @@ pub fn read_perp_markets(env: DriftEnv) -> Vec<PerpMarketConfig> {
         DriftEnv::MainnetBeta => {
             let file_content =
                 fs::read_to_string("../../constants/mainnet_perp_markets.json").expect("");
-            let perp_markets = serde_json::from_str(&file_content).expect("");
-            perp_markets
+            serde_json::from_str(&file_content).expect("")
         }
         DriftEnv::Devnet => {
             let file_content =
                 fs::read_to_string("../../constants/dev_perp_markets.json").expect("");
-            let perp_markets = serde_json::from_str(&file_content).expect("");
-            perp_markets
+            serde_json::from_str(&file_content).expect("")
         }
     }
 }

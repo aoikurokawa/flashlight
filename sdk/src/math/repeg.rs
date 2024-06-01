@@ -46,7 +46,7 @@ pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u128) -> u128
     let per_peg_cost = amm
         .quote_asset_reserve
         .sub(amm.terminal_quote_asset_reserve)
-        .div(AMM_RESERVE_PRECISION.div(PRICE_PRECISION));
+        .div(AMM_RESERVE_PRECISION.div(PRICE_PRECISION)) as i128;
 
     let per_peg_cost = if per_peg_cost > 0 {
         per_peg_cost + 1
@@ -59,7 +59,7 @@ pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u128) -> u128
         .div(amm.quote_asset_reserve)
         .div(PRICE_DIV_PEG);
 
-    let peg_change_direction = target_peg.sub(amm.peg_multiplier);
+    let peg_change_direction = target_peg.sub(amm.peg_multiplier) as i128;
 
     let use_target_peg = (per_peg_cost < 0 && peg_change_direction > 0)
         || (per_peg_cost > 0 && peg_change_direction < 0);
@@ -69,8 +69,6 @@ pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u128) -> u128
     }
 
     let budget = budget as u128;
-    let budget_delta_peg = budget.mul(PEG_PRECISION).div(per_peg_cost);
-    let new_peg = std::cmp::max(1, amm.peg_multiplier.add(budget_delta_peg));
-
-    new_peg
+    let budget_delta_peg = budget.mul(PEG_PRECISION).div(per_peg_cost as u128);
+    std::cmp::max(1, amm.peg_multiplier.add(budget_delta_peg))
 }

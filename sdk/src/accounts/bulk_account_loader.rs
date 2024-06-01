@@ -134,7 +134,7 @@ impl BulkAccountLoader {
 
     async fn load_chunk(&self, chunk: &mut [&mut AccountToLoad]) {
         let client = self.client.clone();
-        let commitment = self.commitment.clone();
+        let commitment = self.commitment;
 
         let pubkeys: Vec<Pubkey> = chunk.iter().map(|a| a.public_key).collect();
         let responses = match client
@@ -182,7 +182,7 @@ impl BulkAccountLoader {
     }
 
     async fn start_polling(&mut self) {
-        let polling_frequency = self.polling_frequency.clone();
+        let polling_frequency = self.polling_frequency;
         let loader = self.clone();
 
         let handle = tokio::spawn(async move {
@@ -208,7 +208,7 @@ impl Clone for BulkAccountLoader {
     fn clone(&self) -> Self {
         BulkAccountLoader {
             client: self.client.clone(),
-            commitment: self.commitment.clone(),
+            commitment: self.commitment,
             polling_frequency: self.polling_frequency,
             accounts_to_load: self.accounts_to_load.clone(),
             buffer_and_slot_map: self.buffer_and_slot_map.clone(),

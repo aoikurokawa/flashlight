@@ -316,7 +316,7 @@ impl VammL2Generator {
             assert!(amounts.len() < num_orders);
         }
 
-        let updated_amm = calculate_updated_amm(&market_account.amm, &oracle_price_data)?;
+        let updated_amm = calculate_updated_amm(&market_account.amm, oracle_price_data)?;
 
         let (mut open_bids, mut open_asks) = calculate_market_open_bids_asks(&updated_amm)?;
 
@@ -340,7 +340,7 @@ impl VammL2Generator {
             calculate_spread_reserves(&updated_amm, oracle_price_data, Some(now))?;
 
         let bid_size = open_bids.div(num_base_orders as i128);
-        let mut bid_amm = updated_amm.clone();
+        let mut bid_amm = updated_amm;
         bid_amm.base_asset_reserve = bid_reserves.0;
         bid_amm.quote_asset_reserve = bid_reserves.1;
 
@@ -348,7 +348,7 @@ impl VammL2Generator {
         bid_amm.quote_asset_reserve = bid_reserves.1;
 
         let ask_size = open_asks.abs().div(num_base_orders as i128);
-        let mut ask_amm = updated_amm.clone();
+        let mut ask_amm = updated_amm;
         ask_amm.base_asset_reserve = ask_reserves.0;
         ask_amm.quote_asset_reserve = ask_reserves.1;
 
@@ -372,7 +372,7 @@ impl VammL2Generator {
         let num_bids = 0;
         let top_of_book_bid_size = 0;
 
-        let l2_bids = L2Bids {
+        L2Bids {
             num_bids,
             num_orders: self.num_orders,
             bid_size: self.bid_size,
@@ -381,16 +381,14 @@ impl VammL2Generator {
             top_of_book_bid_size,
             bid_amm: self.bid_amm,
             num_base_orders: self.num_base_orders,
-        };
-
-        l2_bids
+        }
     }
 
     pub fn get_l2_asks(&mut self) -> impl Iterator<Item = L2Level> {
         let num_asks = 0;
         let top_of_book_ask_size = 0;
 
-        let l2_asks = L2Asks {
+        L2Asks {
             num_asks,
             num_orders: self.num_orders,
             ask_size: self.ask_size,
@@ -399,9 +397,7 @@ impl VammL2Generator {
             top_of_book_ask_size,
             ask_amm: self.ask_amm,
             num_base_orders: self.num_base_orders,
-        };
-
-        l2_asks
+        }
     }
 }
 
@@ -457,7 +453,7 @@ where
                 match &next {
                     None => next = Some(candidate),
                     Some(best) => {
-                        if compare(&candidate, &best) {
+                        if compare(&candidate, best) {
                             next = Some(candidate);
                         }
                     }

@@ -115,12 +115,12 @@ pub fn calculate_optimal_peg_and_budget(
         }
     }
 
-    return Ok((
+    Ok((
         new_target_price,
         new_optimal_peg,
         new_budget,
         check_lower_bound,
-    ));
+    ))
 }
 
 pub fn calculate_new_amm(
@@ -142,7 +142,7 @@ pub fn calculate_new_amm(
         assert!(deficit_madeup <= 0);
 
         pre_peg_cost = budget + deficit_madeup.abs();
-        let mut new_amm = amm.clone();
+        let mut new_amm = *amm;
         new_amm.base_asset_reserve = new_amm.base_asset_reserve.mul(pk_number).div(pk_denom);
         new_amm.sqrt_k = new_amm.sqrt_k.mul(new_amm.sqrt_k);
         let invariant = new_amm.sqrt_k.mul(new_amm.sqrt_k);
@@ -174,7 +174,7 @@ pub fn calculate_updated_amm(amm: &AMM, oracle_price_data: &OraclePriceData) -> 
         return Ok(*amm);
     }
 
-    let mut new_amm = amm.clone();
+    let mut new_amm = *amm;
     let (prepeg_cost, pk_number, pk_denom, new_peg) =
         calculate_new_amm(&new_amm, oracle_price_data)?;
 
@@ -201,8 +201,7 @@ pub fn calculate_updated_amm(amm: &AMM, oracle_price_data: &OraclePriceData) -> 
     new_amm.terminal_quote_asset_reserve = new_quote_asset_reserve;
 
     new_amm.total_fee_minus_distributions = new_amm.total_fee_minus_distributions.sub(prepeg_cost);
-    new_amm.net_revenue_since_last_funding =
-        new_amm.net_revenue_since_last_funding - prepeg_cost as i64;
+    new_amm.net_revenue_since_last_funding -= prepeg_cost as i64;
 
     Ok(new_amm)
 }

@@ -9,28 +9,28 @@ use crate::types::{SdkError, SdkResult};
 #[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
 pub enum HeliusPriorityLevel {
     /// 25th percentile
-    MIN,
+    Min,
     /// 25th percentile
-    LOW,
+    Low,
     /// 50th percentile
-    MEDIUM,
+    Medium,
     /// 75th percentile
-    HIGH,
+    High,
     /// 95th percentile
-    VERYHIGH,
+    VeryHigh,
     /// 100th percentile
-    UNSAFEMAX,
+    UnsafeMax,
 }
 
 impl From<&str> for HeliusPriorityLevel {
     fn from(value: &str) -> Self {
         match value {
-            "min" => HeliusPriorityLevel::MIN,
-            "low" => HeliusPriorityLevel::LOW,
-            "medium" => HeliusPriorityLevel::MEDIUM,
-            "high" => HeliusPriorityLevel::HIGH,
-            "veryHigh" => HeliusPriorityLevel::VERYHIGH,
-            "unsafeMax" => HeliusPriorityLevel::UNSAFEMAX,
+            "min" => HeliusPriorityLevel::Min,
+            "low" => HeliusPriorityLevel::Low,
+            "medium" => HeliusPriorityLevel::Medium,
+            "high" => HeliusPriorityLevel::High,
+            "veryHigh" => HeliusPriorityLevel::VeryHigh,
+            "unsafeMax" => HeliusPriorityLevel::UnsafeMax,
             val => panic!("Invalid string for HeliusPriorityLevel: {val}"),
         }
     }

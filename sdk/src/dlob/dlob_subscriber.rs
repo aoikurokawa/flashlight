@@ -109,6 +109,7 @@ where
         &self.dlob
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn get_l2(
         &mut self,
         market_name: Option<&str>,
