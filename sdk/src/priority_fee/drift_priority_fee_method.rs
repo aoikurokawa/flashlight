@@ -14,14 +14,14 @@ pub struct DriftMarketInfo {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct DriftPriorityFeeLevels {
-    priority_fee_level: HashMap<HeliusPriorityLevel, u64>,
-    market_type: String,
-    market_index: u64,
+pub struct DriftPriorityFeeLevels {
+    pub priority_fee_level: HashMap<HeliusPriorityLevel, u64>,
+    pub market_type: String,
+    pub market_index: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct DriftPriorityFeeResponse(pub(crate) Vec<DriftPriorityFeeLevels>);
+pub struct DriftPriorityFeeResponse(pub Vec<DriftPriorityFeeLevels>);
 
 pub(crate) async fn fetch_drift_priority_fee(
     url: &str,

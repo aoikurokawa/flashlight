@@ -64,10 +64,7 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
             None => Box::new(average_strategy.clone()),
         };
 
-        let lookback_distance = match config.slots_to_check {
-            Some(x) => x,
-            None => 50,
-        };
+        let lookback_distance = config.slots_to_check.unwrap_or(50);
 
         let mut priority_fee_method = None;
         let mut helius_rpc_url = None;
@@ -106,10 +103,7 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
             ));
         }
 
-        let priority_fee_multiplier = match config.priority_fee_multiplier {
-            Some(fee_multiplier) => fee_multiplier,
-            None => 1.0,
-        };
+        let priority_fee_multiplier = config.priority_fee_multiplier.unwrap_or(1.0);
 
         Ok(Self {
             drift_client,
@@ -144,7 +138,7 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
         match &self.drift_client {
             Some(client) => {
                 let samples =
-                    fetch_solana_priority_fee(&client, self.lookback_distance, &self.addresses)
+                    fetch_solana_priority_fee(client, self.lookback_distance, &self.addresses)
                         .await?;
 
                 if let Some(first) = samples.first() {
@@ -176,7 +170,7 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
         match &self.helius_rpc_url {
             Some(helius_rpc_url) => {
                 let result = fetch_helius_priority_fee(
-                    &helius_rpc_url,
+                    helius_rpc_url,
                     self.lookback_distance,
                     &self.addresses,
                 )
@@ -225,7 +219,7 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
                         .map(|market| market.market_index)
                         .collect();
                     let sample =
-                        fetch_drift_priority_fee(&endpoint, &market_types, &market_indexes).await?;
+                        fetch_drift_priority_fee(endpoint, &market_types, &market_indexes).await?;
 
                     if !sample.0.is_empty() {
                         if let Some(sample) = &self.last_helius_sample {
@@ -261,10 +255,7 @@ impl<T: AccountProvider, U> PriorityFeeSubscriber<T, U> {
     }
 
     pub fn get_priority_fee_multiplier(&self) -> f64 {
-        match self.priority_fee_multiplier {
-            Some(multiplier) => multiplier,
-            None => 1.0,
-        }
+        self.priority_fee_multiplier.unwrap_or(1.0)
     }
 
     pub fn update_priority_fee_multiplier(&mut self, new_priority_fee_multiplier: Option<f64>) {

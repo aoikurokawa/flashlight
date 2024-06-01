@@ -52,20 +52,20 @@ impl<'a, T: AccountProvider, U> UserStats<'a, T, U> {
                     ))
                 }
                 UserStatsSubscriptionConfig::Custom => {
-                    return Err(SdkError::Generic(format!(
-                        "Unknown user stats account subscription type"
-                    )));
+                    return Err(SdkError::Generic(
+                        "Unknown user stats account subscription type".to_string(),
+                    ));
                 }
             },
             None => {
-                return Err(SdkError::Generic(format!(
-                    "Unknown user stats account subscription type"
-                )));
+                return Err(SdkError::Generic(
+                    "Unknown user stats account subscription type".to_string(),
+                ));
             }
         };
 
         Ok(Self {
-            drift_client: &config.drift_client,
+            drift_client: config.drift_client,
             user_stats_account_pubkey: config.user_stats_account_public_key,
             account_subscriber,
             is_subscribed: false,
@@ -96,7 +96,8 @@ impl<'a, T: AccountProvider, U> UserStats<'a, T, U> {
     }
 
     pub fn get_account_and_slot(&self) -> SdkResult<Option<DataAndSlot<UserStatsAccount>>> {
-        Ok(self.account_subscriber.get_user_stats_account_and_slot()?)
+        let user_stats_account = self.account_subscriber.get_user_stats_account_and_slot()?;
+        Ok(user_stats_account)
     }
 
     pub fn get_account(&self) -> SdkResult<Option<UserStatsAccount>> {
@@ -115,20 +116,18 @@ impl<'a, T: AccountProvider, U> UserStats<'a, T, U> {
         match account {
             Some(account) => {
                 if account.referrer.eq(&Pubkey::default()) {
-                    return Ok(None);
+                    Ok(None)
                 } else {
-                    return Ok(Some(ReferrerInfo {
+                    Ok(Some(ReferrerInfo {
                         referrer: get_user_account_pubkey(&PROGRAM_ID, account.referrer, Some(0)),
                         referrer_stats: get_user_stats_account_pubkey(
                             &PROGRAM_ID,
                             account.referrer,
                         ),
-                    }));
+                    }))
                 }
             }
-            None => {
-                return Ok(None);
-            }
+            None => Ok(None),
         }
     }
 

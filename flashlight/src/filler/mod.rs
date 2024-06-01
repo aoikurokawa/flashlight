@@ -261,16 +261,16 @@ where
     }
 
     pub fn base_init(&mut self) {
-        let start_init_user_stats_map = Instant::now();
-        info!("Initializing user_stats_map");
+        // let start_init_user_stats_map = Instant::now();
+        // info!("Initializing user_stats_map");
 
-        let user_stats_loader = BulkAccountLoader::new(
-            self.drift_client.backend.rpc_client,
-            CommitmentConfig {
-                commitment: CommitmentLevel::Confirmed,
-            },
-            Duration::from_secs(0),
-        );
+        // let user_stats_loader = BulkAccountLoader::new(
+        //     self.drift_client.backend.rpc_client,
+        //     CommitmentConfig {
+        //         commitment: CommitmentLevel::Confirmed,
+        //     },
+        //     Duration::from_secs(0),
+        // );
 
         // self.user_stats_map = UserStatsMap::
     }
