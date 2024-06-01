@@ -2,6 +2,7 @@ use std::time::Instant;
 
 use sdk::{
     config::DriftEnv,
+    constants::perp_markets::read_perp_markets,
     priority_fee::{
         drift_priority_fee_method::DriftMarketInfo,
         priority_fee_subscriber_map::PriorityFeeSubscriberMap,
@@ -30,13 +31,17 @@ pub struct FundingRateUpdaterBot<'a, T: AccountProvider, U> {
 
 impl<'a, T: AccountProvider, U> FundingRateUpdaterBot<'a, T, U> {
     pub fn new(drift_client: &'a DriftClient<T, U>, config: BaseBotConfig) -> Self {
-        let drift_markets = DriftMarketInfo {
-            market_type: "perp".to_string(),
-            market_index: 1,
-        };
+        let perp_markets = read_perp_markets(DriftEnv::Devnet);
+        let drift_markets = perp_markets
+            .iter()
+            .map(|perp_market| DriftMarketInfo {
+                market_type: "perp".to_string(),
+                market_index: perp_market.market_index,
+            })
+            .collect();
         let priority_config = PriorityFeeSubscriberMapConfig {
             frequency_ms: Some(10_000),
-            drift_markets: None,
+            drift_markets: Some(drift_markets),
             drift_priority_fee_endpoint: get_drift_priority_fee_endpoint(DriftEnv::Devnet),
         };
 
@@ -52,5 +57,9 @@ impl<'a, T: AccountProvider, U> FundingRateUpdaterBot<'a, T, U> {
             watchdog_timer_last_par_time: Instant::now(),
             in_progress: false,
         }
+    }
+
+    pub async fn init(&self) {
+        // self.priority_fee_subscriber_map.subscribe();
     }
 }

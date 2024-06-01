@@ -158,6 +158,7 @@ impl<'a> JupiterClient<'a> {
     }
 
     /// Get routes for a swap
+    #[allow(clippy::too_many_arguments)]
     pub async fn get_quote(
         &self,
         input_mint: Pubkey,
@@ -220,10 +221,7 @@ impl<'a> JupiterClient<'a> {
         user_public_key: Pubkey,
         slippage_bps: Option<u16>,
     ) -> SdkResult<VersionedTransaction> {
-        let slippage_bps = match slippage_bps {
-            Some(n) => n,
-            None => 50,
-        };
+        let slippage_bps = slippage_bps.unwrap_or(50);
         let api_version_param = if self.url == "https://quote-api.jup.ag" {
             "/v6"
         } else {

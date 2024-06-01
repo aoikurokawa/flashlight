@@ -20,7 +20,7 @@ pub trait AccountSubscriber<T> {
 }
 
 enum UserAccountEvents {
-    UserAccountUpdate { payload: UserAccount },
+    UserAccountUpdate { payload: Box<UserAccount> },
     Update,
     Error { e: String },
 }

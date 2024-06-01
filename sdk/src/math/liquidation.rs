@@ -327,9 +327,9 @@ pub enum MarginCategory {
     Maintenance,
 }
 
-impl Into<MarginRequirementType> for MarginCategory {
-    fn into(self) -> MarginRequirementType {
-        match self {
+impl From<MarginCategory> for MarginRequirementType {
+    fn from(val: MarginCategory) -> MarginRequirementType {
+        match val {
             MarginCategory::Initial => MarginRequirementType::Initial,
             MarginCategory::Maintenance => MarginRequirementType::Maintenance,
         }

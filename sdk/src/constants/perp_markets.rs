@@ -11,7 +11,7 @@ pub struct PerpMarketConfig {
     pub category: Option<Vec<String>>,
     pub symbol: String,
     pub base_asset_symbol: String,
-    pub market_index: i32,
+    pub market_index: u16,
     pub launch_ts: i64,
     #[serde(deserialize_with = "pubkey_from_str")]
     pub oracle: Pubkey,
@@ -31,14 +31,12 @@ pub fn read_perp_markets(env: DriftEnv) -> Vec<PerpMarketConfig> {
         DriftEnv::MainnetBeta => {
             let file_content =
                 fs::read_to_string("../../constants/mainnet_perp_markets.json").expect("");
-            let perp_markets = serde_json::from_str(&file_content).expect("");
-            perp_markets
+            serde_json::from_str(&file_content).expect("")
         }
         DriftEnv::Devnet => {
             let file_content =
                 fs::read_to_string("../../constants/dev_perp_markets.json").expect("");
-            let perp_markets = serde_json::from_str(&file_content).expect("");
-            perp_markets
+            serde_json::from_str(&file_content).expect("")
         }
     }
 }

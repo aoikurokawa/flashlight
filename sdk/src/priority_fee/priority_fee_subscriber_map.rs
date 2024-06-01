@@ -1,8 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use tokio::{
-    sync::Mutex,
-    time::{self, Duration, Interval},
+    sync::mpsc,
+    time::{self, Duration},
 };
 
 use crate::types::SdkResult;
@@ -14,12 +14,14 @@ use super::{
     types::{PriorityFeeSubscriberMapConfig, DEFAULT_PRIORITY_FEE_MAP_FREQUENCY_MS},
 };
 
+#[derive(Debug, Clone)]
 pub struct PriorityFeeSubscriberMap {
     frequency_ms: u64,
-    interval_id: Option<Interval>,
+    // interval_id: Option<Interval>,
     drift_markets: Option<Vec<DriftMarketInfo>>,
     drift_priority_fee_endpoint: Option<String>,
     fees_map: HashMap<String, HashMap<u64, DriftPriorityFeeLevels>>,
+    stop_tx: Option<mpsc::Sender<()>>,
 }
 
 impl PriorityFeeSubscriberMap {
@@ -33,10 +35,11 @@ impl PriorityFeeSubscriberMap {
 
         Self {
             frequency_ms,
-            interval_id: None,
+            // interval_id: None,
             drift_markets: config.drift_markets,
             drift_priority_fee_endpoint: Some(config.drift_priority_fee_endpoint),
             fees_map,
+            stop_tx: None,
         }
     }
 
@@ -48,61 +51,109 @@ impl PriorityFeeSubscriberMap {
         });
     }
 
-    pub async fn subscribe(subscriber: Arc<Mutex<Self>>) -> SdkResult<()> {
-        let this = subscriber.lock().await;
-
-        if this.interval_id.is_some() {
+    pub async fn subscribe(&mut self) -> SdkResult<()> {
+        if self.stop_tx.is_some() {
             return Ok(());
         }
 
-        drop(this);
-        PriorityFeeSubscriberMap::load(subscriber.clone()).await?;
+        self.load().await?;
 
-        let mut this = subscriber.lock().await;
-
-        let interval = time::interval(Duration::from_millis(this.frequency_ms));
-        this.interval_id = Some(interval);
-
-        let self_clone = Arc::clone(&subscriber);
+        let (tx, mut rx) = mpsc::channel(1);
+        self.stop_tx = Some(tx);
+        let mut interval = time::interval(Duration::from_millis(self.frequency_ms));
+        let mut self_clone = self.clone();
 
         tokio::spawn(async move {
-            let mut interval = self_clone.lock().await.interval_id.take().unwrap();
             loop {
-                interval.tick().await;
-                let _ = PriorityFeeSubscriberMap::load(self_clone.clone()).await;
+                tokio::select! {
+                    _ = interval.tick() => {
+                        if let Err(_e) = self_clone.load().await {
+                        }
+                    }
+                    _ = rx.recv() => {
+                        break;
+                    }
+                }
             }
         });
+
+        // let this = subscriber.lock().await;
+
+        // if this.interval_id.is_some() {
+        //     return Ok(());
+        // }
+
+        // drop(this);
+        // PriorityFeeSubscriberMap::load(subscriber.clone()).await?;
+
+        // let mut this = subscriber.lock().await;
+
+        // let interval = time::interval(Duration::from_millis(this.frequency_ms));
+        // this.interval_id = Some(interval);
+
+        // let self_clone = Arc::clone(&subscriber);
+
+        // tokio::spawn(async move {
+        //     let mut interval = self_clone.lock().await.interval_id.take().unwrap();
+        //     loop {
+        //         interval.tick().await;
+        //         let _ = PriorityFeeSubscriberMap::load(self_clone.clone()).await;
+        //     }
+        // });
 
         Ok(())
     }
 
-    pub async fn load(subscriber: Arc<Mutex<Self>>) -> SdkResult<()> {
-        let mut subscriber = subscriber.lock().await;
-        if let Some(drift_markets) = &subscriber.drift_markets {
-            let endpoint = subscriber.drift_priority_fee_endpoint.clone().unwrap();
+    pub async fn unsubscribe(&mut self) -> SdkResult<()> {
+        if let Some(tx) = self.stop_tx.take() {
+            let _ = tx.send(()).await;
+        }
+
+        Ok(())
+    }
+
+    async fn load(&mut self) -> SdkResult<()> {
+        if let Some(drift_markets) = &self.drift_markets {
+            let market_types: Vec<&str> = drift_markets
+                .iter()
+                .map(|m| m.market_type.as_str())
+                .collect();
+            let market_indices: Vec<u16> = drift_markets.iter().map(|m| m.market_index).collect();
+
             let fees = fetch_drift_priority_fee(
-                endpoint.as_str(),
-                &drift_markets
-                    .iter()
-                    .map(|market| market.market_type.as_str())
-                    .collect::<Vec<&str>>(),
-                &drift_markets
-                    .iter()
-                    .map(|market| market.market_index)
-                    .collect::<Vec<u16>>(),
+                &self.drift_priority_fee_endpoint.clone().unwrap(),
+                &market_types,
+                &market_indices,
             )
             .await?;
-
-            let market_info = fees
-                .0
-                .iter()
-                .map(|level| DriftMarketInfo {
-                    market_type: level.market_type.clone(),
-                    market_index: level.market_index as u16,
-                })
-                .collect();
-            subscriber.update_market_type_and_index(market_info);
+            self.update_fees_map(fees);
         }
+        // let mut subscriber = subscriber.lock().await;
+        // if let Some(drift_markets) = &subscriber.drift_markets {
+        //     let endpoint = subscriber.drift_priority_fee_endpoint.clone().unwrap();
+        //     let fees = fetch_drift_priority_fee(
+        //         endpoint.as_str(),
+        //         &drift_markets
+        //             .iter()
+        //             .map(|market| market.market_type.as_str())
+        //             .collect::<Vec<&str>>(),
+        //         &drift_markets
+        //             .iter()
+        //             .map(|market| market.market_index)
+        //             .collect::<Vec<u16>>(),
+        //     )
+        //     .await?;
+
+        //     let market_info = fees
+        //         .0
+        //         .iter()
+        //         .map(|level| DriftMarketInfo {
+        //             market_type: level.market_type.clone(),
+        //             market_index: level.market_index as u16,
+        //         })
+        //         .collect();
+        //     subscriber.update_market_type_and_index(market_info);
+        // }
 
         Ok(())
     }

@@ -217,4 +217,10 @@ impl Exchange {
     }
 }
 
+impl Default for Exchange {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub(crate) type OpenOrders = DashMap<String, DashSet<String>>;

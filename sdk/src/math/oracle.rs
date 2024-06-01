@@ -30,12 +30,10 @@ pub fn calculate_live_oracle_twap(
         std::cmp::max(oracle_price_data.price, oracle_twap - clamp_range),
     );
 
-    let new_oracle_twap = (oracle_twap)
+    (oracle_twap)
         .mul(since_start)
         .add((clamped_oracle_price).mul(since_last_update))
-        .div(since_start.add(since_last_update));
-
-    new_oracle_twap
+        .div(since_start.add(since_last_update))
 }
 
 pub fn calculate_live_oracle_std(amm: &AMM, oracle_price_data: &OraclePriceData, now: i64) -> i64 {
@@ -54,13 +52,11 @@ pub fn calculate_live_oracle_std(amm: &AMM, oracle_price_data: &OraclePriceData,
 
     let price_delta_vs_twap = oracle_price_data.price.sub(live_oracle_twap).abs();
 
-    let oracle_std = price_delta_vs_twap.add(
+    price_delta_vs_twap.add(
         (amm.oracle_std as i64)
             .mul(since_start)
             .div(since_start.add(since_last_update)),
-    );
-
-    oracle_std
+    )
 }
 
 pub fn get_new_oracle_conf_pct(
@@ -83,9 +79,7 @@ pub fn get_new_oracle_conf_pct(
     }
     let conf_interval_pct = conf_interval * BID_ASK_SPREAD_PRECISION / reserve_price;
 
-    let conf_interval_pct_result = std::cmp::max(conf_interval_pct, lower_bound_conf_pct);
-
-    conf_interval_pct_result
+    std::cmp::max(conf_interval_pct, lower_bound_conf_pct)
 }
 
 #[cfg(test)]
