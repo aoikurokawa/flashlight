@@ -73,3 +73,14 @@ pub struct PriorityFeeSubscriberConfig<T: AccountProvider, U> {
     /// multiplier applied to priority fee before maxFeeMicroLamports, defaults to 1.0
     pub priority_fee_multiplier: Option<f64>,
 }
+
+pub struct PriorityFeeSubscriberMapConfig {
+    /// frequency to make RPC calls to update priority fee samples, in milliseconds
+    pub frequency_ms: Option<u64>,
+
+    /// drift market type and associated market index to query
+    pub drift_markets: Option<Vec<DriftMarketInfo>>,
+
+    /// url for drift cached priority fee endpoint
+    pub drift_priority_fee_endpoint: String,
+}
