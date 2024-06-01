@@ -47,7 +47,7 @@
 		marketIndex: 4,
 		oracle: '6bquU99ktV1VRiHDr8gMhDFt3kMfhCQo5nfNrg2Urvsn',
 		launchTs: 1677068931000,
-		oracleSource: PYTH_1M
+		oracleSource: Pyth1M
 	},
 	{
 		fullName: 'Polygon',
@@ -55,9 +55,9 @@
 		symbol: 'MATIC-PERP',
 		baseAssetSymbol: 'MATIC',
 		marketIndex: 5,
-		oracle: new PublicKey('FBirwuDFuRAu4iSGc7RGxN5koHB7EJM1wbCmyPuQoGur'),
+		oracle: 'FBirwuDFuRAu4iSGc7RGxN5koHB7EJM1wbCmyPuQoGur',
 		launchTs: 1677690149000, //todo
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Arbitrum',
@@ -65,9 +65,9 @@
 		symbol: 'ARB-PERP',
 		baseAssetSymbol: 'ARB',
 		marketIndex: 6,
-		oracle: new PublicKey('4mRGHzjGerQNWKXyQAmr9kWqb9saPPHKqo1xziXGQ5Dh'),
+		oracle: '4mRGHzjGerQNWKXyQAmr9kWqb9saPPHKqo1xziXGQ5Dh',
 		launchTs: 1679501812000, //todo
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Doge',
@@ -75,9 +75,9 @@
 		symbol: 'DOGE-PERP',
 		baseAssetSymbol: 'DOGE',
 		marketIndex: 7,
-		oracle: new PublicKey('4L6YhY8VvUgmqG5MvJkUJATtzB2rFqdrJwQCmFLv4Jzy'),
+		oracle: '4L6YhY8VvUgmqG5MvJkUJATtzB2rFqdrJwQCmFLv4Jzy',
 		launchTs: 1680808053000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Binance Coin',
@@ -85,9 +85,9 @@
 		symbol: 'BNB-PERP',
 		baseAssetSymbol: 'BNB',
 		marketIndex: 8,
-		oracle: new PublicKey('GwzBgrXb4PG59zjce24SF2b9JXbLEjJJTBkmytuEZj1b'),
+		oracle: 'GwzBgrXb4PG59zjce24SF2b9JXbLEjJJTBkmytuEZj1b',
 		launchTs: 1680808053000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Sui',
@@ -95,9 +95,9 @@
 		symbol: 'SUI-PERP',
 		baseAssetSymbol: 'SUI',
 		marketIndex: 9,
-		oracle: new PublicKey('6SK9vS8eMSSj3LUX2dPku93CrNv8xLCp9ng39F39h7A5'),
+		oracle: '6SK9vS8eMSSj3LUX2dPku93CrNv8xLCp9ng39F39h7A5',
 		launchTs: 1683125906000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Pepe',
@@ -105,9 +105,9 @@
 		symbol: '1MPEPE-PERP',
 		baseAssetSymbol: '1MPEPE',
 		marketIndex: 10,
-		oracle: new PublicKey('Gz9RfgDeAFSsH7BHDGyNTgCik74rjNwsodJpsCizzmkj'),
+		oracle: 'Gz9RfgDeAFSsH7BHDGyNTgCik74rjNwsodJpsCizzmkj',
 		launchTs: 1683781239000,
-		oracleSource: OracleSource.PYTH_1M,
+		oracleSource: Pyth1M
 	},
 	{
 		fullName: 'OP',
@@ -115,9 +115,9 @@
 		symbol: 'OP-PERP',
 		baseAssetSymbol: 'OP',
 		marketIndex: 11,
-		oracle: new PublicKey('8ctSiDhA7eJoii4TkKV8Rx4KFdz3ycsA1FXy9wq56quG'),
+		oracle: '8ctSiDhA7eJoii4TkKV8Rx4KFdz3ycsA1FXy9wq56quG',
 		launchTs: 1686091480000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'RNDR',
@@ -125,9 +125,9 @@
 		symbol: 'RNDR-PERP',
 		baseAssetSymbol: 'RNDR',
 		marketIndex: 12,
-		oracle: new PublicKey('C2QvUPBiU3fViSyqA4nZgGyYqLgYf9PRpd8B8oLoo48w'),
+		oracle: 'C2QvUPBiU3fViSyqA4nZgGyYqLgYf9PRpd8B8oLoo48w',
 		launchTs: 1687201081000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'XRP',
@@ -135,9 +135,9 @@
 		symbol: 'XRP-PERP',
 		baseAssetSymbol: 'XRP',
 		marketIndex: 13,
-		oracle: new PublicKey('DuG45Td6dgJBe64Ebymb1WjBys16L1VTQdoAURdsviqN'),
+		oracle: 'DuG45Td6dgJBe64Ebymb1WjBys16L1VTQdoAURdsviqN',
 		launchTs: 1689270550000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'HNT',
@@ -145,9 +145,9 @@
 		symbol: 'HNT-PERP',
 		baseAssetSymbol: 'HNT',
 		marketIndex: 14,
-		oracle: new PublicKey('6Eg8YdfFJQF2HHonzPUBSCCmyUEhrStg9VBLK957sBe6'),
+		oracle: '6Eg8YdfFJQF2HHonzPUBSCCmyUEhrStg9VBLK957sBe6',
 		launchTs: 1692294955000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'INJ',
@@ -155,9 +155,9 @@
 		symbol: 'INJ-PERP',
 		baseAssetSymbol: 'INJ',
 		marketIndex: 15,
-		oracle: new PublicKey('44uRsNnT35kjkscSu59MxRr9CfkLZWf6gny8bWqUbVxE'),
+		oracle: '44uRsNnT35kjkscSu59MxRr9CfkLZWf6gny8bWqUbVxE',
 		launchTs: 1698074659000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'LINK',
@@ -165,9 +165,9 @@
 		symbol: 'LINK-PERP',
 		baseAssetSymbol: 'LINK',
 		marketIndex: 16,
-		oracle: new PublicKey('9sGidS4qUXS2WvHZFhzw4df1jNd5TvUGZXZVsSjXo7UF'),
+		oracle: '9sGidS4qUXS2WvHZFhzw4df1jNd5TvUGZXZVsSjXo7UF',
 		launchTs: 1698074659000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Rollbit',
@@ -175,9 +175,9 @@
 		symbol: 'RLB-PERP',
 		baseAssetSymbol: 'RLB',
 		marketIndex: 17,
-		oracle: new PublicKey('6BmJozusMugAySsfNfMFsU1YRWcGwyP3oycNX9Pv9oCz'),
+		oracle: '6BmJozusMugAySsfNfMFsU1YRWcGwyP3oycNX9Pv9oCz',
 		launchTs: 1699265968000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Pyth',
@@ -185,9 +185,9 @@
 		symbol: 'PYTH-PERP',
 		baseAssetSymbol: 'PYTH',
 		marketIndex: 18,
-		oracle: new PublicKey('ELF78ZhSr8u4SCixA7YSpjdZHZoSNrAhcyysbavpC2kA'),
+		oracle: 'ELF78ZhSr8u4SCixA7YSpjdZHZoSNrAhcyysbavpC2kA',
 		launchTs: 1700542800000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Celestia',
@@ -195,9 +195,9 @@
 		symbol: 'TIA-PERP',
 		baseAssetSymbol: 'TIA',
 		marketIndex: 19,
-		oracle: new PublicKey('4GiL1Y6u6JkPb7ckakzJgc414h6P7qoYnEKFcd1YtSB9'),
+		oracle: '4GiL1Y6u6JkPb7ckakzJgc414h6P7qoYnEKFcd1YtSB9',
 		launchTs: 1701880540000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Puth
 	},
 	{
 		fullName: 'Jito',
@@ -205,9 +205,9 @@
 		symbol: 'JTO-PERP',
 		baseAssetSymbol: 'JTO',
 		marketIndex: 20,
-		oracle: new PublicKey('29xQnTzyyuRtgJ7RtSKEgBWwRzZqtrrKmyQQ5m3x629f'),
+		oracle: '29xQnTzyyuRtgJ7RtSKEgBWwRzZqtrrKmyQQ5m3x629f',
 		launchTs: 1701967240000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'SEI',
@@ -215,9 +215,9 @@
 		symbol: 'SEI-PERP',
 		baseAssetSymbol: 'SEI',
 		marketIndex: 21,
-		oracle: new PublicKey('B6KVbgqTRY33yDgjAnc1mWw4ATS4W5544xghayQscdt7'),
+		oracle: 'B6KVbgqTRY33yDgjAnc1mWw4ATS4W5544xghayQscdt7',
 		launchTs: 1703173331000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'AVAX',
@@ -225,9 +225,9 @@
 		symbol: 'AVAX-PERP',
 		baseAssetSymbol: 'AVAX',
 		marketIndex: 22,
-		oracle: new PublicKey('FVb5h1VmHPfVb1RfqZckchq18GxRv4iKt8T4eVTQAqdz'),
+		oracle: 'FVb5h1VmHPfVb1RfqZckchq18GxRv4iKt8T4eVTQAqdz',
 		launchTs: 1704209558000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Wormhole',
@@ -235,9 +235,9 @@
 		symbol: 'W-PERP',
 		baseAssetSymbol: 'W',
 		marketIndex: 23,
-		oracle: new PublicKey('A9665pJk2GAm7m3gA4f5qu99cWX8kDisDZtoSA9J4a3F'),
+		oracle: 'A9665pJk2GAm7m3gA4f5qu99cWX8kDisDZtoSA9J4a3F',
 		launchTs: 1709852537000,
-		oracleSource: OracleSource.PYTH,
+		oracleSource: Pyth
 	},
 	{
 		fullName: 'Kamino',
@@ -245,8 +245,8 @@
 		symbol: 'KMNO-PERP',
 		baseAssetSymbol: 'KMNO',
 		marketIndex: 24,
-		oracle: new PublicKey('FkAaa46aYdHn8QxxwmiUnJt3th8radB2GFXDMtyLALCY'),
+		oracle: 'FkAaa46aYdHn8QxxwmiUnJt3th8radB2GFXDMtyLALCY',
 		launchTs: 1711475936000,
-		oracleSource: OracleSource.Prelaunch
+		oracleSource: Prelaunch
 	}
 ]
