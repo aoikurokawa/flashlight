@@ -15,6 +15,8 @@ use solana_sdk::{address_lookup_table_account::AddressLookupTableAccount, pubkey
 
 use crate::types::Context;
 
+pub mod perp_markets;
+
 pub const DEFAULT_PUBKEY: Pubkey = solana_sdk::pubkey!("11111111111111111111111111111111");
 pub const PRICE_DIV_PEG: u128 = PRICE_PRECISION / PEG_PRECISION; //10^1
 

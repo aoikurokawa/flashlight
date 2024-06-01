@@ -9,6 +9,7 @@ use drift::{
     state::user::{MarketType, UserStats},
 };
 use futures_util::Sink;
+use serde::Deserialize;
 use solana_sdk::{
     instruction::{AccountMeta, InstructionError},
     pubkey::Pubkey,
@@ -279,4 +280,15 @@ impl Event for UserStatsAccount {
 pub struct ReferrerInfo {
     pub referrer: Pubkey,
     pub referrer_stats: Pubkey,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub enum OracleSource {
+    Pyth,
+    Switchboard,
+    QuoteAsset,
+    Pyth1K,
+    Pyth1M,
+    PythStableCoin,
+    Prelaunch,
 }

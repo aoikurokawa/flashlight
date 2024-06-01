@@ -66,6 +66,7 @@ pub mod accounts;
 pub mod addresses;
 pub mod async_utils;
 pub mod blockhash_subscriber;
+pub mod config;
 pub mod constants;
 pub mod dlob;
 pub mod drift_client_config;

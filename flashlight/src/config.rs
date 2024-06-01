@@ -10,14 +10,14 @@ enum TxSenderType {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct BaseBotConfig {
-    pub(crate) bot_id: String,
+pub struct BaseBotConfig {
+    pub bot_id: String,
 
-    pub(crate) dry_run: bool,
+    pub dry_run: bool,
 
-    pub(crate) metrics_port: Option<u16>,
+    pub metrics_port: Option<u16>,
 
-    pub(crate) run_once: Option<bool>,
+    pub run_once: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
