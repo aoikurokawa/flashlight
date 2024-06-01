@@ -3,8 +3,9 @@ use std::time::Instant;
 use sdk::{
     config::DriftEnv,
     priority_fee::{
+        drift_priority_fee_method::DriftMarketInfo,
         priority_fee_subscriber_map::PriorityFeeSubscriberMap,
-        types::PriorityFeeSubscriberMapConfig, drift_priority_fee_method::DriftMarketInfo,
+        types::PriorityFeeSubscriberMapConfig,
     },
     AccountProvider, DriftClient,
 };
@@ -38,7 +39,6 @@ impl<'a, T: AccountProvider, U> FundingRateUpdaterBot<'a, T, U> {
             drift_markets: None,
             drift_priority_fee_endpoint: get_drift_priority_fee_endpoint(DriftEnv::Devnet),
         };
-
 
         Self {
             name: config.bot_id,
