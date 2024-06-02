@@ -9,6 +9,7 @@ base64 = "0.22.1"
 futures-util = "0.3.30"
 log = "0.4.21"
 reqwest = { version = "0.12.4", features = ["json"] }
+serde = { version = "1.0.202", features = ["derive"] }
 solana-client = "1.14"
 solana-metrics = "1.14"
 solana-perf = "1.14"

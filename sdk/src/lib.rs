@@ -1602,8 +1602,8 @@ impl<'a> TransactionBuilder<'a> {
             self.program_data,
             drift::accounts::UpdateFundingRate {
                 state: *state_account(),
-                perp_market: perp_market_pubkey.clone(),
-                oracle: oracle.clone(),
+                perp_market: *perp_market_pubkey,
+                oracle: *oracle,
             },
             &[],
             &[],
@@ -1784,7 +1784,7 @@ pub async fn get_market_accounts(
 #[derive(Clone, Debug)]
 pub struct Wallet {
     /// The signing keypair, it could be authority or delegate
-    signer: Arc<Keypair>,
+    pub signer: Arc<Keypair>,
     /// The drift 'authority' account
     /// user (sub)accounts are derived from this
     authority: Pubkey,

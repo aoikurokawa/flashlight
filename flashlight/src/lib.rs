@@ -4,6 +4,7 @@
 
 pub mod bundle_sender;
 pub(crate) mod config;
+pub mod error;
 pub mod filler;
 pub mod funding_rate_updater;
 pub(crate) mod metrics;
