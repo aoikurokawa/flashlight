@@ -60,7 +60,7 @@ fn get_versioned_transaction(
     Ok(tx)
 }
 
-const PLACEHOLDER_BLOCKHASH: &[u8] = b"Fdum64WVeej6DeL85REV9NvfSxEJNPZ74DBk7A8kTrKP";
+// const PLACEHOLDER_BLOCKHASH: &[u8] = b"Fdum64WVeej6DeL85REV9NvfSxEJNPZ74DBk7A8kTrKP";
 
 pub struct SimulateAndGetTxWithCUsParams {
     pub connection: Arc<RpcClient>,
@@ -126,12 +126,12 @@ pub async fn simulate_and_get_tx_with_cus(
     }
 
     // let sim_tx_duration: Duration = 0;
-    let place_holder = Hash::new(PLACEHOLDER_BLOCKHASH);
+    // let place_holder = Hash::new(PLACEHOLDER_BLOCKHASH);
     let tx = get_versioned_transaction(
         &params.payer,
         &Vec::from(params.ixs.clone()),
         &params.lookup_table_accounts,
-        params.recent_blockhash.unwrap_or(place_holder),
+        params.recent_blockhash.unwrap(),
     )?;
     if params.do_simulation.is_none() {
         return Ok(SimulateAndGetTxWithCUsResponse {
@@ -171,7 +171,7 @@ pub async fn simulate_and_get_tx_with_cus(
     params.ixs[set_cu_limit_ix_idx as usize] =
         ComputeBudgetInstruction::set_compute_unit_limit(cu_to_use as u32);
 
-    let recent_blockhash = params.recent_blockhash.unwrap_or(place_holder);
+    let recent_blockhash = params.recent_blockhash.unwrap();
     let mut tx_with_cus = get_versioned_transaction(
         &params.payer,
         &Vec::from(params.ixs.clone()),

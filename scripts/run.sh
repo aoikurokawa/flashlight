@@ -1,2 +1,2 @@
 ##! /bin/bash
-RUST_LOG=info cargo r --release -- run
+RUST_LOG=info cargo r -- funding-rate-updater

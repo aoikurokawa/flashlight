@@ -6,9 +6,6 @@ use flashlight::{config::BaseBotConfig, funding_rate_updater::FundingRateUpdater
 use sdk::{
     types::Context, utils::load_keypair_multi_format, DriftClient, RpcAccountProvider, Wallet,
 };
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::commitment_config::CommitmentConfig;
-use tokio::sync::Mutex;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

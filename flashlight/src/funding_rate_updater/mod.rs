@@ -281,11 +281,17 @@ impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
             .get_latest_blockhash()
             .await
             .expect("get recent blockhash");
-        let lookup_table_account = self.lookup_table_account.clone().unwrap();
+        let lookup_table_account = if let Some(lookup) = &self.lookup_table_account {
+            lookup.clone()
+        } else {
+            self.drift_client
+                .fetch_market_lookup_table_account()
+                .clone()
+        };
         let sim_result = simulate_and_get_tx_with_cus(&mut SimulateAndGetTxWithCUsParams {
             connection: self.drift_client.backend.rpc_client.clone(),
             payer: self.drift_client.wallet.signer.clone(),
-            lookup_table_accounts: vec![lookup_table_account],
+            lookup_table_accounts: vec![lookup_table_account.clone()],
             ixs: ixs.into(),
             cu_limit_multiplier: Some(CU_EST_MULTIPLIER),
             do_simulation: Some(true),
