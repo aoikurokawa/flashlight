@@ -156,6 +156,7 @@ pub async fn simulate_and_get_tx_with_cus(
         .simulate_transaction(&tx)
         .await
         .map_err(|e| format!("Failed to simulate transaction: {}", e.to_string()))?;
+    info!("Response: {resp:?}");
     let sim_tx_duration = start.elapsed();
 
     let sim_tx_logs = resp.value.logs;

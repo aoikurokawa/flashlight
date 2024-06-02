@@ -175,7 +175,7 @@ impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
                 let market_str =
                     String::from_utf8(perp_market.name.to_vec()).map_err(|e| e.to_string())?;
                 warn!(
-                    "{} Update funding paused for market: {} {},  skipping",
+                    "{} Update funding paused for market: {} {}, skipping",
                     self.name, perp_market.market_index, market_str
                 );
                 continue;
