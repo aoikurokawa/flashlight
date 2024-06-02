@@ -309,15 +309,9 @@ impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
             if let TransactionError::InstructionError(code, e) = sim_error {
                 if let InstructionError::Custom(custom_err) = e {
                     if ERROR_CODES_TO_SUPPRESS.contains(&custom_err) {
-                        error!(
-                        "{} Sim error (suppressed) on market: {market_index}, Error Code: {code} {e}",
-                        self.name
-                    );
+                        error!("{} Sim error (suppressed) on market: {market_index}, Error Code: {code} {e}", self.name);
                     } else {
-                        error!(
-                        "{} Sim error (not suppressed) on market: {market_index}, Error Code: {code} {e}",
-                        self.name
-                    );
+                        error!("{} Sim error (not suppressed) on market: {market_index}, Error Code: {code} {e}", self.name);
                     }
                 }
 
