@@ -657,6 +657,10 @@ where
             .map(|x| x.data)
     }
 
+    pub fn get_perp_market_accounts(&self) -> Vec<PerpMarket> {
+        self.backend.get_perp_market_accounts()
+    }
+
     pub fn get_spot_market_account(&self, market_index: u16) -> Option<SpotMarket> {
         self.backend
             .get_spot_market_account_and_slot(market_index)
@@ -689,6 +693,29 @@ where
     ) -> Option<Oracle> {
         self.backend
             .get_oracle_price_data_and_slot_for_spot_market(market_index)
+    }
+
+    pub async fn get_update_funding_rate_ix(
+        &self,
+        perp_market_index: u16,
+        oracle_pubkey: &Pubkey,
+    ) -> SdkResult<Instruction> {
+        let perp_market = self.get_perp_market_info(perp_market_index).await?;
+        let account_data: User = self
+            .backend
+            .get_account(&self.wallet.default_sub_account())
+            .await?;
+
+        let ix = &TransactionBuilder::new(
+            self.program_data(),
+            self.wallet.default_sub_account(),
+            Cow::Owned(account_data),
+            false,
+        )
+        .update_funding_rate(perp_market_index, &perp_market.pubkey, oracle_pubkey)
+        .ixs[0];
+
+        Ok(ix.clone())
     }
 }
 
@@ -828,6 +855,10 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         market_index: u16,
     ) -> Option<DataAndSlot<SpotMarket>> {
         self.spot_market_map.get(&market_index)
+    }
+
+    fn get_perp_market_accounts(&self) -> Vec<PerpMarket> {
+        self.perp_market_map.values()
     }
 
     fn num_perp_markets(&self) -> usize {
@@ -1558,6 +1589,34 @@ impl<'a> TransactionBuilder<'a> {
         };
 
         self.ixs.push(ix);
+        self
+    }
+
+    pub fn update_funding_rate(
+        mut self,
+        market_index: u16,
+        perp_market_pubkey: &Pubkey,
+        oracle: &Pubkey,
+    ) -> Self {
+        let accounts = build_accounts(
+            self.program_data,
+            drift::accounts::UpdateFundingRate {
+                state: *state_account(),
+                perp_market: perp_market_pubkey.clone(),
+                oracle: oracle.clone(),
+            },
+            &[],
+            &[],
+            &[],
+        );
+
+        let ix = Instruction {
+            program_id: constants::PROGRAM_ID,
+            accounts,
+            data: InstructionData::data(&drift::instruction::UpdateFundingRate { market_index }),
+        };
+        self.ixs.push(ix);
+
         self
     }
 

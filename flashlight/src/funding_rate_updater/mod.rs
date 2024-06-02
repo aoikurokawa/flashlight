@@ -1,6 +1,13 @@
-use std::time::Instant;
+use std::{
+    collections::HashMap,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 
-use log::info;
+use drift::{
+    math::helpers::on_the_hour_update,
+    state::{paused_operations::PerpOperation, perp_market::MarketStatus},
+};
+use log::{info, warn};
 use sdk::{
     config::DriftEnv,
     constants::perp_markets::read_perp_markets,
@@ -9,10 +16,13 @@ use sdk::{
         priority_fee_subscriber_map::PriorityFeeSubscriberMap,
         types::PriorityFeeSubscriberMapConfig,
     },
-    types::SdkResult,
+    types::{SdkError, SdkResult},
     AccountProvider, DriftClient,
 };
-use solana_sdk::{address_lookup_table_account::AddressLookupTableAccount, info};
+use solana_sdk::{
+    address_lookup_table_account::AddressLookupTableAccount,
+    compute_budget::ComputeBudgetInstruction,
+};
 
 use crate::{config::BaseBotConfig, util::get_drift_priority_fee_endpoint};
 
@@ -85,6 +95,74 @@ impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
     }
 
     pub async fn try_update_funding_rate(&mut self) -> SdkResult<()> {
+        if self.in_progress {
+            info!(
+                "{} UpdateFundingReate already in progress, skipping...",
+                self.name
+            );
+            return Ok(());
+        }
+
+        let start = Instant::now();
+        self.in_progress = true;
+
+        let mut perp_market_and_oracle_data = HashMap::new();
+
+        let perp_market_accounts = self.drift_client.get_perp_market_accounts();
+        for market_account in perp_market_accounts {
+            perp_market_and_oracle_data.insert(market_account.market_index, market_account);
+        }
+
+        for (index, perp_market) in perp_market_and_oracle_data {
+            if perp_market.status == MarketStatus::Initialized {
+                info!(
+                    "{} Skipping perp market {} because market status = {:?}",
+                    self.name, perp_market.market_index, perp_market.status
+                );
+                continue;
+            }
+
+            let funding_paused = perp_market.is_operation_paused(PerpOperation::UpdateFunding);
+            if funding_paused {
+                let market_str = String::from_utf8(perp_market.name.to_vec())
+                    .map_err(|e| SdkError::Generic(e.to_string()))?;
+                warn!(
+                    "{} Update funding paused for market: {} {},  skipping",
+                    self.name, perp_market.market_index, market_str
+                );
+                continue;
+            }
+
+            if perp_market.amm.funding_period == 0 {
+                continue;
+            }
+
+            let current_ts = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_secs() as i64;
+
+            let time_remaining_til_update = on_the_hour_update(
+                current_ts,
+                perp_market.amm.last_funding_rate_ts,
+                perp_market.amm.funding_period,
+            )
+            .expect("");
+
+            info!(
+                "{} Perp market {} time_remaining_til_update={}",
+                self.name, perp_market.market_index, time_remaining_til_update
+            )
+        }
+
         Ok(())
+    }
+
+    async fn send_txs(&self, micro_lamports: u64) -> (bool, bool) {
+        let mut ixs = Vec::new();
+        ixs.push(ComputeBudgetInstruction::set_compute_unit_limit(1_400_000));
+        ixs.push(ComputeBudgetInstruction::set_compute_unit_price(micro_lamports));
+        ixs.push(self.drift_client.get_update_funding_rate_ix());
+        (true, true)
     }
 }
