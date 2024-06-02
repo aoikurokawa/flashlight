@@ -1,0 +1,25 @@
+
+	{
+		"fullName": "Polygon",
+		"category": ["L2", "Infra"],
+		"symbol": "MATIC-PERP",
+		"baseAssetSymbol": "MATIC",
+		"marketIndex": 5,
+		"oracle": "FBirwuDFuRAu4iSGc7RGxN5koHB7EJM1wbCmyPuQoGur",
+		"launchTs": 1677690149000, //todo
+		"oracleSource": "Pyth"
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

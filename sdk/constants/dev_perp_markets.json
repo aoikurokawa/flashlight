@@ -56,7 +56,7 @@
 		"baseAssetSymbol": "MATIC",
 		"marketIndex": 5,
 		"oracle": "FBirwuDFuRAu4iSGc7RGxN5koHB7EJM1wbCmyPuQoGur",
-		"launchTs": 1677690149000, //todo
+		"launchTs": 1677690149000,
 		"oracleSource": "Pyth"
 	},
 	{
@@ -66,7 +66,7 @@
 		"baseAssetSymbol": "ARB",
 		"marketIndex": 6,
 		"oracle": "4mRGHzjGerQNWKXyQAmr9kWqb9saPPHKqo1xziXGQ5Dh",
-		"launchTs": 1679501812000, //todo
+		"launchTs": 1679501812000,
 		"oracleSource": "Pyth"
 	},
 	{
@@ -185,7 +185,7 @@
 		"symbol": "PYTH-PERP",
 		"baseAssetSymbol": "PYTH",
 		"marketIndex": 18,
-		"oracle": 'ELF78ZhSr8u4SCixA7YSpjdZHZoSNrAhcyysbavpC2kA',
+		"oracle": "ELF78ZhSr8u4SCixA7YSpjdZHZoSNrAhcyysbavpC2kA",
 		"launchTs": 1700542800000,
 		"oracleSource": "Pyth"
 	},
