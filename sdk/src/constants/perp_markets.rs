@@ -6,6 +6,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::{config::DriftEnv, types::OracleSource};
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PerpMarketConfig {
     pub full_name: Option<String>,
     pub category: Option<Vec<String>>,
@@ -35,7 +36,7 @@ pub fn read_perp_markets(env: DriftEnv) -> Vec<PerpMarketConfig> {
         }
         DriftEnv::Devnet => {
             let file_content =
-                fs::read_to_string("../../constants/dev_perp_markets.json").expect("");
+                fs::read_to_string("./sdk/constants/dev_perp_markets.json").expect("");
             serde_json::from_str(&file_content).expect("")
         }
     }

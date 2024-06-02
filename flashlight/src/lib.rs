@@ -3,7 +3,7 @@
 // pub use types::*;
 
 pub mod bundle_sender;
-pub(crate) mod config;
+pub mod config;
 pub mod error;
 pub mod filler;
 pub mod funding_rate_updater;
