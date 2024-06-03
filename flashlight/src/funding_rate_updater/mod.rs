@@ -182,6 +182,10 @@ impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
             }
 
             if perp_market.amm.funding_period == 0 {
+                info!(
+                    "{} Perp market {}: AMM funding period is 0, skipping",
+                    self.name, perp_market.market_index
+                );
                 continue;
             }
 
@@ -198,7 +202,7 @@ impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
             .expect("");
 
             info!(
-                "{} Perp market {} time_remaining_til_update={}",
+                "{} Perp market {}: time_remaining_til_update={}",
                 self.name, perp_market.market_index, time_remaining_til_update
             );
 

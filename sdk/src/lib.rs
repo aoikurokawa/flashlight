@@ -23,7 +23,7 @@ use drift_client_config::ClientOpts;
 use event_emitter::*;
 use fnv::FnvHashMap;
 use futures_util::{future::BoxFuture, FutureExt, StreamExt, TryFutureExt};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use marketmap::MarketMap;
 use oraclemap::{Oracle, OracleMap};
 use solana_account_decoder::UiAccountEncoding;
@@ -1005,6 +1005,12 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         let blockhash_reader = self.blockhash_subscriber.read().await;
         let recent_block_hash = blockhash_reader.get_valid_blockhash();
         drop(blockhash_reader);
+        info!("Recent blockhash: {}", recent_block_hash);
+        let recent_block_hash = self
+            .rpc_client
+            .get_latest_blockhash()
+            .await
+            .expect("get recent blockhash");
         let tx = wallet.sign_tx(tx, recent_block_hash)?;
         self.rpc_client
             .send_transaction(&tx)
