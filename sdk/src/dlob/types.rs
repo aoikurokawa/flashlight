@@ -1,13 +1,13 @@
 use tokio::time::Duration;
 
-use crate::{AccountProvider, DriftClient};
+use crate::{usermap::UserMap, AccountProvider, DriftClient};
 
 use super::dlob::DLOB;
 
-pub struct DLOBSubscriptionConfig<T: AccountProvider, D: DLOBSource, S: SlotSource, U> {
+pub struct DLOBSubscriptionConfig<T: AccountProvider, U> {
     pub(crate) drift_client: DriftClient<T, U>,
-    pub(crate) dlob_source: D,
-    pub(crate) slot_source: S,
+    pub(crate) dlob_source: DlobSource,
+    pub(crate) slot_source: SlotSource,
     pub(crate) update_frequency: Duration,
 }
 
@@ -16,10 +16,26 @@ pub(crate) trait DLOBSubscriberEvents {
     fn error();
 }
 
-pub trait DLOBSource {
-    fn get_dlob(&self, slot: u64) -> impl std::future::Future<Output = DLOB> + Send;
+pub enum DlobSource {
+    UserMap(UserMap),
 }
 
-pub trait SlotSource {
-    fn get_slot(&self) -> u64;
+impl DlobSource {
+    pub async fn get_dlob(&self, slot: u64) -> DLOB {
+        match self {
+            DlobSource::UserMap(usermap) => usermap.get_dlob(slot),
+        }
+    }
 }
+
+pub enum SlotSource {}
+
+impl SlotSource {
+    pub fn get_slot(&self) -> u64 {
+        0
+    }
+}
+
+// pub trait SlotSource {
+//     fn get_slot(&self) -> u64;
+// }

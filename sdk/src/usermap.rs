@@ -2,6 +2,7 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use crate::dlob::dlob::DLOB;
 use crate::event_emitter::EventEmitter;
 use crate::memcmp::{get_non_idle_user_filter, get_user_filter};
 use crate::utils::{decode, get_ws_url};
@@ -210,6 +211,12 @@ impl UserMap {
         }
 
         Ok(())
+    }
+
+    pub fn get_dlob(&self, slot: u64) -> DLOB {
+        let mut dlob = DLOB::new();
+        dlob.build_from_usermap(self, slot);
+        dlob
     }
 }
 

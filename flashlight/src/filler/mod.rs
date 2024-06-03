@@ -28,11 +28,9 @@ use crate::{
 
 const DEFAULT_INTERVAL_MS: u16 = 6000;
 
-struct FillerBot<'a, T, D, S, U>
+struct FillerBot<'a, T, U>
 where
     T: AccountProvider,
-    S: sdk::dlob::types::SlotSource,
-    D: sdk::dlob::types::DLOBSource,
 {
     name: String,
     dry_run: bool,
@@ -51,7 +49,7 @@ where
 
     filler_config: FillerConfig,
     global_config: GlobalConfig,
-    dlob_subscriber: Option<DLOBSubscriber<T, D, S, U>>,
+    dlob_subscriber: Option<DLOBSubscriber<T, U>>,
 
     user_map: Option<UserMap>,
     user_stats_map: Option<UserStatsMap<'a>>,
@@ -120,11 +118,9 @@ where
     rebalance_settled_pnl_threshold: f64,
 }
 
-impl<'a, T, D, S, U> FillerBot<'a, T, D, S, U>
+impl<'a, T, U> FillerBot<'a, T, U>
 where
     T: AccountProvider,
-    S: sdk::dlob::types::SlotSource,
-    D: sdk::dlob::types::DLOBSource,
 {
     pub fn new(
         slot_subscriber: SlotSubscriber,

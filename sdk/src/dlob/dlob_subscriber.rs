@@ -18,16 +18,16 @@ use super::{
         L2OrderBook, L2OrderBookGenerator, L3OrderBook, VammL2Generator,
         DEFAULT_TOP_OF_BOOK_QUOTE_AMOUNTS,
     },
-    types::{DLOBSource, DLOBSubscriptionConfig, SlotSource},
+    types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
 };
 
 // https://github.com/drift-labs/protocol-v2/blob/master/sdk/src/dlob/DLOBSubscriber.ts
-pub struct DLOBSubscriber<T: AccountProvider, D: DLOBSource, S: SlotSource, U> {
+pub struct DLOBSubscriber<T: AccountProvider, U> {
     drift_client: DriftClient<T, U>,
 
-    dlob_source: D,
+    dlob_source: DlobSource,
 
-    slot_source: S,
+    slot_source: SlotSource,
 
     update_frequency: Duration,
 
@@ -38,14 +38,12 @@ pub struct DLOBSubscriber<T: AccountProvider, D: DLOBSource, S: SlotSource, U> {
     event_emitter: EventEmitter,
 }
 
-impl<T, D, S, U> DLOBSubscriber<T, D, S, U>
+impl<T, U> DLOBSubscriber<T, U>
 where
     T: AccountProvider,
-    D: DLOBSource + Send + Sync + 'static,
-    S: SlotSource + Send + Sync + 'static,
     U: Send + Sync + 'static,
 {
-    pub fn new(config: DLOBSubscriptionConfig<T, D, S, U>) -> Self {
+    pub fn new(config: DLOBSubscriptionConfig<T, U>) -> Self {
         Self {
             drift_client: config.drift_client,
             dlob_source: config.dlob_source,

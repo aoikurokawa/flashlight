@@ -8,5 +8,6 @@ pub mod error;
 pub mod filler;
 pub mod funding_rate_updater;
 pub(crate) mod metrics;
+pub mod trigger;
 pub mod types;
 pub mod util;
