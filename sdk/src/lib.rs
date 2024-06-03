@@ -79,6 +79,7 @@ pub mod memcmp;
 pub mod oraclemap;
 pub mod priority_fee;
 pub mod slot_subscriber;
+pub mod tx;
 pub mod types;
 pub mod user;
 pub mod user_config;

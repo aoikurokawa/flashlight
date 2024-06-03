@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use sdk::{
     dlob::dlob_subscriber::DLOBSubscriber, slot_subscriber::SlotSubscriber, AccountProvider,
-    DriftClient,
+    DriftClient, usermap::UserMap,
 };
 use tokio::{sync::oneshot, task::JoinHandle};
 
@@ -11,7 +13,11 @@ pub struct TriggerBot<T: AccountProvider, U> {
 
     drift_client: DriftClient<T, U>,
     slot_subscriber: SlotSubscriber,
-    dlob_subsciriber: DLOBSubscriber<T, U>,
+    dlob_subsciriber: Option<DLOBSubscriber<T, U>>,
+    triggering_nodes: HashMap<String, u64>,
     interval_tx: Option<oneshot::Sender<()>>,
     interval_handles: Option<JoinHandle<()>>,
+    user_map: UserMap,
+
+    // priority_fee_calculator: PriorityFeeCa
 }
