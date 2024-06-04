@@ -22,6 +22,7 @@ use super::{
 };
 
 // https://github.com/drift-labs/protocol-v2/blob/master/sdk/src/dlob/DLOBSubscriber.ts
+#[derive(Clone)]
 pub struct DLOBSubscriber<T: AccountProvider, U> {
     drift_client: Arc<DriftClient<T, U>>,
 
@@ -40,8 +41,8 @@ pub struct DLOBSubscriber<T: AccountProvider, U> {
 
 impl<T, U> DLOBSubscriber<T, U>
 where
-    T: AccountProvider,
-    U: Send + Sync + 'static,
+    T: AccountProvider + Clone,
+    U: Send + Sync + 'static + Clone,
 {
     pub fn new(config: DLOBSubscriptionConfig<T, U>) -> Self {
         Self {
@@ -55,21 +56,23 @@ where
         }
     }
 
-    pub async fn subscribe(dlob_subscriber: Arc<Mutex<Self>>) -> SdkResult<()> {
-        if dlob_subscriber.clone().lock().await.interval_id.is_some() {
+    pub async fn subscribe(&mut self) -> SdkResult<()> {
+        if self.interval_id.is_some() {
             return Ok(());
         }
 
-        DLOBSubscriber::update_dlob(dlob_subscriber.clone()).await?;
+        self.update_dlob().await?;
 
-        let update_frequency = dlob_subscriber.clone().lock().await.update_frequency;
+        let update_frequency = self.update_frequency;
         let (tx, mut rx) = tokio::sync::mpsc::channel(100);
 
-        let subscriber = dlob_subscriber.clone();
+        // let subscriber = dlob_subscriber.clone();
+        // let mut self_clone = self.clone();
+        // let subscriber = self as *mut _;
         let update_task = tokio::spawn(async move {
             loop {
                 time::sleep(update_frequency).await;
-                match DLOBSubscriber::update_dlob(subscriber.clone()).await {
+                match self.update_dlob().await {
                     Ok(()) => tx.send(Ok(())).await.unwrap(),
                     Err(e) => tx.send(Err(e)).await.unwrap(),
                 }
@@ -79,9 +82,9 @@ where
         let handle_events = tokio::spawn(async move {
             while let Some(res) = rx.recv().await {
                 match res {
-                    Ok(()) => dlob_subscriber.clone().lock().await.event_emitter.emit(
+                    Ok(()) => self.event_emitter.emit(
                         "update",
-                        Box::new(dlob_subscriber.clone().lock().await.dlob.clone()),
+                        Box::new(self.dlob.clone()),
                     ),
                     Err(e) => {
                         log::error!("Failed to subscribe to dlob: {e}");
@@ -95,10 +98,9 @@ where
         Ok(())
     }
 
-    async fn update_dlob(dlob_subscriber: Arc<Mutex<Self>>) -> SdkResult<()> {
-        let mut subscriber = dlob_subscriber.lock().await;
-        let slot = subscriber.slot_source.get_slot();
-        subscriber.dlob = subscriber.dlob_source.get_dlob(slot).await;
+    async fn update_dlob(&mut self) -> SdkResult<()> {
+        let slot = self.slot_source.get_slot();
+        self.dlob = self.dlob_source.get_dlob(slot).await;
 
         Ok(())
     }
