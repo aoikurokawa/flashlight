@@ -51,6 +51,7 @@ pub struct WebsocketProgramAccountOptions {
     pub encoding: UiAccountEncoding,
 }
 
+#[derive(Clone)]
 pub struct WebsocketProgramAccountSubscriber {
     subscription_name: &'static str,
     url: String,

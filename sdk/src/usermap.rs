@@ -26,14 +26,15 @@ use solana_sdk::pubkey::Pubkey;
 
 pub mod user_stats_map;
 
+#[derive(Clone)]
 pub struct UserMap {
     subscribed: bool,
     subscription: WebsocketProgramAccountSubscriber,
     pub(crate) usermap: Arc<DashMap<String, User>>,
-    sync_lock: Option<Mutex<()>>,
+    sync_lock: Arc<Option<Mutex<()>>>,
     latest_slot: Arc<AtomicU64>,
     commitment: CommitmentConfig,
-    rpc: RpcClient,
+    rpc: Arc<RpcClient>,
 }
 
 impl UserMap {
@@ -73,10 +74,10 @@ impl UserMap {
             subscribed: false,
             subscription,
             usermap,
-            sync_lock,
+            sync_lock: Arc::new(sync_lock),
             latest_slot: Arc::new(AtomicU64::new(0)),
             commitment,
-            rpc,
+            rpc: Arc::new(rpc),
         }
     }
 
@@ -158,46 +159,48 @@ impl UserMap {
 
     #[allow(clippy::await_holding_lock)]
     async fn sync(&mut self) -> SdkResult<()> {
-        let sync_lock = self.sync_lock.as_ref().expect("expected sync lock");
+        let sync_lock = self.sync_lock.clone();
 
-        let lock = match sync_lock.try_lock() {
-            Ok(lock) => lock,
-            Err(_) => return Ok(()),
-        };
+        if let Some(ref mutex) = *sync_lock {
+            let lock = match mutex.try_lock() {
+                Ok(lock) => lock,
+                Err(_) => return Ok(()),
+            };
 
-        let account_config = RpcAccountInfoConfig {
-            commitment: Some(self.commitment),
-            encoding: Some(self.subscription.options.encoding),
-            ..RpcAccountInfoConfig::default()
-        };
+            let account_config = RpcAccountInfoConfig {
+                commitment: Some(self.commitment),
+                encoding: Some(self.subscription.options.encoding),
+                ..RpcAccountInfoConfig::default()
+            };
 
-        let gpa_config = RpcProgramAccountsConfig {
-            filters: Some(self.subscription.options.filters.clone()),
-            account_config,
-            with_context: Some(true),
-        };
+            let gpa_config = RpcProgramAccountsConfig {
+                filters: Some(self.subscription.options.filters.clone()),
+                account_config,
+                with_context: Some(true),
+            };
 
-        let response = self
-            .rpc
-            .send::<OptionalContext<Vec<RpcKeyedAccount>>>(
-                RpcRequest::GetProgramAccounts,
-                json!([drift::id().to_string(), gpa_config]),
-            )
-            .await?;
+            let response = self
+                .rpc
+                .send::<OptionalContext<Vec<RpcKeyedAccount>>>(
+                    RpcRequest::GetProgramAccounts,
+                    json!([drift::id().to_string(), gpa_config]),
+                )
+                .await?;
 
-        if let OptionalContext::Context(accounts) = response {
-            for account in accounts.value {
-                let pubkey = account.pubkey;
-                let user_data = account.account.data;
-                let data = decode::<User>(user_data)?;
-                self.usermap.insert(pubkey, data);
+            if let OptionalContext::Context(accounts) = response {
+                for account in accounts.value {
+                    let pubkey = account.pubkey;
+                    let user_data = account.account.data;
+                    let data = decode::<User>(user_data)?;
+                    self.usermap.insert(pubkey, data);
+                }
+
+                self.latest_slot
+                    .store(accounts.context.slot, Ordering::Relaxed);
             }
 
-            self.latest_slot
-                .store(accounts.context.slot, Ordering::Relaxed);
+            drop(lock);
         }
-
-        drop(lock);
         Ok(())
     }
 

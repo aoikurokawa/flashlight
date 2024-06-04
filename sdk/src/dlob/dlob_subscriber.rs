@@ -23,7 +23,7 @@ use super::{
 
 // https://github.com/drift-labs/protocol-v2/blob/master/sdk/src/dlob/DLOBSubscriber.ts
 pub struct DLOBSubscriber<T: AccountProvider, U> {
-    drift_client: DriftClient<T, U>,
+    drift_client: Arc<DriftClient<T, U>>,
 
     dlob_source: DlobSource,
 

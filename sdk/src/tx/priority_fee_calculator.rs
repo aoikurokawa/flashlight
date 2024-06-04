@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use solana_sdk::{compute_budget::ComputeBudgetInstruction, instruction::Instruction};
 
 /// This class determines whether a priority fee needs to be included in a transaction based on
@@ -5,14 +7,15 @@ use solana_sdk::{compute_budget::ComputeBudgetInstruction, instruction::Instruct
 pub struct PriorityFeeCalculator {
     last_tx_timeout_count: u64,
     priority_fee_triggered: bool,
-    last_tx_timeout_count_triggered: u64,
-    priority_fee_latch_duration_ms: u64,
+    last_tx_timeout_count_triggered: Instant,
+    priority_fee_latch_duration_ms: Duration,
 }
 
 impl PriorityFeeCalculator {
     /// Constructor for the PriorityFeeCalculator class.
-    pub fn new(current_time_ms: u64, priority_fee_latch_duration_ms: Option<u64>) -> Self {
-        let priority_fee_latch_duration_ms = priority_fee_latch_duration_ms.unwrap_or(10 * 1000);
+    pub fn new(current_time_ms: Instant, priority_fee_latch_duration_ms: Option<Duration>) -> Self {
+        let priority_fee_latch_duration_ms =
+            priority_fee_latch_duration_ms.unwrap_or(Duration::from_millis(10 * 1000));
         Self {
             last_tx_timeout_count: 0,
             priority_fee_triggered: false,
@@ -22,7 +25,7 @@ impl PriorityFeeCalculator {
     }
 
     /// Update the priority fee state based on the current time and the current timeout count.
-    pub fn update_priority_fee(&mut self, current_time_ms: u64, tx_time_count: u64) -> bool {
+    pub fn update_priority_fee(&mut self, current_time_ms: Instant, tx_time_count: u64) -> bool {
         let mut trigger_priority_fee = false;
 
         if tx_time_count > self.last_tx_timeout_count {

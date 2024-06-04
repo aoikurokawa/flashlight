@@ -10,6 +10,7 @@ use crate::{
 };
 
 /// To subscribe to slot updates, subscribe to the event_emitter's "slot" event type.
+#[derive(Clone)]
 pub struct SlotSubscriber {
     current_slot: Arc<Mutex<u64>>,
     event_emitter: EventEmitter,
@@ -109,6 +110,10 @@ impl SlotSubscriber {
         });
 
         Ok(())
+    }
+
+    pub fn get_slot(&self) -> u64 {
+        self.current_slot()
     }
 
     pub async fn unsubscribe(&mut self) -> SdkResult<()> {
