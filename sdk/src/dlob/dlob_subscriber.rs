@@ -21,7 +21,12 @@ use super::{
     types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
 };
 
+struct DLOBSubscriberInner {
+    dlob: DLOB,
+}
+
 // https://github.com/drift-labs/protocol-v2/blob/master/sdk/src/dlob/DLOBSubscriber.ts
+#[derive(Clone)]
 pub struct DLOBSubscriber<T: AccountProvider, U> {
     drift_client: Arc<DriftClient<T, U>>,
 
@@ -33,15 +38,15 @@ pub struct DLOBSubscriber<T: AccountProvider, U> {
 
     interval_id: Option<Duration>,
 
-    dlob: DLOB,
+    dlob: Arc<Mutex<DLOBSubscriberInner>>,
 
     event_emitter: EventEmitter,
 }
 
 impl<T, U> DLOBSubscriber<T, U>
 where
-    T: AccountProvider,
-    U: Send + Sync + 'static,
+    T: AccountProvider + Clone,
+    U: Send + Sync + 'static + Clone,
 {
     pub fn new(config: DLOBSubscriptionConfig<T, U>) -> Self {
         Self {
@@ -50,39 +55,42 @@ where
             slot_source: config.slot_source,
             update_frequency: config.update_frequency,
             interval_id: None,
-            dlob: DLOB::new(),
+            dlob: Arc::new(Mutex::new(DLOBSubscriberInner { dlob: DLOB::new() })),
             event_emitter: EventEmitter::new(),
         }
     }
 
-    pub async fn subscribe(dlob_subscriber: Arc<Mutex<Self>>) -> SdkResult<()> {
-        if dlob_subscriber.clone().lock().await.interval_id.is_some() {
+    pub async fn subscribe(&self) -> SdkResult<()> {
+        if self.interval_id.is_some() {
             return Ok(());
         }
 
-        DLOBSubscriber::update_dlob(dlob_subscriber.clone()).await?;
+        self.update_dlob().await?;
 
-        let update_frequency = dlob_subscriber.clone().lock().await.update_frequency;
+        let update_frequency = self.update_frequency;
         let (tx, mut rx) = tokio::sync::mpsc::channel(100);
 
-        let subscriber = dlob_subscriber.clone();
+        // let subscriber = dlob_subscriber.clone();
+        // let mut self_clone =
+        let subscriber = self.clone();
         let update_task = tokio::spawn(async move {
             loop {
                 time::sleep(update_frequency).await;
-                match DLOBSubscriber::update_dlob(subscriber.clone()).await {
+                match subscriber.update_dlob().await {
                     Ok(()) => tx.send(Ok(())).await.unwrap(),
                     Err(e) => tx.send(Err(e)).await.unwrap(),
                 }
             }
         });
 
+        let subscriber = self.clone();
         let handle_events = tokio::spawn(async move {
             while let Some(res) = rx.recv().await {
                 match res {
-                    Ok(()) => dlob_subscriber.clone().lock().await.event_emitter.emit(
-                        "update",
-                        Box::new(dlob_subscriber.clone().lock().await.dlob.clone()),
-                    ),
+                    Ok(()) => {
+                        let dlob = subscriber.dlob.clone().lock().await.dlob.clone();
+                        subscriber.event_emitter.emit("update", Box::new(dlob))
+                    }
                     Err(e) => {
                         log::error!("Failed to subscribe to dlob: {e}");
                     }
@@ -95,16 +103,15 @@ where
         Ok(())
     }
 
-    async fn update_dlob(dlob_subscriber: Arc<Mutex<Self>>) -> SdkResult<()> {
-        let mut subscriber = dlob_subscriber.lock().await;
-        let slot = subscriber.slot_source.get_slot();
-        subscriber.dlob = subscriber.dlob_source.get_dlob(slot).await;
+    async fn update_dlob(&self) -> SdkResult<()> {
+        let slot = self.slot_source.get_slot();
+        self.dlob.lock().await.dlob = self.dlob_source.get_dlob(slot).await;
 
         Ok(())
     }
 
-    pub async fn get_dlob(&self) -> &DLOB {
-        &self.dlob
+    pub async fn get_dlob(&self) -> DLOB {
+        self.dlob.lock().await.dlob.clone()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -180,7 +187,8 @@ where
             fallback_l2_generators = vec![Box::new(vamm_l2_generator)];
         }
 
-        Ok(self.dlob.get_l2::<VammL2Generator>(
+        let mut dlob = self.dlob.lock().await.dlob.clone();
+        Ok(dlob.get_l2::<VammL2Generator>(
             market_index,
             market_type,
             self.slot_source.get_slot(),
@@ -233,7 +241,8 @@ where
                 .ok_or_else(|| SdkError::Generic("".to_string()))?
         };
 
-        Ok(self.dlob.get_l3(
+        let mut dlob = self.dlob.lock().await.dlob.clone();
+        Ok(dlob.get_l3(
             market_index,
             market_type,
             self.slot_source.get_slot(),

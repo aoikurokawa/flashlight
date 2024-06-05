@@ -37,7 +37,7 @@ pub struct TriggerBot<U> {
 
 impl<U> TriggerBot<U>
 where
-    U: Send + Sync + 'static,
+    U: Send + Sync + 'static + Clone,
 {
     pub fn new(
         drift_client: Arc<DriftClient<RpcAccountProvider, U>>,

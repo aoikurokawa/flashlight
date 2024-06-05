@@ -18,6 +18,7 @@ pub(crate) trait DLOBSubscriberEvents {
     fn error();
 }
 
+#[derive(Clone)]
 pub enum DlobSource {
     UserMap(UserMap),
 }
@@ -30,6 +31,7 @@ impl DlobSource {
     }
 }
 
+#[derive(Clone)]
 pub enum SlotSource {
     SlotSubscriber(SlotSubscriber),
 }
