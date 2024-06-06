@@ -17,7 +17,6 @@ use sdk::{
     usermap::UserMap,
     DriftClient, RpcAccountProvider,
 };
-use solana_sdk::info;
 use tokio::{sync::oneshot, task::JoinHandle};
 
 use crate::{config::BaseBotConfig, util::get_node_to_trigger_signature};
@@ -150,7 +149,7 @@ where
                     .await
                     .map_err(|e| e.to_string())?;
 
-                let mut ixs = Vec::new();
+                // let mut ixs = Vec::new();
                 // ixs.push(self.drift_client.get_tr)
             }
         }

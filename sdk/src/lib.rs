@@ -1640,7 +1640,7 @@ impl<'a> TransactionBuilder<'a> {
     ) {
         let filler_pubkey = filler_pubkey.unwrap_or(user_account_pubkey);
 
-        let remaining_account_params = 
+        // let remaining_account_params =
     }
 
     /// Build the transaction message ready for signing and sending
