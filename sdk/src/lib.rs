@@ -1631,6 +1631,18 @@ impl<'a> TransactionBuilder<'a> {
         self
     }
 
+    pub fn get_trigger_order_ix(
+        mut self,
+        user_account_pubkey: Pubkey,
+        user_account: User,
+        order: Order,
+        filler_pubkey: Option<Pubkey>,
+    ) {
+        let filler_pubkey = filler_pubkey.unwrap_or(user_account_pubkey);
+
+        let remaining_account_params = 
+    }
+
     /// Build the transaction message ready for signing and sending
     pub fn build(self) -> VersionedMessage {
         if self.legacy {

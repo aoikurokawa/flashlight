@@ -8,6 +8,7 @@ use drift::state::{perp_market::PerpMarket, user::MarketType};
 use log::{info, warn};
 use sdk::{
     dlob::{
+        dlob_node::DLOBNode,
         dlob_subscriber::DLOBSubscriber,
         types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
     },
@@ -16,6 +17,7 @@ use sdk::{
     usermap::UserMap,
     DriftClient, RpcAccountProvider,
 };
+use solana_sdk::info;
 use tokio::{sync::oneshot, task::JoinHandle};
 
 use crate::{config::BaseBotConfig, util::get_node_to_trigger_signature};
@@ -99,7 +101,7 @@ where
         self.try_trigger().await;
     }
 
-    async fn try_trigger_for_perp_market(&mut self, market: PerpMarket) {
+    async fn try_trigger_for_perp_market(&mut self, market: PerpMarket) -> Result<(), String> {
         let market_index = market.market_index;
 
         let oracle_price_data = self
@@ -129,8 +131,31 @@ where
                         continue;
                     }
                 }
+
+                // if node_to_trigger.
+
+                self.triggering_nodes
+                    .insert(node_to_fill_signature, Instant::now());
+
+                info!(
+                    "trying to trigger perp order on market {} (account {}) perp order {}",
+                    node_to_trigger.get_order().market_index,
+                    node_to_trigger.get_user_account(),
+                    node_to_trigger.get_order().order_id
+                );
+
+                let user = self
+                    .user_map
+                    .must_get(&node_to_trigger.get_user_account().to_string())
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                let mut ixs = Vec::new();
+                // ixs.push(self.drift_client.get_tr)
             }
         }
+
+        Ok(())
     }
 
     async fn try_trigger(&mut self) {
