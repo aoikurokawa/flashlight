@@ -6,5 +6,7 @@ pub mod leverage;
 pub mod liquidation;
 pub mod oracle;
 pub mod order;
+pub mod position;
 pub mod repeg;
+pub mod spot_position;
 pub mod util;

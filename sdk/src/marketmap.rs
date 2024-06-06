@@ -57,7 +57,7 @@ impl Market for SpotMarket {
 pub struct MarketMap<T: AccountDeserialize> {
     subscribed: AtomicBool,
     subscription: RwLock<WebsocketProgramAccountSubscriber>,
-    marketmap: Arc<DashMap<u16, DataAndSlot<T>>>,
+    pub marketmap: Arc<DashMap<u16, DataAndSlot<T>>>,
     sync_lock: Option<Mutex<()>>,
     latest_slot: Arc<AtomicU64>,
     commitment: CommitmentConfig,

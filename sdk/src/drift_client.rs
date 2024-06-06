@@ -1,12 +1,15 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use anchor_lang::{AccountDeserialize, Discriminator};
-use drift::state::{
-    oracle::get_oracle_price,
-    perp_market::PerpMarket,
-    spot_market::SpotMarket,
-    state::State,
-    user::{MarketType, Order, OrderStatus, PerpPosition, SpotPosition, User, UserStats},
+use drift::{
+    math::constants::QUOTE_SPOT_MARKET_INDEX,
+    state::{
+        oracle::{get_oracle_price, OracleSource},
+        perp_market::PerpMarket,
+        spot_market::SpotMarket,
+        state::State,
+        user::{MarketType, Order, OrderStatus, PerpPosition, SpotPosition, User, UserStats},
+    },
 };
 use futures_util::TryFutureExt;
 use solana_account_decoder::UiAccountEncoding;
@@ -16,8 +19,12 @@ use solana_client::{
     rpc_filter::{Memcmp, RpcFilterType},
 };
 use solana_sdk::{
-    account_info::IntoAccountInfo, address_lookup_table_account::AddressLookupTableAccount,
-    hash::Hash, instruction::Instruction, message::VersionedMessage, pubkey::Pubkey,
+    account_info::IntoAccountInfo,
+    address_lookup_table_account::AddressLookupTableAccount,
+    hash::Hash,
+    instruction::{AccountMeta, Instruction},
+    message::VersionedMessage,
+    pubkey::Pubkey,
     signature::Signature,
 };
 use tokio::sync::RwLock;
@@ -39,6 +46,15 @@ use crate::{
     websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber},
     AccountProvider, TransactionBuilder, Wallet,
 };
+
+struct RemainingAccountParams {
+    user_accounts: Vec<User>,
+    writable_perp_market_indexes: Option<Vec<u16>>,
+    writable_spot_market_indexes: Option<Vec<u16>>,
+    readable_perp_market_indexes: Option<Vec<u16>>,
+    readable_spot_market_indexes: Option<Vec<u16>>,
+    use_market_last_slot_cache: Option<bool>,
+}
 
 /// Drift Client API
 ///
@@ -85,6 +101,18 @@ where
         })
     }
 
+    /// Subscribe to the Drift Client Backend
+    /// This is a no-op if already subscribed
+    pub async fn subscribe(&self) -> SdkResult<()> {
+        self.backend.subscribe().await
+    }
+
+    /// Unsubscribe from the Drift Client Backend
+    /// This is a no-op if not subscribed
+    pub async fn unsubscribe(&self) -> SdkResult<()> {
+        self.backend.unsubscribe().await
+    }
+
     pub fn fetch_market_lookup_table_account(&self) -> AddressLookupTableAccount {
         self.backend.program_data.lookup_table.clone()
     }
@@ -98,22 +126,38 @@ where
         Ok(())
     }
 
-    pub fn get_user(&self, sub_account_id: u16) -> Option<&DriftUser> {
+    pub fn get_user(&self, sub_account_id: Option<u16>) -> Option<&DriftUser> {
+        let sub_account_id = sub_account_id.unwrap_or(self.active_sub_account_id);
         self.users
             .iter()
             .find(|u| u.sub_account == Some(sub_account_id))
     }
 
-    /// Subscribe to the Drift Client Backend
-    /// This is a no-op if already subscribed
-    pub async fn subscribe(&self) -> SdkResult<()> {
-        self.backend.subscribe().await
+    /// Get a stats account
+    ///
+    /// Returns the deserialized account data (`UserStats`)
+    pub async fn get_user_stats(&self, authority: &Pubkey) -> SdkResult<UserStats> {
+        let user_stats_pubkey = Wallet::derive_stats_account(authority, &constants::PROGRAM_ID);
+        self.backend.get_account(&user_stats_pubkey).await
     }
 
-    /// Unsubscribe from the Drift Client Backend
-    /// This is a no-op if not subscribed
-    pub async fn unsubscribe(&self) -> SdkResult<()> {
-        self.backend.unsubscribe().await
+    /// Get the user account data
+    ///
+    /// `account` the drift user PDA
+    ///
+    /// Returns the deserialized account data (`User`)
+    pub async fn get_user_account(&self, account: &Pubkey) -> SdkResult<User> {
+        self.backend.get_account(account).await
+    }
+
+    pub fn get_user_account_and_slot(
+        &self,
+        sub_account_id: Option<u16>,
+    ) -> SdkResult<DataAndSlot<User>> {
+        let user = self
+            .get_user(sub_account_id)
+            .ok_or(SdkError::Generic("Not found user".to_string()))?;
+        Ok(user.get_user_account_and_slot())
     }
 
     /// Return a handle to the inner RPC client
@@ -129,6 +173,197 @@ where
     /// Get the active sub account id
     pub fn get_sub_account_id_for_ix(&self, sub_account_id: Option<u16>) -> u16 {
         sub_account_id.unwrap_or(self.active_sub_account_id)
+    }
+
+    async fn get_remaining_accounts(&self, params: RemainingAccountParams) -> SdkResult<()> {
+        let (mut oracle_account_map, mut spot_market_account_map, mut perp_market_account_map) =
+            self.get_remaining_account_maps_for_users(&params.user_accounts)
+                .await?;
+
+        if let Some(true) = params.use_market_last_slot_cache {
+            let last_user_slot = self.get_user_account_and_slot(None)?;
+            // for
+            for entry in self.backend.perp_market_map.marketmap.iter() {
+                let market_index = *entry.key();
+                let DataAndSlot { slot, data } = entry.value();
+                // if cache has more recent slot than user positions account slot, add market to remaining accounts
+                // otherwise remove from slot
+                if slot > &last_user_slot.slot {
+                    self.add_perp_market_to_remaining_account_maps(
+                        data.market_index,
+                        false,
+                        &mut oracle_account_map,
+                        &mut spot_market_account_map,
+                        &mut perp_market_account_map,
+                    )
+                    .await?;
+                } else {
+                    self.backend.perp_market_map.marketmap.remove(&market_index);
+                }
+            }
+
+            for entry in self.backend.spot_market_map.marketmap.iter() {
+                let market_index = *entry.key();
+                let DataAndSlot { slot, data } = entry.value();
+                // if cache has more recent slot than user positions account slot, add market to remaining accounts
+                // otherwise remove from slot
+                if slot > &last_user_slot.slot {
+                    self.add_spot_market_to_remaining_account_maps(
+                        data.market_index,
+                        false,
+                        &mut oracle_account_map,
+                        &mut spot_market_account_map,
+                    )
+                    .await?;
+                } else {
+                    self.backend.perp_market_map.marketmap.remove(&market_index);
+                }
+            }
+        }
+
+        if let Some(perp_indexes) = params.readable_perp_market_indexes {
+            for index in perp_indexes {
+                self.add_perp_market_to_remaining_account_maps(
+                    index,
+                    false,
+                    &mut oracle_account_map,
+                    &mut spot_market_account_map,
+                    &mut perp_market_account_map,
+                )
+                .await?;
+            }
+        }
+
+        // TODO
+        // https://github.com/drift-labs/protocol-v2/blob/507e79afb919662f9872405246599977ab6d93dd/sdk/src/driftClient.ts#L1565
+
+        Ok(())
+    }
+
+    async fn add_perp_market_to_remaining_account_maps(
+        &self,
+        market_index: u16,
+        writable: bool,
+        oracle_account_map: &mut HashMap<Pubkey, AccountMeta>,
+        spot_market_account_map: &mut HashMap<u16, AccountMeta>,
+        perp_market_account_map: &mut HashMap<u16, AccountMeta>,
+    ) -> SdkResult<()> {
+        let perp_market_account = self.get_perp_market_info(market_index).await?;
+        perp_market_account_map.insert(
+            market_index,
+            AccountMeta {
+                pubkey: perp_market_account.pubkey,
+                is_signer: false,
+                is_writable: writable,
+            },
+        );
+        let oracle_writable =
+            writable && perp_market_account.amm.oracle_source == OracleSource::Prelaunch;
+        oracle_account_map.insert(
+            perp_market_account.amm.oracle,
+            AccountMeta {
+                pubkey: perp_market_account.amm.oracle,
+                is_signer: false,
+                is_writable: oracle_writable,
+            },
+        );
+        self.add_spot_market_to_remaining_account_maps(
+            perp_market_account.quote_spot_market_index,
+            false,
+            oracle_account_map,
+            spot_market_account_map,
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn add_spot_market_to_remaining_account_maps(
+        &self,
+        market_index: u16,
+        writable: bool,
+        oracle_account_map: &mut HashMap<Pubkey, AccountMeta>,
+        spot_market_account_map: &mut HashMap<u16, AccountMeta>,
+    ) -> SdkResult<()> {
+        let spot_market_account = self.get_spot_market_info(market_index).await?;
+        spot_market_account_map.insert(
+            spot_market_account.market_index,
+            AccountMeta {
+                pubkey: spot_market_account.pubkey,
+                is_signer: false,
+                is_writable: writable,
+            },
+        );
+
+        if spot_market_account.oracle == Pubkey::default() {
+            oracle_account_map.insert(
+                spot_market_account.oracle,
+                AccountMeta {
+                    pubkey: spot_market_account.oracle,
+                    is_signer: false,
+                    is_writable: false,
+                },
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Get remaining account maps for users
+    async fn get_remaining_account_maps_for_users(
+        &self,
+        user_accounts: &[User],
+    ) -> SdkResult<(
+        HashMap<Pubkey, AccountMeta>,
+        HashMap<u16, AccountMeta>,
+        HashMap<u16, AccountMeta>,
+    )> {
+        let mut oracle_account_map = HashMap::new();
+        let mut spot_market_account_map = HashMap::new();
+        let mut perp_market_account_map = HashMap::new();
+
+        for user in user_accounts {
+            for spot_position in user.spot_positions {
+                if !spot_position.is_available() {
+                    self.add_spot_market_to_remaining_account_maps(
+                        spot_position.market_index,
+                        false,
+                        &mut oracle_account_map,
+                        &mut spot_market_account_map,
+                    )
+                    .await?;
+
+                    if !spot_position.open_asks == 0 || !spot_position.open_bids == 0 {
+                        self.add_spot_market_to_remaining_account_maps(
+                            QUOTE_SPOT_MARKET_INDEX,
+                            false,
+                            &mut oracle_account_map,
+                            &mut spot_market_account_map,
+                        )
+                        .await?;
+                    }
+                }
+            }
+
+            for perp_position in user.perp_positions {
+                if !perp_position.is_available() {
+                    self.add_perp_market_to_remaining_account_maps(
+                        perp_position.market_index,
+                        false,
+                        &mut oracle_account_map,
+                        &mut spot_market_account_map,
+                        &mut perp_market_account_map,
+                    )
+                    .await?;
+                }
+            }
+        }
+
+        Ok((
+            oracle_account_map,
+            spot_market_account_map,
+            perp_market_account_map,
+        ))
     }
 
     /// Get an account's open order by id
@@ -241,23 +476,6 @@ where
         &self.wallet
     }
 
-    /// Get the user account data
-    ///
-    /// `account` the drift user PDA
-    ///
-    /// Returns the deserialized account data (`User`)
-    pub async fn get_user_account(&self, account: &Pubkey) -> SdkResult<User> {
-        self.backend.get_account(account).await
-    }
-
-    /// Get a stats account
-    ///
-    /// Returns the deserialized account data (`UserStats`)
-    pub async fn get_user_stats(&self, authority: &Pubkey) -> SdkResult<UserStats> {
-        let user_stats_pubkey = Wallet::derive_stats_account(authority, &constants::PROGRAM_ID);
-        self.backend.get_account(&user_stats_pubkey).await
-    }
-
     /// Get the latest recent_block_hash
     pub async fn get_latest_blockhash(&self) -> SdkResult<Hash> {
         self.backend
@@ -346,7 +564,7 @@ where
     /// ```
     /// Returns a `TransactionBuilder` for composing the tx
     pub fn init_tx(&self, account: &Pubkey, delegated: bool) -> SdkResult<TransactionBuilder> {
-        let user = self.get_user(self.active_sub_account_id);
+        let user = self.get_user(Some(self.active_sub_account_id));
 
         match user {
             Some(user) => {
