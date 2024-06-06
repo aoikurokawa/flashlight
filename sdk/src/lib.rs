@@ -638,6 +638,10 @@ where
             .await
     }
 
+    pub fn get_state_account(&self) -> Arc<std::sync::RwLock<State>> {
+        self.backend.state_account.clone()
+    }
+
     pub fn get_perp_market_account_and_slot(
         &self,
         market_index: u16,

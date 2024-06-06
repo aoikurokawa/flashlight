@@ -2,6 +2,7 @@
 
 use dashmap::DashSet;
 use drift::state::oracle::OraclePriceData;
+use drift::state::state::{ExchangeStatus, State};
 use drift::state::user::{MarketType, Order, OrderStatus};
 use rayon::prelude::*;
 use solana_sdk::pubkey::Pubkey;
@@ -289,6 +290,44 @@ impl DLOB {
         });
 
         all_orders
+    }
+
+    pub fn find_nodes_to_trigger(
+        &self,
+        market_index: u16,
+        oracle_price: u64,
+        market_type: MarketType,
+        state_account: Arc<std::sync::RwLock<State>>,
+    ) -> Vec<Node> {
+        let state_account = state_account.read().unwrap();
+        if state_account.exchange_status != ExchangeStatus::active() {
+            return vec![];
+        }
+
+        let mut nodes_to_trigger = Vec::new();
+        let market_nodes_list = match market_type {
+            MarketType::Perp => &self.exchange.perp,
+            MarketType::Spot => &self.exchange.spot,
+        };
+        if let Some(market) = market_nodes_list.get(&market_index) {
+            for node in &market.trigger_orders.asks {
+                if oracle_price > node.node.get_order().trigger_price {
+                    nodes_to_trigger.push(node.node);
+                } else {
+                    break;
+                }
+            }
+
+            for node in &market.trigger_orders.bids {
+                if oracle_price < node.node.get_order().trigger_price {
+                    nodes_to_trigger.push(node.node);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        nodes_to_trigger
     }
 
     pub fn get_l2<T>(

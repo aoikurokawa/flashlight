@@ -6,7 +6,10 @@ use std::{
 
 use base64::Engine;
 use log::info;
-use sdk::config::DriftEnv;
+use sdk::{
+    config::DriftEnv,
+    dlob::dlob_node::{get_order_signature, DLOBNode, Node},
+};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,
@@ -19,18 +22,8 @@ use solana_sdk::{
     transaction::{TransactionError, VersionedTransaction},
 };
 
-pub fn valid_minimum_gas_amount(amount: Option<f64>) -> bool {
-    if amount.is_none() {
-        return false;
-    }
-
-    if let Some(amount) = amount {
-        if amount < 0.0 {
-            return false;
-        }
-    }
-
-    return true;
+pub fn get_node_to_trigger_signature(node: &Node) -> String {
+    get_order_signature(node.get_order().order_id, node.get_user_account())
 }
 
 pub fn is_set_compute_units_ix(ix: &Instruction) -> bool {
@@ -207,6 +200,20 @@ pub fn get_drift_priority_fee_endpoint(drift_env: DriftEnv) -> String {
         DriftEnv::Devnet => String::from(""),
         DriftEnv::MainnetBeta => String::from("https://dlob.drift.trade"),
     }
+}
+
+pub fn valid_minimum_gas_amount(amount: Option<f64>) -> bool {
+    if amount.is_none() {
+        return false;
+    }
+
+    if let Some(amount) = amount {
+        if amount < 0.0 {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 pub fn valid_rebalance_settled_pnl_threshold(amount: Option<f64>) -> bool {
