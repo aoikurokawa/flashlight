@@ -11,9 +11,10 @@ use crate::{
         UserStatsAccountSubscriber,
     },
     addresses::pda::{get_user_account_pubkey, get_user_stats_account_pubkey},
+    drift_client::DriftClient,
     types::{DataAndSlot, ReferrerInfo, SdkError, SdkResult, UserStatsAccount},
     user_stats_config::{UserStatsConfig, UserStatsSubscriptionConfig},
-    AccountProvider, DriftClient,
+    AccountProvider,
 };
 
 pub struct UserStats<'a, T: AccountProvider, U> {

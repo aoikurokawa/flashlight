@@ -1,5 +1,5 @@
 use crate::math::account_map_builder::AccountMapBuilder;
-use crate::{AccountProvider, DriftClient, SdkError, SdkResult};
+use crate::{drift_client::DriftClient, AccountProvider, SdkError, SdkResult};
 use drift::instructions::optional_accounts::AccountMaps;
 use drift::math::constants::PRICE_PRECISION;
 use drift::math::margin::{

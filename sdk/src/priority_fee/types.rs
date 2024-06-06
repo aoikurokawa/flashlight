@@ -1,6 +1,6 @@
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{AccountProvider, DriftClient};
+use crate::{drift_client::DriftClient, AccountProvider};
 
 use super::{
     drift_priority_fee_method::{DriftMarketInfo, DriftPriorityFeeResponse},

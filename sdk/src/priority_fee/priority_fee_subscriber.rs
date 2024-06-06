@@ -1,9 +1,10 @@
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
+    drift_client::DriftClient,
     priority_fee::types::DEFAULT_PRIORITY_FEE_MAP_FREQUENCY_MS,
     types::{SdkError, SdkResult},
-    AccountProvider, DriftClient,
+    AccountProvider,
 };
 
 use super::{

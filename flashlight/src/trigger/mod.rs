@@ -12,10 +12,11 @@ use sdk::{
         dlob_subscriber::DLOBSubscriber,
         types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
     },
+    drift_client::DriftClient,
     slot_subscriber::SlotSubscriber,
     tx::priority_fee_calculator::PriorityFeeCalculator,
     usermap::UserMap,
-    DriftClient, RpcAccountProvider,
+    RpcAccountProvider,
 };
 use tokio::{sync::oneshot, task::JoinHandle};
 

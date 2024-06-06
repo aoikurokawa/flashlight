@@ -7,9 +7,10 @@ use tokio::{
 };
 
 use crate::{
+    drift_client::DriftClient,
     event_emitter::EventEmitter,
     types::{SdkError, SdkResult},
-    AccountProvider, DriftClient,
+    AccountProvider,
 };
 
 use super::{

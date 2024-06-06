@@ -8,9 +8,9 @@ use drift::state::user_map::UserStatsMap;
 use log::info;
 use sdk::{
     accounts::BulkAccountLoader, blockhash_subscriber::BlockhashSubscriber,
-    dlob::dlob_subscriber::DLOBSubscriber, jupiter::JupiterClient,
+    dlob::dlob_subscriber::DLOBSubscriber, drift_client::DriftClient, jupiter::JupiterClient,
     priority_fee::priority_fee_subscriber::PriorityFeeSubscriber, slot_subscriber::SlotSubscriber,
-    user_config::UserSubscriptionConfig, usermap::UserMap, AccountProvider, DriftClient,
+    user_config::UserSubscriptionConfig, usermap::UserMap, AccountProvider,
 };
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,

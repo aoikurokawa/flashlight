@@ -16,8 +16,8 @@ use fnv::FnvHashSet;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
 use crate::{
-    constants, utils::zero_account_to_bytes, AccountProvider, DriftClient, MarketId, SdkError,
-    SdkResult,
+    constants, drift_client::DriftClient, utils::zero_account_to_bytes, AccountProvider, MarketId,
+    SdkError, SdkResult,
 };
 
 /// Builds an AccountMap of relevant spot, perp, and oracle accounts from rpc

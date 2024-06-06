@@ -4,7 +4,8 @@ use clap::{Parser, Subcommand};
 use dotenv::dotenv;
 use flashlight::{config::BaseBotConfig, funding_rate_updater::FundingRateUpdaterBot};
 use sdk::{
-    types::Context, utils::load_keypair_multi_format, DriftClient, RpcAccountProvider, Wallet,
+    drift_client::DriftClient, types::Context, utils::load_keypair_multi_format,
+    RpcAccountProvider, Wallet,
 };
 
 #[derive(Parser)]

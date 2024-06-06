@@ -11,6 +11,7 @@ use log::{error, info, warn};
 use sdk::{
     config::DriftEnv,
     constants::perp_markets::read_perp_markets,
+    drift_client::DriftClient,
     priority_fee::{
         drift_priority_fee_method::DriftMarketInfo,
         helius_priority_fee_method::HeliusPriorityLevel,
@@ -18,7 +19,7 @@ use sdk::{
         types::PriorityFeeSubscriberMapConfig,
     },
     types::SdkResult,
-    AccountProvider, DriftClient,
+    AccountProvider,
 };
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,
