@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use tokio::time::Duration;
 
-use crate::{slot_subscriber::SlotSubscriber, usermap::UserMap, AccountProvider, DriftClient};
+use crate::{
+    drift_client::DriftClient, slot_subscriber::SlotSubscriber, usermap::UserMap, AccountProvider,
+};
 
 use super::dlob::DLOB;
 

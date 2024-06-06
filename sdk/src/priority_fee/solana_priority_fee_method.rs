@@ -1,6 +1,6 @@
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{types::SdkResult, AccountProvider, DriftClient};
+use crate::{drift_client::DriftClient, types::SdkResult, AccountProvider};
 
 pub(crate) struct SolanaPriorityFeeResponse {
     pub(crate) slot: u64,

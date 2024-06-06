@@ -4,10 +4,11 @@ use drift::state::user::User;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
+    drift_client::DriftClient,
     event_emitter::EventEmitter,
     utils::{decode, get_ws_url},
     websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber},
-    AccountProvider, DataAndSlot, DriftClient, SdkResult,
+    AccountProvider, DataAndSlot, SdkResult,
 };
 
 #[derive(Clone)]

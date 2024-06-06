@@ -24,7 +24,8 @@ use drift::{
 };
 
 use crate::{
-    math::account_map_builder::AccountMapBuilder, AccountProvider, DriftClient, SdkError, SdkResult,
+    drift_client::DriftClient, math::account_map_builder::AccountMapBuilder, AccountProvider,
+    SdkError, SdkResult,
 };
 
 /// Info on a positions liquidation price and unrealized PnL

@@ -6,11 +6,12 @@ use solana_sdk::pubkey::Pubkey;
 use crate::{
     accounts::{BulkAccountLoader, UserStatsAccountSubscriber},
     addresses::pda::get_user_stats_account_pubkey,
+    drift_client::DriftClient,
     events::types::{EventMap, WrappedEvent},
     types::{SdkResult, UserStatsAccount},
     user_stats::UserStats,
     user_stats_config::{UserStatsConfig, UserStatsSubscriptionConfig},
-    AccountProvider, DriftClient,
+    AccountProvider,
 };
 
 use super::UserMap;

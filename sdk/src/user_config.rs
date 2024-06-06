@@ -1,6 +1,6 @@
 use solana_sdk::{commitment_config::CommitmentLevel, pubkey::Pubkey};
 
-use crate::{accounts::BulkAccountLoader, AccountProvider, DriftClient};
+use crate::{accounts::BulkAccountLoader, drift_client::DriftClient, AccountProvider};
 
 pub struct UserConfig<T, U>
 where
