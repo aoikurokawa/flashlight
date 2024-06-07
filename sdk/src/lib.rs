@@ -848,16 +848,36 @@ impl<'a> TransactionBuilder<'a> {
         self
     }
 
-    pub fn get_trigger_order_ix(
+    pub fn trigger_order_ix(
         mut self,
-        user_account_pubkey: Pubkey,
-        user_account: User,
-        order: Order,
-        filler_pubkey: Option<Pubkey>,
-    ) {
-        let filler_pubkey = filler_pubkey.unwrap_or(user_account_pubkey);
+        filler: &Pubkey,
+        user: &Pubkey,
+        order_id: u32,
+        remaining_accounts: Vec<AccountMeta>,
+    ) -> Self {
+        let mut accounts = build_accounts(
+            self.program_data,
+            drift::accounts::TriggerOrder {
+                state: *state_account(),
+                filler: *filler,
+                authority: self.authority,
+                user: *user,
+            },
+            &[],
+            &[],
+            &[],
+        );
 
-        // let remaining_account_params =
+        accounts.extend(remaining_accounts);
+
+        let ix = Instruction {
+            program_id: constants::PROGRAM_ID,
+            accounts,
+            data: InstructionData::data(&drift::instruction::TriggerOrder { order_id }),
+        };
+        self.ixs.push(ix);
+
+        self
     }
 
     /// Build the transaction message ready for signing and sending
