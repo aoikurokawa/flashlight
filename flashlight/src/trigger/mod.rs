@@ -5,6 +5,7 @@ use std::{
 };
 
 use drift::state::{perp_market::PerpMarket, user::MarketType};
+use futures_util::TryFutureExt;
 use log::{info, warn};
 use sdk::{
     dlob::{
@@ -150,8 +151,18 @@ where
                     .await
                     .map_err(|e| e.to_string())?;
 
-                // let mut ixs = Vec::new();
-                // ixs.push(self.drift_client.get_tr)
+                let mut ixs = Vec::new();
+                ixs.push(
+                    self.drift_client
+                        .get_trigger_order_ix(
+                            &node_to_trigger.get_user_account(),
+                            user,
+                            node_to_trigger.get_order(),
+                            None,
+                        )
+                        .map_err(|e| e.to_string())
+                        .await?,
+                );
             }
         }
 

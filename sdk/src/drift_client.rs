@@ -717,7 +717,7 @@ where
         &self,
         user_account_pubkey: &Pubkey,
         user_account: User,
-        order: Order,
+        order: &Order,
         filler_pubkey: Option<&Pubkey>,
     ) -> SdkResult<Instruction> {
         let drifit_user = self.get_user(None).unwrap();
