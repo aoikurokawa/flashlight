@@ -5,6 +5,7 @@ use dotenv::dotenv;
 use flashlight::{
     config::BaseBotConfig, funding_rate_updater::FundingRateUpdaterBot, trigger::TriggerBot,
 };
+use log::info;
 use sdk::{
     drift_client::DriftClient, slot_subscriber::SlotSubscriber, types::Context, usermap::UserMap,
     utils::load_keypair_multi_format, RpcAccountProvider, Wallet,
@@ -49,13 +50,26 @@ async fn main() {
     let account_provider = RpcAccountProvider::new(&endpoint);
 
     let drift_client: DriftClient<RpcAccountProvider, u16> =
-        DriftClient::new(Context::DevNet, account_provider, wallet)
+        DriftClient::new(Context::DevNet, account_provider, &wallet)
             .await
             .expect("fail to construct drift client");
     drift_client
         .subscribe()
         .await
         .expect("drift client subscribing");
+
+    let mut slot_subscriber = SlotSubscriber::new(websocket_url);
+    slot_subscriber.subscribe().await.expect("subscribing slot");
+
+    let lamports_balance = drift_client
+        .backend
+        .rpc_client
+        .get_balance(&wallet.authority())
+        .await
+        .expect("get balance");
+
+    info!("Wallet pubkey: {}", &wallet.authority());
+    info!("SOL balance: {}", lamports_balance / 10 * 9);
 
     match cli.command {
         Commands::InitUser {} => {
@@ -98,8 +112,6 @@ async fn main() {
             };
 
             let user_map = UserMap::new(CommitmentConfig::confirmed(), endpoint, false, None);
-            let mut slot_subscriber = SlotSubscriber::new(websocket_url);
-            slot_subscriber.subscribe().await.expect("subscribing slot");
 
             let mut bot: TriggerBot<_> =
                 TriggerBot::new(Arc::new(drift_client), slot_subscriber, user_map, config);

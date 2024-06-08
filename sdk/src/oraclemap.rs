@@ -328,156 +328,153 @@ impl OracleMap {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::marketmap::MarketMap;
-//     use drift::state::perp_market::PerpMarket;
-//     use drift::state::spot_market::SpotMarket;
-//
-//     #[tokio::test]
-//     #[cfg(rpc_tests)]
-//     async fn test_oracle_map() {
-//         let commitment = CommitmentConfig::processed();
-//         let endpoint = "rpc".to_string();
-//
-//         let spot_market_map =
-//             MarketMap::<SpotMarket>::new(commitment.clone(), endpoint.clone(), true);
-//         let perp_market_map =
-//             MarketMap::<PerpMarket>::new(commitment.clone(), endpoint.clone(), true);
-//
-//         let _ = spot_market_map.sync().await;
-//         let _ = perp_market_map.sync().await;
-//
-//         let perp_oracles = perp_market_map.oracles();
-//         let spot_oracles = spot_market_map.oracles();
-//
-//         let mut oracles = vec![];
-//         oracles.extend(perp_oracles.clone());
-//         oracles.extend(spot_oracles.clone());
-//
-//         let mut oracle_infos = vec![];
-//         for oracle_info in oracles {
-//             if !oracle_infos.contains(&oracle_info) {
-//                 oracle_infos.push(oracle_info)
-//             }
-//         }
-//
-//         let oracle_infos_len = oracle_infos.len();
-//         dbg!(oracle_infos_len);
-//
-//         let oracle_map = OracleMap::new(commitment, endpoint, true, perp_oracles, spot_oracles);
-//
-//         let _ = oracle_map.subscribe().await;
-//
-//         dbg!(oracle_map.size());
-//
-//         dbg!("sleeping");
-//         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-//         dbg!("done sleeping");
-//
-//         dbg!("perp market oracles");
-//         let mut last_sol_price = 0;
-//         let mut last_sol_slot = 0;
-//         let mut last_btc_price = 0;
-//         let mut last_btc_slot = 0;
-//         for _ in 0..10 {
-//             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-//             dbg!();
-//             let sol_perp_market_oracle_pubkey = perp_market_map
-//                 .get(&0)
-//                 .expect("sol perp market")
-//                 .data
-//                 .amm
-//                 .oracle;
-//             let sol_oracle = oracle_map
-//                 .get(&sol_perp_market_oracle_pubkey)
-//                 .expect("sol oracle");
-//             dbg!("sol oracle info:");
-//             dbg!(sol_oracle.data.price);
-//             dbg!(sol_oracle.slot);
-//             dbg!(
-//                 "sol price change: {}",
-//                 sol_oracle.data.price - last_sol_price
-//             );
-//             dbg!("sol slot change: {}", sol_oracle.slot - last_sol_slot);
-//             last_sol_price = sol_oracle.data.price;
-//             last_sol_slot = sol_oracle.slot;
-//
-//             dbg!();
-//
-//             let btc_perp_market_oracle_pubkey = perp_market_map
-//                 .get(&1)
-//                 .expect("btc perp market")
-//                 .data
-//                 .amm
-//                 .oracle;
-//             let btc_oracle = oracle_map
-//                 .get(&btc_perp_market_oracle_pubkey)
-//                 .expect("btc oracle");
-//             dbg!("btc oracle info:");
-//             dbg!(btc_oracle.data.price);
-//             dbg!(btc_oracle.slot);
-//             dbg!(
-//                 "btc price change: {}",
-//                 btc_oracle.data.price - last_btc_price
-//             );
-//             dbg!("btc slot change: {}", btc_oracle.slot - last_btc_slot);
-//             last_btc_price = btc_oracle.data.price;
-//             last_btc_slot = btc_oracle.slot;
-//         }
-//
-//         dbg!();
-//
-//         dbg!("spot market oracles");
-//         let mut last_rndr_price = 0;
-//         let mut last_rndr_slot = 0;
-//         let mut last_weth_price = 0;
-//         let mut last_weth_slot = 0;
-//         for _ in 0..10 {
-//             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-//             dbg!();
-//             let rndr_spot_market_oracle_pubkey = spot_market_map
-//                 .get(&11)
-//                 .expect("sol perp market")
-//                 .data
-//                 .oracle;
-//             let rndr_oracle = oracle_map
-//                 .get(&rndr_spot_market_oracle_pubkey)
-//                 .expect("sol oracle");
-//             dbg!("rndr oracle info:");
-//             dbg!(rndr_oracle.data.price);
-//             dbg!(rndr_oracle.slot);
-//             dbg!(
-//                 "rndr price change: {}",
-//                 rndr_oracle.data.price - last_rndr_price
-//             );
-//             dbg!("rndr slot change: {}", rndr_oracle.slot - last_rndr_slot);
-//             last_rndr_price = rndr_oracle.data.price;
-//             last_rndr_slot = rndr_oracle.slot;
-//
-//             dbg!();
-//
-//             let weth_spot_market_oracle_pubkey = spot_market_map
-//                 .get(&4)
-//                 .expect("sol perp market")
-//                 .data
-//                 .oracle;
-//             let weth_oracle = oracle_map
-//                 .get(&weth_spot_market_oracle_pubkey)
-//                 .expect("sol oracle");
-//             dbg!("weth oracle info:");
-//             dbg!(weth_oracle.data.price);
-//             dbg!(weth_oracle.slot);
-//             dbg!(
-//                 "weth price change: {}",
-//                 weth_oracle.data.price - last_weth_price
-//             );
-//             dbg!("weth slot change: {}", weth_oracle.slot - last_weth_slot);
-//             last_weth_price = weth_oracle.data.price;
-//             last_weth_slot = weth_oracle.slot;
-//         }
-//
-//         let _ = oracle_map.unsubscribe().await;
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::marketmap::MarketMap;
+    use drift::state::perp_market::PerpMarket;
+    use drift::state::spot_market::SpotMarket;
+
+    #[tokio::test]
+    async fn test_oracle_map() {
+        let commitment = CommitmentConfig::processed();
+        let endpoint = "https://api.devnet.solana.com".to_string();
+
+        let spot_market_map = MarketMap::<SpotMarket>::new(commitment.clone(), &endpoint, true);
+        let perp_market_map = MarketMap::<PerpMarket>::new(commitment.clone(), &endpoint, true);
+
+        let _ = spot_market_map.sync().await;
+        let _ = perp_market_map.sync().await;
+
+        let perp_oracles = perp_market_map.oracles();
+        let spot_oracles = spot_market_map.oracles();
+
+        let mut oracles = vec![];
+        oracles.extend(perp_oracles.clone());
+        oracles.extend(spot_oracles.clone());
+
+        let mut oracle_infos = vec![];
+        for oracle_info in oracles {
+            if !oracle_infos.contains(&oracle_info) {
+                oracle_infos.push(oracle_info)
+            }
+        }
+
+        let oracle_infos_len = oracle_infos.len();
+        dbg!(oracle_infos_len);
+
+        let oracle_map = OracleMap::new(commitment, endpoint, true, perp_oracles, spot_oracles);
+
+        let _ = oracle_map.subscribe().await;
+
+        dbg!(oracle_map.size());
+
+        dbg!("sleeping");
+        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+        dbg!("done sleeping");
+
+        dbg!("perp market oracles");
+        let mut last_sol_price = 0;
+        let mut last_sol_slot = 0;
+        let mut last_btc_price = 0;
+        let mut last_btc_slot = 0;
+        for _ in 0..10 {
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            dbg!();
+            let sol_perp_market_oracle_pubkey = perp_market_map
+                .get(&0)
+                .expect("sol perp market")
+                .data
+                .amm
+                .oracle;
+            let sol_oracle = oracle_map
+                .get(&sol_perp_market_oracle_pubkey)
+                .expect("sol oracle");
+            dbg!("sol oracle info:");
+            dbg!(sol_oracle.data.price);
+            dbg!(sol_oracle.slot);
+            dbg!(
+                "sol price change: {}",
+                sol_oracle.data.price - last_sol_price
+            );
+            dbg!("sol slot change: {}", sol_oracle.slot - last_sol_slot);
+            last_sol_price = sol_oracle.data.price;
+            last_sol_slot = sol_oracle.slot;
+
+            dbg!();
+
+            let btc_perp_market_oracle_pubkey = perp_market_map
+                .get(&1)
+                .expect("btc perp market")
+                .data
+                .amm
+                .oracle;
+            let btc_oracle = oracle_map
+                .get(&btc_perp_market_oracle_pubkey)
+                .expect("btc oracle");
+            dbg!("btc oracle info:");
+            dbg!(btc_oracle.data.price);
+            dbg!(btc_oracle.slot);
+            dbg!(
+                "btc price change: {}",
+                btc_oracle.data.price - last_btc_price
+            );
+            dbg!("btc slot change: {}", btc_oracle.slot - last_btc_slot);
+            last_btc_price = btc_oracle.data.price;
+            last_btc_slot = btc_oracle.slot;
+        }
+
+        dbg!();
+
+        dbg!("spot market oracles");
+        let mut last_rndr_price = 0;
+        let mut last_rndr_slot = 0;
+        let mut last_weth_price = 0;
+        let mut last_weth_slot = 0;
+        for _ in 0..10 {
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            dbg!();
+            let rndr_spot_market_oracle_pubkey = spot_market_map
+                .get(&0)
+                .expect("sol perp market")
+                .data
+                .oracle;
+            let rndr_oracle = oracle_map
+                .get(&rndr_spot_market_oracle_pubkey)
+                .expect("sol oracle");
+            dbg!("rndr oracle info:");
+            dbg!(rndr_oracle.data.price);
+            dbg!(rndr_oracle.slot);
+            dbg!(
+                "rndr price change: {}",
+                rndr_oracle.data.price - last_rndr_price
+            );
+            dbg!("rndr slot change: {}", rndr_oracle.slot - last_rndr_slot);
+            last_rndr_price = rndr_oracle.data.price;
+            last_rndr_slot = rndr_oracle.slot;
+
+            dbg!();
+
+            let weth_spot_market_oracle_pubkey = spot_market_map
+                .get(&2)
+                .expect("sol perp market")
+                .data
+                .oracle;
+            let weth_oracle = oracle_map
+                .get(&weth_spot_market_oracle_pubkey)
+                .expect("sol oracle");
+            dbg!("weth oracle info:");
+            dbg!(weth_oracle.data.price);
+            dbg!(weth_oracle.slot);
+            dbg!(
+                "weth price change: {}",
+                weth_oracle.data.price - last_weth_price
+            );
+            dbg!("weth slot change: {}", weth_oracle.slot - last_weth_slot);
+            last_weth_price = weth_oracle.data.price;
+            last_weth_slot = weth_oracle.slot;
+        }
+
+        let _ = oracle_map.unsubscribe().await;
+    }
+}

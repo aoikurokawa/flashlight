@@ -68,13 +68,14 @@ impl BlockhashSubscriber {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "rpc_tests")]
     #[tokio::test]
     async fn test_blockhash_subscribe() {
         let rpc = "rpc";
         let blockhash_subscriber =
             Arc::new(RwLock::new(BlockhashSubscriber::new(2, rpc.to_string())));
-        BlockhashSubscriber::subscribe(blockhash_subscriber.clone()).await;
+        BlockhashSubscriber::subscribe(blockhash_subscriber.clone())
+            .await
+            .expect("subscribe blockhash");
 
         for i in 0..=10 {
             let blockhash_subscriber_reader = blockhash_subscriber.read().await;
