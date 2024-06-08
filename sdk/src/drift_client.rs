@@ -79,21 +79,21 @@ impl<T, U> DriftClient<T, U>
 where
     T: AccountProvider,
 {
-    pub async fn new(context: Context, account_provider: T, wallet: Wallet) -> SdkResult<Self> {
+    pub async fn new(context: Context, account_provider: T, wallet: &Wallet) -> SdkResult<Self> {
         Self::new_with_opts(context, account_provider, wallet, ClientOpts::default()).await
     }
 
     pub async fn new_with_opts(
         context: Context,
         account_provider: T,
-        wallet: Wallet,
+        wallet: &Wallet,
         opts: ClientOpts,
     ) -> SdkResult<Self> {
         Ok(Self {
             backend: Box::leak(Box::new(
                 DriftClientBackend::new(context, account_provider).await?,
             )),
-            wallet,
+            wallet: wallet.clone(),
             active_sub_account_id: opts.active_sub_account_id(),
             sub_account_ids: opts.sub_account_ids().to_vec(),
             users: vec![],
@@ -867,12 +867,12 @@ impl<T: AccountProvider> DriftClientBackend<T> {
 
         let perp_market_map = MarketMap::<PerpMarket>::new(
             account_provider.commitment_config(),
-            account_provider.endpoint(),
+            &account_provider.endpoint(),
             true,
         );
         let spot_market_map = MarketMap::<SpotMarket>::new(
             account_provider.commitment_config(),
-            account_provider.endpoint(),
+            &account_provider.endpoint(),
             true,
         );
 

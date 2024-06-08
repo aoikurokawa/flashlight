@@ -71,7 +71,7 @@ where
 {
     pub const SUBSCRIPTION_ID: &'static str = "marketmap";
 
-    pub fn new(commitment: CommitmentConfig, endpoint: String, sync: bool) -> Self {
+    pub fn new(commitment: CommitmentConfig, endpoint: &str, sync: bool) -> Self {
         let filters = vec![get_market_filter(T::MARKET_TYPE)];
         let options = WebsocketProgramAccountOptions {
             filters,
@@ -80,7 +80,7 @@ where
         };
         let event_emitter = EventEmitter::new();
 
-        let url = get_ws_url(&endpoint.clone()).unwrap();
+        let url = get_ws_url(&endpoint).unwrap();
 
         let subscription = WebsocketProgramAccountSubscriber::new(
             MarketMap::<T>::SUBSCRIPTION_ID,
@@ -91,7 +91,7 @@ where
 
         let marketmap = Arc::new(DashMap::new());
 
-        let rpc = RpcClient::new_with_commitment(endpoint.clone(), commitment);
+        let rpc = RpcClient::new_with_commitment(endpoint.to_string(), commitment);
 
         let sync_lock = if sync { Some(Mutex::new(())) } else { None };
 
@@ -246,20 +246,22 @@ mod tests {
     use solana_sdk::commitment_config::CommitmentLevel;
 
     #[tokio::test]
-    #[cfg(rpc_tests)]
     async fn test_marketmap_perp() {
-        let endpoint = "rpc".to_string();
+        let endpoint = "https://api.devnet.solana.com".to_string();
         let commitment = CommitmentConfig {
             commitment: CommitmentLevel::Processed,
         };
 
-        let marketmap = MarketMap::<PerpMarket>::new(commitment, endpoint, true);
+        let marketmap = MarketMap::<PerpMarket>::new(commitment, &endpoint, true);
         marketmap.subscribe().await.unwrap();
 
         tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
 
         dbg!(marketmap.size());
-        assert!(marketmap.size() == 28);
+        if endpoint.contains("devnet") {
+            assert_eq!(marketmap.size(), 25);
+        } else {
+        }
 
         dbg!(marketmap.get_latest_slot());
 
@@ -272,14 +274,13 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(rpc_tests)]
     async fn test_marketmap_spot() {
-        let endpoint = "rpc".to_string();
+        let endpoint = "https://api.devnet.solana.com".to_string();
         let commitment = CommitmentConfig {
             commitment: CommitmentLevel::Processed,
         };
 
-        let marketmap = MarketMap::<SpotMarket>::new(commitment, endpoint, true);
+        let marketmap = MarketMap::<SpotMarket>::new(commitment, &endpoint, true);
         marketmap.subscribe().await.unwrap();
 
         tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
@@ -294,6 +295,6 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 
         assert_eq!(marketmap.size(), 0);
-        assert_eq!(marketmap.subscribed.get(), false);
+        assert_eq!(marketmap.subscribed.load(Ordering::Relaxed), false);
     }
 }

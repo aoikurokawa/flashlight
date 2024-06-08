@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use drift::state::user::MarketType;
+use log::info;
 use tokio::{
     sync::Mutex,
     time::{self, Duration},
@@ -71,10 +72,8 @@ where
         let update_frequency = self.update_frequency;
         let (tx, mut rx) = tokio::sync::mpsc::channel(100);
 
-        // let subscriber = dlob_subscriber.clone();
-        // let mut self_clone =
         let subscriber = self.clone();
-        let update_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             loop {
                 time::sleep(update_frequency).await;
                 match subscriber.update_dlob().await {
@@ -85,10 +84,11 @@ where
         });
 
         let subscriber = self.clone();
-        let handle_events = tokio::spawn(async move {
+        tokio::spawn(async move {
             while let Some(res) = rx.recv().await {
                 match res {
                     Ok(()) => {
+                        info!("updating dlob");
                         let dlob = subscriber.dlob.clone().lock().await.dlob.clone();
                         subscriber.event_emitter.emit("update", Box::new(dlob))
                     }
@@ -99,7 +99,14 @@ where
             }
         });
 
-        let _ = tokio::try_join!(update_task, handle_events);
+        // tokio::select! {
+        //     res1 = update_task => if let Err(e) = res1 {
+        //         log::error!("Update task failed: {:?}", e);
+        //     },
+        //     res2 = handle_events => if let Err(e) = res2 {
+        //         log::error!("Event handling task failed: {:?}", e);
+        //     }
+        // }
 
         Ok(())
     }
