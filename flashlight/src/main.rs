@@ -1,12 +1,15 @@
-use std::{env, time::Duration};
+use std::{env, sync::Arc, time::Duration};
 
 use clap::{Parser, Subcommand};
 use dotenv::dotenv;
-use flashlight::{config::BaseBotConfig, funding_rate_updater::FundingRateUpdaterBot};
-use sdk::{
-    drift_client::DriftClient, types::Context, utils::load_keypair_multi_format,
-    RpcAccountProvider, Wallet,
+use flashlight::{
+    config::BaseBotConfig, funding_rate_updater::FundingRateUpdaterBot, trigger::TriggerBot,
 };
+use sdk::{
+    drift_client::DriftClient, slot_subscriber::SlotSubscriber, types::Context, usermap::UserMap,
+    utils::load_keypair_multi_format, RpcAccountProvider, Wallet,
+};
+use solana_sdk::commitment_config::CommitmentConfig;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -28,6 +31,9 @@ enum Commands {
 
     /// Enable Funding Rate updater bot
     FundingRateUpdater {},
+
+    /// Enable Triggering bot
+    Trigger {},
 }
 
 #[tokio::main]
@@ -38,6 +44,7 @@ async fn main() {
 
     let endpoint = env::var("RPC_URL").expect("RPC_URL must be set");
     let private_key = env::var("PRIVATE_KEY").expect("SECRET_KEY must be set");
+    let websocket_url = env::var("WEBSOCKET_URL").expect("WEBSOCKET_URL must be set");
     let wallet = Wallet::new(load_keypair_multi_format(&private_key).expect("valid keypair"));
     let account_provider = RpcAccountProvider::new(&endpoint);
 
@@ -45,6 +52,10 @@ async fn main() {
         DriftClient::new(Context::DevNet, account_provider, wallet)
             .await
             .expect("fail to construct drift client");
+    drift_client
+        .subscribe()
+        .await
+        .expect("drift client subscribing");
 
     match cli.command {
         Commands::InitUser {} => {
@@ -77,6 +88,26 @@ async fn main() {
             {
                 println!("{e}");
             }
+        }
+        Commands::Trigger {} => {
+            let config = BaseBotConfig {
+                bot_id: "trigger".to_string(),
+                dry_run: true,
+                metrics_port: Some(9465),
+                run_once: Some(true),
+            };
+
+            let user_map = UserMap::new(CommitmentConfig::confirmed(), endpoint, false, None);
+            let mut slot_subscriber = SlotSubscriber::new(websocket_url);
+            slot_subscriber.subscribe().await.expect("subscribing slot");
+
+            let mut bot: TriggerBot<_> =
+                TriggerBot::new(Arc::new(drift_client), slot_subscriber, user_map, config);
+            if let Err(e) = bot.init().await {
+                println!("{e}");
+            }
+
+            bot.start_interval_loop().await;
         }
     }
 }

@@ -1,2 +1,2 @@
 ##! /bin/bash
-RUST_LOG=info cargo r -- funding-rate-updater
+RUST_LOG=debug cargo r -- trigger
