@@ -7,15 +7,24 @@ use tokio::sync::RwLock;
 use crate::SdkResult;
 
 pub struct BlockhashSubscriber {
+    is_subscribed: bool,
+
+    latest_block_height: u64,
+
     latest_blockhash: Hash,
+
     last_twenty_hashes: Vec<Hash>,
+
     refresh_frequency: u64,
+
     rpc_client: RpcClient,
 }
 
 impl BlockhashSubscriber {
     pub fn new(refresh_frequency: u64, endpoint: String) -> Self {
         BlockhashSubscriber {
+            is_subscribed: false,
+            latest_block_height: 0,
             latest_blockhash: Hash::default(),
             last_twenty_hashes: Vec::with_capacity(20),
             refresh_frequency,
@@ -23,7 +32,25 @@ impl BlockhashSubscriber {
         }
     }
 
-    pub async fn subscribe(blockhash_subscriber: Arc<RwLock<Self>>) -> SdkResult<()> {
+    async fn update_blockhash(&mut self) -> SdkResult<()> {
+        let blockhash = self.rpc_client.get_latest_blockhash().await?;
+        let block_height = self.rpc_client.get_block_height().await?;
+
+        self.latest_block_height = block_height;
+
+        // avoid caching duplicate blockhashes
+        if let Some(last_blockhash) = self.last_twenty_hashes.last() {
+            if blockhash == *last_blockhash {
+                return Ok(());
+            }
+        }
+
+        self.last_twenty_hashes.push(blockhash);
+
+        Ok(())
+    }
+
+    pub async fn subscribe(&mut self) -> SdkResult<()> {
         let blockhash_subscriber = blockhash_subscriber.clone();
         let blockhash_subscriber_reader = blockhash_subscriber.read().await;
         let refresh_frequency = blockhash_subscriber_reader.refresh_frequency;
