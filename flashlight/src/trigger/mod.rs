@@ -4,9 +4,9 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use drift::state::{perp_market::PerpMarket, user::MarketType};
+use drift::state::{perp_market::PerpMarket, spot_market::SpotMarket, user::MarketType};
 use futures_util::TryFutureExt;
-use log::{info, warn};
+use log::{error, info, warn};
 use sdk::{
     dlob::{
         dlob_node::DLOBNode,
@@ -14,8 +14,10 @@ use sdk::{
         types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
     },
     drift_client::DriftClient,
+    marketmap::Market,
     slot_subscriber::SlotSubscriber,
     tx::priority_fee_calculator::PriorityFeeCalculator,
+    types::{BaseTxParams, ProcessingTxParams, TxParams},
     usermap::UserMap,
     RpcAccountProvider,
 };
@@ -102,7 +104,7 @@ where
         self.try_trigger().await;
     }
 
-    async fn try_trigger_for_perp_market(&mut self, market: PerpMarket) -> Result<(), String> {
+    async fn try_trigger_for_perp_market(&mut self, market: &PerpMarket) -> Result<(), String> {
         let market_index = market.market_index;
 
         let oracle_price_data = self
@@ -163,9 +165,138 @@ where
                         .map_err(|e| e.to_string())
                         .await?,
                 );
+                ixs.push(
+                    self.drift_client
+                        .get_revert_fill_ix(None)
+                        .await
+                        .map_err(|e| e.to_string())?,
+                );
+
+                let sub_account = self.drift_client.wallet().default_sub_account();
+                let tx = self
+                    .drift_client
+                    .init_tx(&sub_account, false)
+                    .map_err(|e| e.to_string())?
+                    .extend_ix(ixs)
+                    .build();
+
+                match self.drift_client.sign_and_send(tx).await {
+                    Ok(sig) => {
+                        info!(
+                            "Triggered perp user (account: {}) perp order: {}",
+                            node_to_trigger.get_user_account(),
+                            node_to_trigger.get_order().order_id
+                        );
+                        info!("Tx: {sig}");
+                    }
+                    Err(e) => {
+                        // node_to_trigger.
+
+                        error!("{e}");
+                    }
+                }
             }
         }
 
+        Ok(())
+    }
+
+    async fn trigger_trigger_fro_spot_market(&mut self, market: &SpotMarket) -> Result<(), String> {
+        let market_index = market.market_index;
+
+        let oracle_price_data = self
+            .drift_client
+            .get_oracle_price_data_and_slot_for_spot_market(market_index);
+
+        if let Some(subscriber) = &self.dlob_subscriber {
+            let dlob = subscriber.get_dlob().await;
+            let state = self.drift_client.get_state_account();
+            let nodes_to_trigger = dlob.find_nodes_to_trigger(
+                market_index,
+                oracle_price_data.unwrap().data.price as u64,
+                MarketType::Spot,
+                state,
+            );
+
+            for node_to_trigger in nodes_to_trigger {
+                // let now = Instant::now();
+                // let node_to_fill_signature = get_node_to_trigger_signature(&node_to_trigger);
+                // if let Some(time_started_to_trigger_node) =
+                //     self.triggering_nodes.get(&node_to_fill_signature)
+                // {
+                //     if now - *time_started_to_trigger_node
+                //         < Duration::from_millis(TRIGGER_ORDER_COOLDOWN_MS)
+                //     {
+                //         warn!("triggering node {node_to_fill_signature} too soon ({}ms since last trigger), skipping",(now - *time_started_to_trigger_node).as_millis());
+                //         continue;
+                //     }
+                // }
+
+                // // if node_to_trigger.
+
+                // self.triggering_nodes
+                //     .insert(node_to_fill_signature, Instant::now());
+
+                info!(
+                    "trying to trigger (account {}) spot order {}",
+                    node_to_trigger.get_user_account(),
+                    node_to_trigger.get_order().order_id
+                );
+
+                let user = self
+                    .user_map
+                    .must_get(&node_to_trigger.get_user_account().to_string())
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                // TODO: modify tx_time_count
+                let user_priority_fee = self
+                    .priority_fee_calculator
+                    .update_priority_fee(Instant::now(), 0);
+
+                let tx_params: Option<TxParams> = if user_priority_fee {
+                    let compute_units = 100_000;
+                    let compute_unit_price = self
+                        .priority_fee_calculator
+                        .calculate_compute_unit_price(compute_units, 1_000_000_000);
+                    Some(TxParams {
+                        base: BaseTxParams {
+                            compute_units: Some(compute_units),
+                            compute_units_price: Some(compute_unit_price),
+                        },
+                        processing: ProcessingTxParams::default(),
+                    })
+                } else {
+                    None
+                };
+
+                match self
+                    .drift_client
+                    .trigger_order(
+                        &node_to_trigger.get_user_account(),
+                        user,
+                        node_to_trigger.get_order(),
+                        tx_params,
+                        None,
+                    )
+                    .await
+                {
+                    Ok(sig) => {
+                        info!(
+                            "Triggered user (account: {}) spot order: {}",
+                            node_to_trigger.get_user_account(),
+                            node_to_trigger.get_order().order_id
+                        );
+                        info!("Tx: {sig}");
+                    }
+                    Err(e) => {
+                        // node_to_trigger.
+
+                        error!("{e}");
+                    }
+                }
+            }
+        }
         Ok(())
     }
 

@@ -363,6 +363,13 @@ impl<'a> TransactionBuilder<'a> {
             legacy: false,
         }
     }
+
+    pub fn extend_ix(mut self, ixs: Vec<Instruction>) -> Self {
+        self.ixs.extend(ixs);
+
+        self
+    }
+
     /// Use legacy tx mode
     pub fn legacy(mut self) -> Self {
         self.legacy = true;
@@ -877,6 +884,34 @@ impl<'a> TransactionBuilder<'a> {
         };
         self.ixs.push(ix);
 
+        self
+    }
+
+    pub fn revert_fill(mut self, filler: &Pubkey, filler_stats: &Pubkey) -> Self {
+        let accounts = build_accounts(
+            self.program_data,
+            drift::accounts::RevertFill {
+                state: *state_account(),
+                authority: self.authority,
+                filler: *filler,
+                filler_stats: *filler_stats,
+            },
+            &[],
+            &[],
+            &[],
+        );
+
+        let ix = Instruction {
+            program_id: constants::PROGRAM_ID,
+            accounts,
+            data: InstructionData::data(&drift::instruction::RevertFill {}),
+        };
+        self.ixs.push(ix);
+
+        self
+    }
+
+    pub fn tx_params(mut self, tx_params: TxParams) -> Self {
         self
     }
 

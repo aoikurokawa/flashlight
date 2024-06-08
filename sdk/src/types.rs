@@ -292,3 +292,23 @@ pub enum OracleSource {
     PythStableCoin,
     Prelaunch,
 }
+
+#[derive(Default)]
+pub struct BaseTxParams {
+    pub compute_units: Option<u32>,
+    pub compute_units_price: Option<u32>,
+}
+
+#[derive(Default)]
+pub struct ProcessingTxParams {
+    pub use_simulated_compute_units: Option<bool>,
+    pub compute_units_buffer_multipler: Option<u64>,
+    pub use_simulated_compute_units_for_cu_price_calculation: Option<bool>,
+    pub get_cu_price_from_compute_units: Option<fn(u64) -> u64>,
+}
+
+#[derive(Default)]
+pub struct TxParams {
+    pub base: BaseTxParams,
+    pub processing: ProcessingTxParams,
+}

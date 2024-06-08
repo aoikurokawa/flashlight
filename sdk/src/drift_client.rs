@@ -39,7 +39,7 @@ use crate::{
     event_emitter::EventEmitter,
     marketmap::MarketMap,
     oraclemap::{Oracle, OracleMap},
-    types::{Context, DataAndSlot, MarketId, SdkError, SdkResult},
+    types::{Context, DataAndSlot, MarketId, SdkError, SdkResult, TxParams},
     user::DriftUser,
     user_config::UserSubscriptionConfig,
     utils::{self, decode, get_ws_url},
@@ -713,6 +713,32 @@ where
             .get_oracle_price_data_and_slot_for_spot_market(market_index)
     }
 
+    pub async fn trigger_order(
+        &self,
+        user_account_pubkey: &Pubkey,
+        user_account: User,
+        order: &Order,
+        trigger_order: Option<TxParams>,
+        filler_pubkey: Option<&Pubkey>,
+    ) -> SdkResult<Signature> {
+        let ix = self
+            .get_trigger_order_ix(user_account_pubkey, user_account, order, filler_pubkey)
+            .await?;
+
+        let tx = TransactionBuilder::new(
+            self.program_data(),
+            self.wallet.default_sub_account(),
+            Cow::Owned(user_account),
+            false,
+        )
+        .extend_ix(vec![ix])
+        .build();
+
+        let sig = self.sign_and_send(tx).await?;
+
+        Ok(sig)
+    }
+
     pub async fn get_trigger_order_ix(
         &self,
         user_account_pubkey: &Pubkey,
@@ -782,6 +808,32 @@ where
             false,
         )
         .update_funding_rate(perp_market_index, &perp_market.pubkey, oracle_pubkey)
+        .ixs[0];
+
+        Ok(ix.clone())
+    }
+
+    pub async fn get_revert_fill_ix(
+        &self,
+        filler_pubkey: Option<&Pubkey>,
+    ) -> SdkResult<Instruction> {
+        let drifit_user = self.get_user(None).unwrap();
+        let filler = filler_pubkey.unwrap_or(&drifit_user.pubkey);
+
+        let filler_stats = self.get_user_stats(self.wallet().authority()).await?;
+
+        let account_data: User = self
+            .backend
+            .get_account(&self.wallet.default_sub_account())
+            .await?;
+
+        let ix = &TransactionBuilder::new(
+            self.program_data(),
+            self.wallet.default_sub_account(),
+            Cow::Owned(account_data),
+            false,
+        )
+        .revert_fill(filler, &filler_stats.authority)
         .ixs[0];
 
         Ok(ix.clone())
