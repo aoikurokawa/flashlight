@@ -685,6 +685,10 @@ where
             .map(|x| x.data)
     }
 
+    pub fn get_spot_market_accounts(&self) -> Vec<SpotMarket> {
+        self.backend.get_spot_market_accounts()
+    }
+
     pub fn num_perp_markets(&self) -> usize {
         self.backend.num_perp_markets()
     }
@@ -971,6 +975,10 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         self.perp_market_map.get(&market_index)
     }
 
+    fn get_perp_market_accounts(&self) -> Vec<PerpMarket> {
+        self.perp_market_map.values()
+    }
+
     fn get_spot_market_account_and_slot(
         &self,
         market_index: u16,
@@ -978,8 +986,8 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         self.spot_market_map.get(&market_index)
     }
 
-    fn get_perp_market_accounts(&self) -> Vec<PerpMarket> {
-        self.perp_market_map.values()
+    fn get_spot_market_accounts(&self) -> Vec<SpotMarket> {
+        self.spot_market_map.values()
     }
 
     fn num_perp_markets(&self) -> usize {

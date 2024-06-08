@@ -1,11 +1,12 @@
 use std::{
     collections::HashMap,
+    pin::Pin,
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime},
 };
 
 use drift::state::{perp_market::PerpMarket, spot_market::SpotMarket, user::MarketType};
-use futures_util::TryFutureExt;
+use futures_util::{Future, FutureExt, TryFutureExt};
 use log::{error, info, warn};
 use sdk::{
     dlob::{
@@ -104,7 +105,11 @@ where
         self.try_trigger().await;
     }
 
-    async fn try_trigger_for_perp_market(&mut self, market: &PerpMarket) -> Result<(), String> {
+    async fn try_trigger_for_perp_market(
+        &mut self,
+        market: Arc<tokio::sync::Mutex<PerpMarket>>,
+    ) -> Result<(), String> {
+        let market = market.lock().await;
         let market_index = market.market_index;
 
         let oracle_price_data = self
@@ -201,7 +206,10 @@ where
         Ok(())
     }
 
-    async fn trigger_trigger_fro_spot_market(&mut self, market: &SpotMarket) -> Result<(), String> {
+    async fn try_trigger_trigger_fro_spot_market(
+        &mut self,
+        market: SpotMarket,
+    ) -> Result<(), String> {
         let market_index = market.market_index;
 
         let oracle_price_data = self
@@ -304,12 +312,32 @@ where
         let start = Instant::now();
         let mut ran = false;
 
-        match self.periodic_task_mutex.try_lock() {
+        match self.periodic_task_mutex.clone().try_lock() {
             Ok(_guard) => {
-                let perp_market = self.drift_client.get_perp_market_accounts();
+                let perp_markets = self
+                    .drift_client
+                    .get_perp_market_accounts()
+                    .into_iter()
+                    .map(|m| Arc::new(tokio::sync::Mutex::new(m)));
+                let spot_markets = self.drift_client.get_spot_market_accounts();
+
+                let trigger_perp_markets: Vec<_> = perp_markets
+                    .into_iter()
+                    .map(|market| self.try_trigger_for_perp_market(market).boxed())
+                    .collect();
+
+                // let trigger_spot_markets: Vec<_> = spot_markets
+                //     .into_iter()
+                //     .map(|market| self.try_trigger_trigger_fro_spot_market(market).boxed())
+                //     .collect();
+
+                // let all_futures = trigger_perp_markets
+                //     .into_iter()
+                //     .chain(trigger_spot_markets.into_iter())
+                //     .collect::<Vec<_>>();
 
                 // perp_market.iter().map(|m| )
-                // futures_util::future::join_all(iter)
+                let results = futures_util::future::join_all(trigger_perp_markets).await;
             }
             Err(e) => println!("Mutex is already locked"),
         }
