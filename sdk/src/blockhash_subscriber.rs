@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::hash::Hash;
@@ -10,17 +10,22 @@ use tokio::{
 use crate::SdkResult;
 
 #[derive(Clone)]
-pub struct BlockhashInner(Vec<Hash>);
+pub struct BlockhashInner(VecDeque<Hash>);
+
+#[derive(Clone)]
+pub struct BlockhashState {
+    latest_block_height: u64,
+
+    latest_blockhash: Hash,
+
+    last_twenty_hashes: VecDeque<Hash>,
+}
 
 #[derive(Clone)]
 pub struct BlockhashSubscriber {
     is_subscribed: bool,
 
-    latest_block_height: u64,
-
-    latest_blockhash: Hash,
-
-    last_twenty_hashes: Arc<Mutex<BlockhashInner>>,
+    state: Arc<Mutex<BlockhashState>>,
 
     refresh_frequency: u64,
 
@@ -31,45 +36,29 @@ impl BlockhashSubscriber {
     pub fn new(refresh_frequency: u64, endpoint: String) -> Self {
         BlockhashSubscriber {
             is_subscribed: false,
-            latest_block_height: 0,
-            latest_blockhash: Hash::default(),
-            last_twenty_hashes: Arc::new(Mutex::new(BlockhashInner(Vec::with_capacity(20)))),
+            state: Arc::new(Mutex::new(BlockhashState {
+                latest_block_height: 0,
+                latest_blockhash: Hash::default(),
+                last_twenty_hashes: VecDeque::with_capacity(20),
+            })),
             refresh_frequency,
             rpc_client: Arc::new(RpcClient::new(endpoint)),
         }
     }
 
     pub async fn get_blockhash_size(&self) -> usize {
-        let hashes = self.last_twenty_hashes.lock().await;
-        hashes.0.len()
+        let state = self.state.lock().await;
+        state.last_twenty_hashes.len()
     }
 
-    pub fn get_latest_block_height(&self) -> u64 {
-        self.latest_block_height
+    pub async fn get_latest_block_height(&self) -> u64 {
+        let state = self.state.lock().await;
+        state.latest_block_height
     }
 
-    pub fn get_latest_blockhash(&self) -> Hash {
-        self.latest_blockhash
-    }
-
-    async fn update_blockhash(&mut self) -> SdkResult<()> {
-        let blockhash = self.rpc_client.get_latest_blockhash().await?;
-        let block_height = self.rpc_client.get_block_height().await?;
-
-        self.latest_block_height = block_height;
-
-        // avoid caching duplicate blockhashes
-        let mut last_twenty_hashes = self.last_twenty_hashes.lock().await;
-        if let Some(last_blockhash) = last_twenty_hashes.0.last() {
-            if blockhash == *last_blockhash {
-                return Ok(());
-            }
-        }
-
-        last_twenty_hashes.0.push(blockhash);
-        self.latest_blockhash = blockhash;
-
-        Ok(())
+    pub async fn get_latest_blockhash(&self) -> Hash {
+        let state = self.state.lock().await;
+        state.latest_blockhash
     }
 
     pub async fn subscribe(&mut self) -> SdkResult<()> {
@@ -78,14 +67,15 @@ impl BlockhashSubscriber {
         }
         self.is_subscribed = true;
 
-        self.update_blockhash().await?;
+        // update_blockhash(&self.rpc_client, &self.state).await?;
 
-        let mut subscriber = self.clone();
+        let state = self.state.clone();
+        let rpc_client = self.rpc_client.clone();
         let update_frequency = Duration::from_millis(self.refresh_frequency);
         tokio::spawn(async move {
             loop {
                 time::sleep(update_frequency).await;
-                match subscriber.update_blockhash().await {
+                match update_blockhash(&rpc_client, &state).await {
                     Ok(()) => log::info!("success updating"),
                     Err(e) => log::error!("cannot update: {e}"),
                 }
@@ -120,9 +110,40 @@ impl BlockhashSubscriber {
     }
 
     pub async fn get_valid_blockhash(&self) -> Hash {
-        let hashes = self.last_twenty_hashes.lock().await;
-        *hashes.0.first().unwrap_or(&self.latest_blockhash)
+        let state = self.state.lock().await;
+        *state
+            .last_twenty_hashes
+            .front()
+            .unwrap_or(&state.latest_blockhash)
     }
+}
+
+async fn update_blockhash(
+    rpc_client: &Arc<RpcClient>,
+    state: &Arc<Mutex<BlockhashState>>,
+) -> SdkResult<()> {
+    let blockhash = rpc_client.get_latest_blockhash().await?;
+    let block_height = rpc_client.get_block_height().await?;
+
+    let mut state = state.lock().await;
+    state.latest_block_height = block_height;
+
+    // avoid caching duplicate blockhashes
+    if let Some(last_blockhash) = state.last_twenty_hashes.back() {
+        if blockhash == *last_blockhash {
+            return Ok(());
+        }
+    }
+
+    state.last_twenty_hashes.push_back(blockhash);
+
+    if state.last_twenty_hashes.len() > 20 {
+        state.last_twenty_hashes.pop_front();
+    }
+
+    state.latest_blockhash = blockhash;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -141,14 +162,12 @@ mod tests {
         let blockhash_subscriber = Arc::new(blockhash_subscriber);
 
         for i in 0..=10 {
-            let latest_blockhash = blockhash_subscriber.get_latest_blockhash();
+            let latest_blockhash = blockhash_subscriber.get_latest_blockhash().await;
             let valid_blockhash = blockhash_subscriber.get_valid_blockhash().await;
             // drop(blockhash_subscriber);
-            dbg!(
+            println!(
                 "{}: Latest blockhash: {:?}, Valid blockhash: {:?}",
-                i,
-                latest_blockhash,
-                valid_blockhash
+                i, latest_blockhash, valid_blockhash
             );
             tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
         }
