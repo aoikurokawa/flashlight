@@ -10,9 +10,6 @@ use tokio::{
 use crate::SdkResult;
 
 #[derive(Clone)]
-pub struct BlockhashInner(VecDeque<Hash>);
-
-#[derive(Clone)]
 pub struct BlockhashState {
     latest_block_height: u64,
 
