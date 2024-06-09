@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use futures_util::StreamExt;
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use solana_client::nonblocking::pubsub_client::PubsubClient;
 
 use crate::{

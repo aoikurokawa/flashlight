@@ -43,6 +43,11 @@ async fn main() {
     dotenv().ok();
     env_logger::init();
 
+    log::debug!("This is a debug message");
+    info!("This is an info message");
+    log::warn!("This is a warning message");
+    log::error!("This is an error message");
+
     let endpoint = env::var("RPC_URL").expect("RPC_URL must be set");
     let private_key = env::var("PRIVATE_KEY").expect("SECRET_KEY must be set");
     let websocket_url = env::var("WEBSOCKET_URL").expect("WEBSOCKET_URL must be set");

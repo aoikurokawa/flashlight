@@ -170,7 +170,15 @@ impl OracleMap {
                 .map(|subscriber| subscriber.subscribe())
                 .collect::<Vec<_>>();
             let results = futures_util::future::join_all(subscribe_futures).await;
-            results.into_iter().collect::<Result<Vec<_>, _>>()?;
+            for result in results {
+                match result {
+                    Ok(()) => {}
+                    Err(e) => {
+                        log::error!("Error subscribing oraclemap: {e}");
+                    }
+                }
+            }
+            // let vecs = results.into_iter().collect::<Result<Vec<_>, _>>()?;
 
             let mut oracle_subscribers_mut = self.oracle_subscribers.write().await;
             *oracle_subscribers_mut = oracle_subscribers;
