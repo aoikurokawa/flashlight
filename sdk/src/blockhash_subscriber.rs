@@ -39,6 +39,19 @@ impl BlockhashSubscriber {
         }
     }
 
+    pub async fn get_blockhash_size(&self) -> usize {
+        let hashes = self.last_twenty_hashes.lock().await;
+        hashes.0.len()
+    }
+
+    pub fn get_latest_block_height(&self) -> u64 {
+        self.latest_block_height
+    }
+
+    pub fn get_latest_blockhash(&self) -> Hash {
+        self.latest_blockhash
+    }
+
     async fn update_blockhash(&mut self) -> SdkResult<()> {
         let blockhash = self.rpc_client.get_latest_blockhash().await?;
         let block_height = self.rpc_client.get_block_height().await?;
@@ -104,10 +117,6 @@ impl BlockhashSubscriber {
         // });
 
         Ok(())
-    }
-
-    pub fn get_latest_blockhash(&self) -> Hash {
-        self.latest_blockhash
     }
 
     pub async fn get_valid_blockhash(&self) -> Hash {
