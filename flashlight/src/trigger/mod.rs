@@ -340,12 +340,13 @@ where
         //         .map_err(|e| e.to_string())?,
         // );
 
-        let sub_account = drift_client.wallet().default_sub_account();
+        let sub_account = drift_client.wallet().authority();
+        let user_account_pubkey = drift_client.get_user(Some(0)).ok_or("failed to get user")?;
         let msg = drift_client
             .init_tx(&sub_account, false)
             .map_err(|e| e.to_string())?
             .trigger_order_ix(
-                None,
+                Some(&user_account_pubkey.pubkey),
                 &node_to_trigger.get_user_account(),
                 node_to_trigger.get_order().order_id,
                 vec![],
