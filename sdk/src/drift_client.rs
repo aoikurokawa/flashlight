@@ -549,9 +549,13 @@ where
     /// Sign and send a tx to the network
     ///
     /// Returns the signature on success
-    pub async fn sign_and_send(&self, tx: VersionedMessage) -> SdkResult<Signature> {
+    pub async fn sign_and_send(
+        &self,
+        tx: VersionedMessage,
+        additional_signers: bool,
+    ) -> SdkResult<Signature> {
         self.backend
-            .sign_and_send(self.wallet(), tx)
+            .sign_and_send(self.wallet(), tx, additional_signers)
             .await
             .map_err(|err| err.to_out_of_sol_error().unwrap_or(err))
     }
@@ -738,7 +742,7 @@ where
         .extend_ix(vec![ix])
         .build();
 
-        let sig = self.sign_and_send(msg).await?;
+        let sig = self.sign_and_send(msg, true).await?;
 
         Ok(sig)
     }
@@ -782,15 +786,15 @@ where
 
         let order_id = order.order_id;
 
-        let ix = &TransactionBuilder::new(
+        let transaction_builer = &TransactionBuilder::new(
             self.program_data(),
             self.wallet.default_sub_account(),
             Cow::Owned(user_account),
             false,
         )
-        .trigger_order_ix(filler, user_account_pubkey, order_id, remaining_accounts);
+        .trigger_order_ix(Some(filler), user_account_pubkey, order_id, remaining_accounts);
 
-        Ok(ix.clone())
+        Ok(transaction_builer.ixs[0].clone())
     }
 
     pub async fn get_update_funding_rate_ix(
@@ -1139,12 +1143,13 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         &self,
         wallet: &Wallet,
         tx: VersionedMessage,
+        additional_signers: bool,
     ) -> SdkResult<Signature> {
         let blockhash_reader = self.blockhash_subscriber.read().await;
         let recent_block_hash = blockhash_reader.get_valid_blockhash().await;
         drop(blockhash_reader);
 
-        let tx = match wallet.sign_tx(tx, recent_block_hash) {
+        let tx = match wallet.sign_tx(tx, recent_block_hash, additional_signers) {
             Ok(tx) => tx,
             Err(e) => {
                 return Err(SdkError::Generic(format!(
@@ -1171,7 +1176,7 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         let blockhash_reader = self.blockhash_subscriber.read().await;
         let recent_block_hash = blockhash_reader.get_valid_blockhash().await;
         drop(blockhash_reader);
-        let tx = wallet.sign_tx(tx, recent_block_hash)?;
+        let tx = wallet.sign_tx(tx, recent_block_hash, false)?;
         self.rpc_client
             .send_transaction_with_config(&tx, config)
             .await

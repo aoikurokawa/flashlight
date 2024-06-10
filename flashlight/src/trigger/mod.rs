@@ -344,12 +344,18 @@ where
         let msg = drift_client
             .init_tx(&sub_account, false)
             .map_err(|e| e.to_string())?
-            .extend_ix(ixs)
+            .trigger_order_ix(
+                None,
+                &node_to_trigger.get_user_account(),
+                node_to_trigger.get_order().order_id,
+                vec![],
+            )
+            // .extend_ix(ixs)
             .build();
 
         info!("VersinedMessage: {:?}", msg);
 
-        match drift_client.sign_and_send(msg).await {
+        match drift_client.sign_and_send(msg, false).await {
             Ok(sig) => {
                 info!(
                     "Triggered perp user (account: {}) perp order: {}",

@@ -16,7 +16,7 @@ use drift::{
 };
 use fnv::FnvHashMap;
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::{pubsub_client::PubsubClient, rpc_client::RpcClient},
@@ -856,18 +856,19 @@ impl<'a> TransactionBuilder<'a> {
     }
 
     pub fn trigger_order_ix(
-        self,
-        filler: &Pubkey,
+        mut self,
+        filler: Option<&Pubkey>,
         user: &Pubkey,
         order_id: u32,
         remaining_accounts: Vec<AccountMeta>,
-    ) -> Instruction {
+    ) -> Self {
+        let filler = filler.unwrap_or(&self.authority);
         let mut accounts = build_accounts(
             self.program_data,
             drift::accounts::TriggerOrder {
                 state: *state_account(),
-                filler: *filler,
                 authority: self.authority,
+                filler: *filler,
                 user: *user,
             },
             &[],
@@ -875,13 +876,18 @@ impl<'a> TransactionBuilder<'a> {
             &[],
         );
 
+        log::error!("Account meta: {accounts:?}");
+
         // accounts.extend(remaining_accounts);
 
-        Instruction {
+        let ix = Instruction {
             program_id: constants::PROGRAM_ID,
             accounts,
             data: InstructionData::data(&drift::instruction::TriggerOrder { order_id }),
-        }
+        };
+        self.ixs.push(ix);
+
+        self
     }
 
     pub fn revert_fill(mut self, filler: &Pubkey, filler_stats: &Pubkey) -> Self {
@@ -1159,10 +1165,19 @@ impl Wallet {
         &self,
         mut message: VersionedMessage,
         recent_block_hash: Hash,
+        additional_signers: bool,
     ) -> SdkResult<VersionedTransaction> {
         message.set_recent_blockhash(recent_block_hash);
         let signer: &dyn Signer = self.signer.as_ref();
-        VersionedTransaction::try_new(message, &[signer]).map_err(|e| SdkError::Signing(e))
+
+        let tx = if additional_signers {
+            VersionedTransaction::try_new(message, &[signer, signer])
+                .map_err(|e| SdkError::Signing(e))
+        } else {
+            VersionedTransaction::try_new(message, &[signer]).map_err(|e| SdkError::Signing(e))
+        };
+
+        tx
     }
 
     /// Return the wallet authority address

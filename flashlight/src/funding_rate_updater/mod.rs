@@ -331,7 +331,7 @@ impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
         let send_tx_start = Instant::now();
         let tx_sig = self
             .drift_client
-            .sign_and_send(sim_result.tx.message)
+            .sign_and_send(sim_result.tx.message, false)
             .await
             .map_err(|e| e.to_string())?;
 
