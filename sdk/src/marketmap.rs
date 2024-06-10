@@ -142,7 +142,7 @@ where
 
             drop(subscription_writer)
         }
-        
+
         log::info!("Done subscribing marketmap");
 
         Ok(())
