@@ -1,2 +1,2 @@
 ##! /bin/bash
-RUST_LOG=debug cargo r -- trigger
+RUST_LOG=info cargo r -- trigger

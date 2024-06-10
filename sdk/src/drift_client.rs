@@ -729,7 +729,7 @@ where
             .get_trigger_order_ix(user_account_pubkey, user_account, order, filler_pubkey)
             .await?;
 
-        let tx = TransactionBuilder::new(
+        let msg = TransactionBuilder::new(
             self.program_data(),
             self.wallet.default_sub_account(),
             Cow::Owned(user_account),
@@ -738,7 +738,7 @@ where
         .extend_ix(vec![ix])
         .build();
 
-        let sig = self.sign_and_send(tx).await?;
+        let sig = self.sign_and_send(msg).await?;
 
         Ok(sig)
     }
@@ -1141,17 +1141,21 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         tx: VersionedMessage,
     ) -> SdkResult<Signature> {
         let blockhash_reader = self.blockhash_subscriber.read().await;
+        let recent_block_hash = blockhash_reader.get_valid_blockhash().await;
         drop(blockhash_reader);
-        let recent_block_hash = self
-            .rpc_client
-            .get_latest_blockhash()
-            .await
-            .expect("get recent blockhash");
-        let tx = wallet.sign_tx(tx, recent_block_hash)?;
+
+        let tx = match wallet.sign_tx(tx, recent_block_hash) {
+            Ok(tx) => tx,
+            Err(e) => {
+                return Err(SdkError::Generic(format!(
+                    "Failed to sign and send at DriftBackend: {e}",
+                )))
+            }
+        };
         self.rpc_client
             .send_transaction(&tx)
             .await
-            .map_err(|err| err.into())
+            .map_err(|err| SdkError::Rpc(err))
     }
 
     /// Sign and send a tx to the network with custom send config

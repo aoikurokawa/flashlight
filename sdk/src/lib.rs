@@ -1162,7 +1162,7 @@ impl Wallet {
     ) -> SdkResult<VersionedTransaction> {
         message.set_recent_blockhash(recent_block_hash);
         let signer: &dyn Signer = self.signer.as_ref();
-        VersionedTransaction::try_new(message, &[signer]).map_err(Into::into)
+        VersionedTransaction::try_new(message, &[signer]).map_err(|e| SdkError::Signing(e))
     }
 
     /// Return the wallet authority address
