@@ -788,8 +788,7 @@ where
             Cow::Owned(user_account),
             false,
         )
-        .trigger_order_ix(filler, user_account_pubkey, order_id, remaining_accounts)
-        .ixs[0];
+        .trigger_order_ix(filler, user_account_pubkey, order_id, remaining_accounts);
 
         Ok(ix.clone())
     }
@@ -925,13 +924,19 @@ impl<T: AccountProvider> DriftClientBackend<T> {
     async fn subscribe(&self) -> SdkResult<()> {
         let mut subscriber = self.blockhash_subscriber.write().await;
 
-        tokio::try_join!(
-            self.perp_market_map.subscribe(),
-            self.spot_market_map.subscribe(),
-            self.oracle_map.subscribe(),
-            self.state_subscribe(),
-            subscriber.subscribe()
-        )?;
+        self.perp_market_map.subscribe().await?;
+        self.spot_market_map.subscribe().await?;
+        self.oracle_map.subscribe().await?;
+        self.state_subscribe().await?;
+        subscriber.subscribe().await?;
+
+        // tokio::try_join!(
+        //     self.perp_market_map.subscribe(),
+        //     self.spot_market_map.subscribe(),
+        //     self.oracle_map.subscribe(),
+        //     self.state_subscribe(),
+        //     subscriber.subscribe()
+        // )?;
         Ok(())
     }
 
@@ -966,6 +971,8 @@ impl<T: AccountProvider> DriftClientBackend<T> {
         });
 
         subscription.subscribe().await?;
+
+        log::info!("Done subscribing state");
 
         Ok(())
     }

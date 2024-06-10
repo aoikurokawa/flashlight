@@ -184,6 +184,8 @@ impl OracleMap {
             *oracle_subscribers_mut = oracle_subscribers;
         }
 
+        log::info!("Done subscribing oraclemap");
+
         Ok(())
     }
 

@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    pin::Pin,
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime},
 };
@@ -84,8 +83,6 @@ where
         if let Some(subscriber) = &self.dlob_subscriber {
             subscriber.subscribe().await.map_err(|e| e.to_string())?;
         }
-
-        debug!("self.dlob_subscriber: {}", self.dlob_subscriber.is_some());
 
         Ok(())
     }
@@ -223,7 +220,6 @@ where
                 let triggering_nodes = Arc::new(Mutex::new(self.triggering_nodes.clone()));
 
                 if let Some(subscriber) = &self.dlob_subscriber {
-                    debug!("subscriber found");
                     let subscriber = Arc::new(subscriber.clone());
                     let trigger_perp_markets: Vec<_> = perp_markets
                         .into_iter()
@@ -250,6 +246,12 @@ where
 
                     // perp_market.iter().map(|m| )
                     let results = futures_util::future::join_all(trigger_perp_markets).await;
+                    for result in results {
+                        match result {
+                            Ok(()) => log::info!("success triggering"),
+                            Err(e) => log::error!("Fail to trigger: {e}"),
+                        }
+                    }
                 }
             }
             Err(e) => {
@@ -357,7 +359,7 @@ where
             Err(e) => {
                 // node_to_trigger.
 
-                error!("{e}");
+                error!("Failed to trigger: {e}");
             }
         }
     }

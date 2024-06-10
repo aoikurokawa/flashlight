@@ -52,6 +52,7 @@ impl DLOB {
 
     pub fn build_from_usermap(&mut self, usermap: &UserMap, slot: u64) {
         self.clear();
+        log::info!("Usermap length: {}", usermap.usermap.len());
         usermap.usermap.iter().par_bridge().for_each(|user_ref| {
             let user = user_ref.value();
             let user_key = user_ref.key();

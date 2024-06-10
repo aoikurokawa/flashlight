@@ -103,6 +103,8 @@ impl BlockhashSubscriber {
         //     }
         // });
 
+        log::info!("Done subscribing state");
+
         Ok(())
     }
 

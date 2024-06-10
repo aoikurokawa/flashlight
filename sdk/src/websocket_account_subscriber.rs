@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use async_trait::async_trait;
 use futures_util::StreamExt;
+use log::info;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{nonblocking::pubsub_client::PubsubClient, rpc_config::RpcAccountInfoConfig};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
@@ -86,6 +87,8 @@ impl<T> WebsocketAccountSubscriber<T> {
         let base_delay = tokio::time::Duration::from_secs(2);
 
         let url = self.url.clone();
+
+        info!("subscribing {}", self.subscription_name);
 
         tokio::spawn({
             let event_emitter = self.event_emitter.clone();

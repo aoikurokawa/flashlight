@@ -223,36 +223,35 @@ impl UserMap {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//
-//     #[tokio::test]
-//     #[cfg(rpc_tests)]
-//     async fn test_usermap() {
-//         use crate::usermap::UserMap;
-//         use solana_sdk::commitment_config::CommitmentConfig;
-//         use solana_sdk::commitment_config::CommitmentLevel;
-//
-//         let endpoint = "rpc_url".to_string();
-//         let commitment = CommitmentConfig {
-//             commitment: CommitmentLevel::Processed,
-//         };
-//
-//         let mut usermap = UserMap::new(commitment, endpoint, true);
-//         usermap.subscribe().await.unwrap();
-//
-//         tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
-//
-//         dbg!(usermap.size());
-//         assert!(usermap.size() > 50000);
-//
-//         dbg!(usermap.get_latest_slot());
-//
-//         usermap.unsubscribe().await.unwrap();
-//
-//         tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-//
-//         assert_eq!(usermap.size(), 0);
-//         assert_eq!(usermap.subscribed, false);
-//     }
-// }
+#[cfg(test)]
+mod tests {
+
+    #[tokio::test]
+    async fn test_usermap() {
+        use crate::usermap::UserMap;
+        use solana_sdk::commitment_config::CommitmentConfig;
+        use solana_sdk::commitment_config::CommitmentLevel;
+
+        let endpoint = "https://api.devnet.solana.com".to_string();
+        let commitment = CommitmentConfig {
+            commitment: CommitmentLevel::Processed,
+        };
+
+        let mut usermap = UserMap::new(commitment, endpoint, true, None);
+        usermap.subscribe().await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+
+        dbg!(usermap.size());
+        assert!(usermap.size() > 500);
+
+        dbg!(usermap.get_latest_slot());
+
+        usermap.unsubscribe().await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+
+        assert_eq!(usermap.size(), 0);
+        assert_eq!(usermap.subscribed, false);
+    }
+}

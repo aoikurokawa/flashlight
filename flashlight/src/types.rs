@@ -12,7 +12,7 @@ pub(crate) trait Bot {
     async fn health_check() -> bool;
 }
 
-pub(crate) enum JitoStrategy {
+pub enum JitoStrategy {
     JitoOnly,
     NonJitoOnly,
     Hybrid,

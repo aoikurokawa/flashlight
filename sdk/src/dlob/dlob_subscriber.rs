@@ -113,7 +113,12 @@ where
 
     async fn update_dlob(&self) -> SdkResult<()> {
         let slot = self.slot_source.get_slot();
-        self.dlob.lock().await.dlob = self.dlob_source.get_dlob(slot).await;
+        let mut dlob = self.dlob.lock().await;
+        let dlob_source = self.dlob_source.get_dlob(slot);
+
+        info!("DLOB: {} {}", dlob_source.size().0, dlob_source.size().1);
+
+        dlob.dlob = dlob_source;
 
         Ok(())
     }

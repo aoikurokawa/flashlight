@@ -54,10 +54,11 @@ async fn main() {
     let wallet = Wallet::new(load_keypair_multi_format(&private_key).expect("valid keypair"));
     let account_provider = RpcAccountProvider::new(&endpoint);
 
-    let drift_client: DriftClient<RpcAccountProvider, u16> =
+    let mut drift_client: DriftClient<RpcAccountProvider, u16> =
         DriftClient::new(Context::DevNet, account_provider, &wallet)
             .await
             .expect("fail to construct drift client");
+    drift_client.add_user(0).await.expect("add user");
     drift_client
         .subscribe()
         .await
@@ -116,7 +117,8 @@ async fn main() {
                 run_once: Some(true),
             };
 
-            let user_map = UserMap::new(CommitmentConfig::confirmed(), endpoint, false, None);
+            let mut user_map = UserMap::new(CommitmentConfig::confirmed(), endpoint, true, None);
+            user_map.subscribe().await.expect("subscribing usermap");
 
             let mut bot: TriggerBot<_> =
                 TriggerBot::new(Arc::new(drift_client), slot_subscriber, user_map, config);

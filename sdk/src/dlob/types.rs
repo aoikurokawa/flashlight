@@ -26,7 +26,7 @@ pub enum DlobSource {
 }
 
 impl DlobSource {
-    pub async fn get_dlob(&self, slot: u64) -> DLOB {
+    pub fn get_dlob(&self, slot: u64) -> DLOB {
         match self {
             DlobSource::UserMap(usermap) => usermap.get_dlob(slot),
         }

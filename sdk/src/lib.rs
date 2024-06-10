@@ -856,12 +856,12 @@ impl<'a> TransactionBuilder<'a> {
     }
 
     pub fn trigger_order_ix(
-        mut self,
+        self,
         filler: &Pubkey,
         user: &Pubkey,
         order_id: u32,
         remaining_accounts: Vec<AccountMeta>,
-    ) -> Self {
+    ) -> Instruction {
         let mut accounts = build_accounts(
             self.program_data,
             drift::accounts::TriggerOrder {
@@ -875,16 +875,13 @@ impl<'a> TransactionBuilder<'a> {
             &[],
         );
 
-        accounts.extend(remaining_accounts);
+        // accounts.extend(remaining_accounts);
 
-        let ix = Instruction {
+        Instruction {
             program_id: constants::PROGRAM_ID,
             accounts,
             data: InstructionData::data(&drift::instruction::TriggerOrder { order_id }),
-        };
-        self.ixs.push(ix);
-
-        self
+        }
     }
 
     pub fn revert_fill(mut self, filler: &Pubkey, filler_stats: &Pubkey) -> Self {
