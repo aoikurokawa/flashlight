@@ -14,9 +14,11 @@ use drift::{
 use futures_util::TryFutureExt;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
+    client_error::ClientErrorKind,
     nonblocking::rpc_client::RpcClient,
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig, RpcSendTransactionConfig},
     rpc_filter::{Memcmp, RpcFilterType},
+    rpc_request::{RpcError, RpcResponseErrorData},
 };
 use solana_sdk::{
     account_info::IntoAccountInfo,
@@ -792,7 +794,12 @@ where
             Cow::Owned(user_account),
             false,
         )
-        .trigger_order_ix(Some(filler), user_account_pubkey, order_id, remaining_accounts);
+        .trigger_order_ix(
+            Some(filler),
+            user_account_pubkey,
+            order_id,
+            remaining_accounts,
+        );
 
         Ok(transaction_builer.ixs[0].clone())
     }
@@ -1157,10 +1164,38 @@ impl<T: AccountProvider> DriftClientBackend<T> {
                 )))
             }
         };
-        self.rpc_client
-            .send_transaction(&tx)
-            .await
-            .map_err(|err| SdkError::Rpc(err))
+        let sig = match self.rpc_client.send_transaction(&tx).await {
+            Ok(sig) => sig,
+            Err(e) => match e.kind() {
+                ClientErrorKind::RpcError(rpc_error) => {
+                    if let RpcError::RpcResponseError {
+                        code,
+                        message,
+                        data,
+                    } = rpc_error
+                    {
+                        if let RpcResponseErrorData::SendTransactionPreflightFailure(res) = data {
+                            if let Some(logs) = &res.logs {
+                                for log in logs {
+                                    log::error!("Error Log: {log}");
+                                }
+                            }
+                        }
+                        log::error!("Error Code: {code}, Error Message: {message}, ")
+                    }
+                    return Err(SdkError::Generic(format!(
+                        "Failed to send transaction at DriftBackend: {e}"
+                    )));
+                }
+                _ => {
+                    return Err(SdkError::Generic(format!(
+                        "Failed to send transaction at DriftBackend: {e}"
+                    )))
+                }
+            },
+        };
+
+        Ok(sig)
     }
 
     /// Sign and send a tx to the network with custom send config

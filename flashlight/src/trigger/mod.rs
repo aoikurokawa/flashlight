@@ -353,8 +353,6 @@ where
             // .extend_ix(ixs)
             .build();
 
-        info!("VersinedMessage: {:?}", msg);
-
         match drift_client.sign_and_send(msg, false).await {
             Ok(sig) => {
                 info!(

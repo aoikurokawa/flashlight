@@ -876,8 +876,6 @@ impl<'a> TransactionBuilder<'a> {
             &[],
         );
 
-        log::error!("Account meta: {accounts:?}");
-
         // accounts.extend(remaining_accounts);
 
         let ix = Instruction {
