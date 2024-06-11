@@ -124,6 +124,8 @@ where
                 state,
             );
 
+            log::info!("Find nodes to trigger: {}", nodes_to_trigger.len());
+
             for node_to_trigger in nodes_to_trigger {
                 // let now = Instant::now();
                 // let node_to_fill_signature = get_node_to_trigger_signature(&node_to_trigger);
@@ -285,6 +287,8 @@ where
         MarketType::Perp,
         state,
     );
+
+    log::info!("Find nodes to trigger: {}", nodes_to_trigger.len());
 
     for node_to_trigger in nodes_to_trigger {
         let now = Instant::now();
