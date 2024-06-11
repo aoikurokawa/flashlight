@@ -786,8 +786,6 @@ where
             .get_remaining_accounts(remainint_accounts_params)
             .await?;
 
-        let order_id = order.order_id;
-
         let transaction_builer = &TransactionBuilder::new(
             self.program_data(),
             self.wallet.default_sub_account(),
@@ -795,9 +793,10 @@ where
             false,
         )
         .trigger_order_ix(
-            Some(filler),
             user_account_pubkey,
-            order_id,
+            &user_account,
+            order,
+            Some(filler),
             remaining_accounts,
         );
 

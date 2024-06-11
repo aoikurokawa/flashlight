@@ -857,9 +857,10 @@ impl<'a> TransactionBuilder<'a> {
 
     pub fn trigger_order_ix(
         mut self,
+        user_account_pubkey: &Pubkey,
+        user_account: &User,
+        order: &Order,
         filler: Option<&Pubkey>,
-        user: &Pubkey,
-        order_id: u32,
         remaining_accounts: Vec<AccountMeta>,
     ) -> Self {
         let filler = filler.unwrap_or(&self.authority);
@@ -869,11 +870,11 @@ impl<'a> TransactionBuilder<'a> {
                 state: *state_account(),
                 authority: self.authority,
                 filler: *filler,
-                user: *user,
+                user: *user_account_pubkey,
             },
+            &[user_account],
             &[],
-            &[],
-            &[],
+            &[MarketId::perp(order.market_index)],
         );
 
         // accounts.extend(remaining_accounts);
@@ -881,7 +882,9 @@ impl<'a> TransactionBuilder<'a> {
         let ix = Instruction {
             program_id: constants::PROGRAM_ID,
             accounts,
-            data: InstructionData::data(&drift::instruction::TriggerOrder { order_id }),
+            data: InstructionData::data(&drift::instruction::TriggerOrder {
+                order_id: order.order_id,
+            }),
         };
         self.ixs.push(ix);
 

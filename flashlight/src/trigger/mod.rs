@@ -321,18 +321,20 @@ where
             .await
             .map_err(|e| e.to_string())?;
 
-        let mut ixs = Vec::new();
-        ixs.push(
-            drift_client
-                .get_trigger_order_ix(
-                    &node_to_trigger.get_user_account(),
-                    user,
-                    node_to_trigger.get_order(),
-                    None,
-                )
-                .map_err(|e| e.to_string())
-                .await?,
-        );
+        // info!("User: {user:?}");
+
+        // let mut ixs = Vec::new();
+        // ixs.push(
+        //     drift_client
+        //         .get_trigger_order_ix(
+        //             &node_to_trigger.get_user_account(),
+        //             user,
+        //             node_to_trigger.get_order(),
+        //             None,
+        //         )
+        //         .map_err(|e| e.to_string())
+        //         .await?,
+        // );
         // ixs.push(
         //     drift_client
         //         .get_revert_fill_ix(None)
@@ -341,17 +343,17 @@ where
         // );
 
         let sub_account = drift_client.wallet().authority();
-        let user_account_pubkey = drift_client.get_user(Some(0)).ok_or("failed to get user")?;
+        let user_account = drift_client.get_user(Some(0)).ok_or("failed to get user")?;
         let msg = drift_client
             .init_tx(&sub_account, false)
             .map_err(|e| e.to_string())?
             .trigger_order_ix(
-                Some(&user_account_pubkey.pubkey),
                 &node_to_trigger.get_user_account(),
-                node_to_trigger.get_order().order_id,
+                &user,
+                node_to_trigger.get_order(),
+                Some(&user_account.pubkey),
                 vec![],
             )
-            // .extend_ix(ixs)
             .build();
 
         match drift_client.sign_and_send(msg, false).await {
