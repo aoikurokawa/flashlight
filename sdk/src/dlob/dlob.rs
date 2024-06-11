@@ -29,8 +29,8 @@ use super::order_book_levels::{
 #[derive(Clone)]
 pub struct DLOB {
     exchange: Exchange,
-    _open_orders: OpenOrders,
-    _initialized: bool,
+    open_orders: OpenOrders,
+    initialized: bool,
     _max_slot_for_resting_limit_orders: Arc<u64>,
 }
 
@@ -44,15 +44,22 @@ impl DLOB {
 
         DLOB {
             exchange,
-            _open_orders: open_orders,
-            _initialized: true,
+            open_orders,
+            initialized: true,
             _max_slot_for_resting_limit_orders: Arc::new(0),
         }
     }
 
+    pub fn clear(&mut self) {
+        self.exchange.clear();
+        self.open_orders.clear();
+        self.initialized = false;
+        self._max_slot_for_resting_limit_orders = Arc::new(0);
+    }
+
+    /// Initializes a new DLOB instance
     pub fn build_from_usermap(&mut self, usermap: &UserMap, slot: u64) {
         self.clear();
-        log::info!("Usermap length: {}", usermap.usermap.len());
         usermap.usermap.iter().par_bridge().for_each(|user_ref| {
             let user = user_ref.value();
             let user_key = user_ref.key();
@@ -64,7 +71,7 @@ impl DLOB {
                 self.insert_order(order, user_pubkey, slot);
             }
         });
-        self._initialized = true;
+        self.initialized = true;
     }
 
     pub fn size(&self) -> (usize, usize) {
@@ -77,13 +84,6 @@ impl DLOB {
             println!("market index: {}", market.key());
             market.value().print_all_orders();
         }
-    }
-
-    pub fn clear(&mut self) {
-        self.exchange.clear();
-        self._open_orders.clear();
-        self._initialized = false;
-        self._max_slot_for_resting_limit_orders = Arc::new(0);
     }
 
     pub fn insert_order(&self, order: &Order, user_account: Pubkey, slot: u64) {
