@@ -129,8 +129,9 @@ where
                         if update.data_and_slot.slot > latest_slot.load(Ordering::Relaxed) {
                             latest_slot.store(update.data_and_slot.slot, Ordering::Relaxed);
                         }
+                        let index = update.data_and_slot.clone().data.market_index();
                         marketmap.insert(
-                            update.data_and_slot.clone().data.market_index(),
+                            index,
                             DataAndSlot {
                                 data: market_data_and_slot.data,
                                 slot: update.data_and_slot.slot,
@@ -156,6 +157,10 @@ where
             self.latest_slot.store(0, Ordering::Relaxed);
         }
         Ok(())
+    }
+
+    pub fn keys(&self) -> Vec<u16> {
+        self.marketmap.iter().map(|x| *x.key()).collect()
     }
 
     pub fn values(&self) -> Vec<T> {
@@ -262,6 +267,8 @@ mod tests {
 
         dbg!(marketmap.size());
         if endpoint.contains("devnet") {
+            let keys = marketmap.keys();
+            eprintln!("Market indexes: {:?}", keys);
             assert_eq!(marketmap.size(), 25);
         } else {
         }
