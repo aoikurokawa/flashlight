@@ -4,6 +4,7 @@ use solana_sdk::{compute_budget::ComputeBudgetInstruction, instruction::Instruct
 
 /// This class determines whether a priority fee needs to be included in a transaction based on
 /// a recent history of timed out transactions.
+#[derive(Debug, Clone)]
 pub struct PriorityFeeCalculator {
     last_tx_timeout_count: u64,
     priority_fee_triggered: bool,
