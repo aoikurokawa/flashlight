@@ -1,12 +1,12 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, Instant},
 };
 
 use drift::state::{perp_market::PerpMarket, spot_market::SpotMarket, user::MarketType};
 use futures_util::{Future, FutureExt, TryFutureExt};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use sdk::{
     dlob::{
         dlob_node::DLOBNode,
@@ -14,7 +14,6 @@ use sdk::{
         types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
     },
     drift_client::DriftClient,
-    marketmap::Market,
     slot_subscriber::SlotSubscriber,
     tx::priority_fee_calculator::PriorityFeeCalculator,
     types::{BaseTxParams, ProcessingTxParams, TxParams},
@@ -104,108 +103,6 @@ where
         self.try_trigger().await;
     }
 
-    async fn try_trigger_trigger_fro_spot_market(
-        &mut self,
-        market: SpotMarket,
-    ) -> Result<(), String> {
-        let market_index = market.market_index;
-
-        let oracle_price_data = self
-            .drift_client
-            .get_oracle_price_data_and_slot_for_spot_market(market_index);
-
-        if let Some(subscriber) = &self.dlob_subscriber {
-            let dlob = subscriber.get_dlob().await;
-            let state = self.drift_client.get_state_account();
-            let nodes_to_trigger = dlob.find_nodes_to_trigger(
-                market_index,
-                oracle_price_data.unwrap().data.price as u64,
-                MarketType::Spot,
-                state,
-            );
-
-            for node_to_trigger in nodes_to_trigger {
-                // let now = Instant::now();
-                // let node_to_fill_signature = get_node_to_trigger_signature(&node_to_trigger);
-                // if let Some(time_started_to_trigger_node) =
-                //     self.triggering_nodes.get(&node_to_fill_signature)
-                // {
-                //     if now - *time_started_to_trigger_node
-                //         < Duration::from_millis(TRIGGER_ORDER_COOLDOWN_MS)
-                //     {
-                //         warn!("triggering node {node_to_fill_signature} too soon ({}ms since last trigger), skipping",(now - *time_started_to_trigger_node).as_millis());
-                //         continue;
-                //     }
-                // }
-
-                // // if node_to_trigger.
-
-                // self.triggering_nodes
-                //     .insert(node_to_fill_signature, Instant::now());
-
-                info!(
-                    "trying to trigger (account {}) spot order {}",
-                    node_to_trigger.get_user_account(),
-                    node_to_trigger.get_order().order_id
-                );
-
-                let user = self
-                    .user_map
-                    .must_get(&node_to_trigger.get_user_account().to_string())
-                    .await
-                    .map_err(|e| e.to_string())?;
-
-                // TODO: modify tx_time_count
-                let user_priority_fee = self
-                    .priority_fee_calculator
-                    .update_priority_fee(Instant::now(), 0);
-
-                let tx_params: Option<TxParams> = if user_priority_fee {
-                    let compute_units = 100_000;
-                    let compute_unit_price = self
-                        .priority_fee_calculator
-                        .calculate_compute_unit_price(compute_units, 1_000_000_000);
-                    Some(TxParams {
-                        base: BaseTxParams {
-                            compute_units: Some(compute_units),
-                            compute_units_price: Some(compute_unit_price),
-                        },
-                        processing: ProcessingTxParams::default(),
-                    })
-                } else {
-                    None
-                };
-
-                match self
-                    .drift_client
-                    .trigger_order(
-                        &node_to_trigger.get_user_account(),
-                        user,
-                        node_to_trigger.get_order(),
-                        tx_params,
-                        None,
-                    )
-                    .await
-                {
-                    Ok(sig) => {
-                        info!(
-                            "Triggered user (account: {}) spot order: {}",
-                            node_to_trigger.get_user_account(),
-                            node_to_trigger.get_order().order_id
-                        );
-                        info!("Tx: {sig}");
-                    }
-                    Err(e) => {
-                        // node_to_trigger.
-
-                        error!("{e}");
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
     async fn try_trigger(&mut self) {
         let start = Instant::now();
         let mut ran = false;
@@ -218,26 +115,37 @@ where
 
                 let drift_client = &self.drift_client;
                 let triggering_nodes = Arc::new(Mutex::new(self.triggering_nodes.clone()));
+                let priority_fee_calculator =
+                    Arc::new(Mutex::new(self.priority_fee_calculator.clone()));
 
                 if let Some(subscriber) = &self.dlob_subscriber {
                     let subscriber = Arc::new(subscriber.clone());
-                    let trigger_perp_markets: Vec<_> = perp_markets
+                    // let trigger_perp_markets: Vec<_> = perp_markets
+                    //     .into_iter()
+                    //     .map(|market| {
+                    //         try_trigger_for_perp_market(
+                    //             drift_client.clone(),
+                    //             subscriber.clone(),
+                    //             triggering_nodes.clone(),
+                    //             user_map.clone(),
+                    //             market,
+                    //         )
+                    //     })
+                    //     .collect();
+
+                    let trigger_spot_markets: Vec<_> = spot_markets
                         .into_iter()
                         .map(|market| {
-                            try_trigger_for_perp_market(
+                            try_trigger_trigger_fro_spot_market(
                                 drift_client.clone(),
                                 subscriber.clone(),
                                 triggering_nodes.clone(),
                                 user_map.clone(),
+                                priority_fee_calculator.clone(),
                                 market,
                             )
                         })
                         .collect();
-
-                    // let trigger_spot_markets: Vec<_> = spot_markets
-                    //     .into_iter()
-                    //     .map(|market| self.try_trigger_trigger_fro_spot_market(market).boxed())
-                    //     .collect();
 
                     // let all_futures = trigger_perp_markets
                     //     .into_iter()
@@ -245,7 +153,7 @@ where
                     //     .collect::<Vec<_>>();
 
                     // perp_market.iter().map(|m| )
-                    let results = futures_util::future::join_all(trigger_perp_markets).await;
+                    let results = futures_util::future::join_all(trigger_spot_markets).await;
                     for result in results {
                         match result {
                             Ok(()) => log::info!("success triggering"),
@@ -286,6 +194,8 @@ where
         state,
     );
 
+    log::info!("Find nodes to trigger: {}", nodes_to_trigger.len());
+
     for node_to_trigger in nodes_to_trigger {
         let now = Instant::now();
         let node_to_fill_signature = get_node_to_trigger_signature(&node_to_trigger);
@@ -321,27 +231,6 @@ where
             .await
             .map_err(|e| e.to_string())?;
 
-        // info!("User: {user:?}");
-
-        // let mut ixs = Vec::new();
-        // ixs.push(
-        //     drift_client
-        //         .get_trigger_order_ix(
-        //             &node_to_trigger.get_user_account(),
-        //             user,
-        //             node_to_trigger.get_order(),
-        //             None,
-        //         )
-        //         .map_err(|e| e.to_string())
-        //         .await?,
-        // );
-        // ixs.push(
-        //     drift_client
-        //         .get_revert_fill_ix(None)
-        //         .await
-        //         .map_err(|e| e.to_string())?,
-        // );
-
         let sub_account = drift_client.wallet().authority();
         let user_account = drift_client.get_user(Some(0)).ok_or("failed to get user")?;
         let msg = drift_client
@@ -374,5 +263,93 @@ where
     }
     //  }
 
+    Ok(())
+}
+
+async fn try_trigger_trigger_fro_spot_market<U>(
+    drift_client: Arc<DriftClient<RpcAccountProvider, U>>,
+    subscriber: Arc<DLOBSubscriber<RpcAccountProvider, U>>,
+    triggering_nodes: Arc<Mutex<HashMap<String, Instant>>>,
+    user_map: UserMap,
+    priority_fee_calculator: Arc<Mutex<PriorityFeeCalculator>>,
+    market: SpotMarket,
+) -> Result<(), String>
+where
+    U: Send + Sync + Clone + 'static,
+{
+    let market_index = market.market_index;
+
+    let oracle_price_data =
+        drift_client.get_oracle_price_data_and_slot_for_spot_market(market_index);
+
+    // if let Some(subscriber) = &subscriber {
+    let dlob = subscriber.get_dlob().await;
+    let state = drift_client.get_state_account();
+    let nodes_to_trigger = dlob.find_nodes_to_trigger(
+        market_index,
+        oracle_price_data.unwrap().data.price as u64,
+        MarketType::Spot,
+        state,
+    );
+
+    log::info!("Find nodes to trigger: {}", nodes_to_trigger.len());
+
+    for node_to_trigger in nodes_to_trigger {
+        info!(
+            "trying to trigger (account {}) spot order {}",
+            node_to_trigger.get_user_account(),
+            node_to_trigger.get_order().order_id
+        );
+
+        let user = user_map
+            .must_get(&node_to_trigger.get_user_account().to_string())
+            .await
+            .map_err(|e| e.to_string())?;
+
+        // TODO: modify tx_time_count
+        let mut priority_fee_calculator = priority_fee_calculator.lock().unwrap();
+        let user_priority_fee = priority_fee_calculator.update_priority_fee(Instant::now(), 0);
+
+        let tx_params: Option<TxParams> = if user_priority_fee {
+            let compute_units = 100_000;
+            let compute_unit_price =
+                priority_fee_calculator.calculate_compute_unit_price(compute_units, 1_000_000_000);
+            Some(TxParams {
+                base: BaseTxParams {
+                    compute_units: Some(compute_units),
+                    compute_units_price: Some(compute_unit_price),
+                },
+                processing: ProcessingTxParams::default(),
+            })
+        } else {
+            None
+        };
+
+        match drift_client
+            .trigger_order(
+                &node_to_trigger.get_user_account(),
+                user,
+                node_to_trigger.get_order(),
+                tx_params,
+                None,
+            )
+            .await
+        {
+            Ok(sig) => {
+                info!(
+                    "Triggered user (account: {}) spot order: {}",
+                    node_to_trigger.get_user_account(),
+                    node_to_trigger.get_order().order_id
+                );
+                info!("Tx: {sig}");
+            }
+            Err(e) => {
+                // node_to_trigger.
+
+                error!("{e}");
+            }
+        }
+    }
+    // }
     Ok(())
 }

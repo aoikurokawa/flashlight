@@ -106,7 +106,9 @@ impl DLOB {
         match subtype {
             SubType::Bid => order_list.insert_bid(node),
             SubType::Ask => order_list.insert_ask(node),
-            _ => {}
+            sub_type => {
+                log::error!("Subtype: {sub_type:?}");
+            }
         }
     }
 
@@ -311,7 +313,7 @@ impl DLOB {
             MarketType::Spot => &self.exchange.spot,
         };
         if let Some(market) = market_nodes_list.get(&market_index) {
-            for node in &market.trigger_orders.asks {
+            for node in &market.trigger_orders.bids {
                 if oracle_price > node.node.get_order().trigger_price {
                     nodes_to_trigger.push(node.node);
                 } else {
@@ -319,7 +321,7 @@ impl DLOB {
                 }
             }
 
-            for node in &market.trigger_orders.bids {
+            for node in &market.trigger_orders.asks {
                 if oracle_price < node.node.get_order().trigger_price {
                     nodes_to_trigger.push(node.node);
                 } else {
