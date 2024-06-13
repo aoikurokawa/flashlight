@@ -183,6 +183,19 @@ fn deserialize_clock_data(data: &UiAccountData) -> SdkResult<Clock> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[tokio::test]
-    async fn test_subscribe_clock() {}
+    async fn test_subscribe_clock() {
+        let rpc_client = PubsubClient::new("https://api.devnet.solana.com")
+            .await
+            .expect("init PubsubClient");
+        let config = None;
+
+        let mut clock_subscriber = ClockSubscriber::new(Arc::new(rpc_client), config);
+        assert_eq!(clock_subscriber.get_unix_ts().await, 0);
+
+        clock_subscriber.subscribe().await.expect("subscribe clock");
+        assert_ne!(clock_subscriber.get_unix_ts().await, 0);
+    }
 }
