@@ -11,6 +11,10 @@ impl ClockSubscriberEvent {
     pub fn new(current_ts: i64) -> Self {
         Self { current_ts }
     }
+
+    pub fn get_current_ts(&self) -> i64 {
+        self.current_ts
+    }
 }
 
 impl Event for ClockSubscriberEvent {
