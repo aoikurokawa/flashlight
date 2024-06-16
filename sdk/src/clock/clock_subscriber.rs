@@ -187,7 +187,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_subscribe_clock() {
-        let rpc_client = PubsubClient::new("https://api.devnet.solana.com")
+        let rpc_client = PubsubClient::new("wss://api.devnet.solana.com")
             .await
             .expect("init PubsubClient");
         let config = None;
