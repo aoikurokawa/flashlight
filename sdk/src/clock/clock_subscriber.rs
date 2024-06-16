@@ -190,9 +190,8 @@ mod tests {
         let rpc_client = PubsubClient::new("wss://api.devnet.solana.com")
             .await
             .expect("init PubsubClient");
-        let config = None;
 
-        let mut clock_subscriber = ClockSubscriber::new(Arc::new(rpc_client), config);
+        let mut clock_subscriber = ClockSubscriber::new(Arc::new(rpc_client), None);
         assert_eq!(clock_subscriber.get_unix_ts().await, 0);
 
         clock_subscriber.subscribe().await.expect("subscribe clock");
