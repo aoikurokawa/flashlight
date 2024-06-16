@@ -21,7 +21,7 @@ impl Clone for Box<dyn Event> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EventEmitter {
     subscribers: Subscribers,
 }

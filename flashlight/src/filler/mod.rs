@@ -1,16 +1,22 @@
 use std::{
     collections::HashMap,
     str::FromStr,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
-use drift::state::user_map::UserStatsMap;
 use log::info;
 use sdk::{
-    accounts::BulkAccountLoader, blockhash_subscriber::BlockhashSubscriber,
-    dlob::dlob_subscriber::DLOBSubscriber, drift_client::DriftClient, jupiter::JupiterClient,
-    priority_fee::priority_fee_subscriber::PriorityFeeSubscriber, slot_subscriber::SlotSubscriber,
-    user_config::UserSubscriptionConfig, usermap::UserMap, AccountProvider,
+    accounts::BulkAccountLoader,
+    blockhash_subscriber::BlockhashSubscriber,
+    dlob::dlob_subscriber::DLOBSubscriber,
+    drift_client::DriftClient,
+    jupiter::JupiterClient,
+    priority_fee::priority_fee_subscriber::PriorityFeeSubscriber,
+    slot_subscriber::SlotSubscriber,
+    user_config::UserSubscriptionConfig,
+    usermap::{user_stats_map::UserStatsMap, UserMap},
+    AccountProvider,
 };
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,
@@ -38,7 +44,7 @@ where
     slot_subscriber: SlotSubscriber,
     bulk_account_loader: Option<BulkAccountLoader>,
     // user_stats_map_subscription_config: &'a UserSubscriptionConfig<U>,
-    drift_client: DriftClient<T, U>,
+    drift_client: Arc<DriftClient<T, U>>,
     /// Connection to use specifically for confirming transactions
     // tx_confirmation_connection: RpcClient,
     polling_interval_ms: u16,
@@ -52,7 +58,7 @@ where
     dlob_subscriber: Option<DLOBSubscriber<T, U>>,
 
     user_map: Option<UserMap>,
-    user_stats_map: Option<UserStatsMap<'a>>,
+    user_stats_map: Option<UserStatsMap<T, U>>,
 
     // periodic_task_mutex = new Mutex();
 
@@ -125,7 +131,7 @@ where
     pub fn new(
         slot_subscriber: SlotSubscriber,
         bulk_account_loader: Option<BulkAccountLoader>,
-        drift_client: DriftClient<T, U>,
+        drift_client: Arc<DriftClient<T, U>>,
         user_map: UserMap,
         runtime_spec: RuntimeSpec,
         global_config: GlobalConfig,
@@ -257,17 +263,25 @@ where
     }
 
     pub fn base_init(&mut self) {
-        // let start_init_user_stats_map = Instant::now();
-        // info!("Initializing user_stats_map");
+        let start_init_user_stats_map = Instant::now();
+        info!("Initializing user_stats_map");
 
-        // let user_stats_loader = BulkAccountLoader::new(
-        //     self.drift_client.backend.rpc_client,
-        //     CommitmentConfig {
-        //         commitment: CommitmentLevel::Confirmed,
-        //     },
-        //     Duration::from_secs(0),
-        // );
+        let user_stats_loader = BulkAccountLoader::new(
+            self.drift_client.backend.rpc_client.clone(),
+            CommitmentConfig {
+                commitment: CommitmentLevel::Confirmed,
+            },
+            Duration::from_secs(0),
+        );
+        let user_stats_map = UserStatsMap::new(self.drift_client.clone(), Some(user_stats_loader));
+        log::info!(
+            "Initialized user_stats_map: {}, took: {}ms",
+            user_stats_map.size(),
+            start_init_user_stats_map.elapsed().as_millis()
+        );
 
-        // self.user_stats_map = UserStatsMap::
+        self.user_stats_map = Some(user_stats_map);
+
+        // self.clock_subscriber.subscribe().await;
     }
 }

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use drift::{state::events::OrderRecord, ID as PROGRAM_ID};
 use solana_sdk::pubkey::Pubkey;
@@ -16,21 +16,21 @@ use crate::{
 
 use super::UserMap;
 
-pub struct UserStatsMap<'a, T, U>
+pub struct UserStatsMap<T, U>
 where
     T: AccountProvider,
 {
-    user_stats_map: HashMap<Pubkey, UserStats<'a, T, U>>,
-    drift_client: &'a DriftClient<T, U>,
+    user_stats_map: HashMap<Pubkey, UserStats<T, U>>,
+    drift_client: Arc<DriftClient<T, U>>,
     bulk_account_loader: BulkAccountLoader,
 }
 
-impl<'a, T, U> UserStatsMap<'a, T, U>
+impl<T, U> UserStatsMap<T, U>
 where
     T: AccountProvider,
 {
     pub fn new(
-        drift_client: &'a DriftClient<T, U>,
+        drift_client: Arc<DriftClient<T, U>>,
         bulk_account_loader: Option<BulkAccountLoader>,
     ) -> Self {
         let bulk_account_loader = match bulk_account_loader {
@@ -70,7 +70,7 @@ where
             account_subscription: Some(UserStatsSubscriptionConfig::Polling {
                 account_loader: self.bulk_account_loader.clone(),
             }),
-            drift_client: self.drift_client,
+            drift_client: self.drift_client.clone(),
             user_stats_account_public_key: get_user_stats_account_pubkey(&PROGRAM_ID, authority),
         })?;
 
