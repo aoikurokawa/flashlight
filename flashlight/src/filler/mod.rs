@@ -10,7 +10,10 @@ use sdk::{
     accounts::BulkAccountLoader,
     blockhash_subscriber::BlockhashSubscriber,
     clock::clock_subscriber::ClockSubscriber,
-    dlob::dlob_subscriber::DLOBSubscriber,
+    dlob::{
+        dlob_subscriber::DLOBSubscriber,
+        types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
+    },
     drift_client::DriftClient,
     jupiter::JupiterClient,
     priority_fee::priority_fee_subscriber::PriorityFeeSubscriber,
@@ -129,7 +132,8 @@ where
 
 impl<'a, T, U> FillerBot<'a, T, U>
 where
-    T: AccountProvider,
+    T: AccountProvider + Clone,
+    U: Send + Sync + Clone + 'static,
 {
     pub async fn new(
         slot_subscriber: SlotSubscriber,
@@ -296,5 +300,23 @@ where
             .expect("subscribe clock");
 
         self.lookup_table_account = Some(self.drift_client.fetch_market_lookup_table_account());
+    }
+
+    pub async fn init(&mut self) {
+        self.base_init().await;
+        let drift_client = self.drift_client.clone();
+        let user_map = self.user_map.clone().unwrap();
+        let slot_subscriber = self.slot_subscriber.clone();
+
+        self.dlob_subscriber = Some(DLOBSubscriber::new(DLOBSubscriptionConfig {
+            drift_client,
+            dlob_source: DlobSource::UserMap(user_map),
+            slot_source: SlotSource::SlotSubscriber(slot_subscriber),
+            update_frequency: Duration::from_millis((self.polling_interval_ms - 500) as u64),
+        }));
+
+        if let Some(dlob_subscriber) = &self.dlob_subscriber {
+            dlob_subscriber.subscribe().await.unwrap();
+        }
     }
 }
