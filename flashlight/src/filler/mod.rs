@@ -41,7 +41,7 @@ const DEFAULT_INTERVAL_MS: u16 = 6000;
 const FILL_ORDER_THROTTLE_BACKOFF: u64 = 1000; // the time to wait before trying to fill a throttled (error filling) node again
 const THROTTLED_NODE_SIZE_TO_PRUNE: usize = 10; // Size of throttled nodes to get to before pruning the map
 
-struct FillerBot<'a, T, U>
+struct FillerBot<'a, T>
 where
     T: AccountProvider,
 {
@@ -132,10 +132,9 @@ where
     rebalance_settled_pnl_threshold: f64,
 }
 
-impl<'a, T, U> FillerBot<'a, T, U>
+impl<'a, T> FillerBot<'a, T>
 where
     T: AccountProvider + Clone,
-    U: Send + Sync + Clone + 'static,
 {
     pub async fn new(
         slot_subscriber: SlotSubscriber,
