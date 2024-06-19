@@ -4,12 +4,12 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use crate::{accounts::BulkAccountLoader, drift_client::DriftClient, AccountProvider};
 
-pub struct UserStatsConfig<T, U>
+pub struct UserStatsConfig<T>
 where
     T: AccountProvider,
 {
     pub account_subscription: Option<UserStatsSubscriptionConfig>,
-    pub drift_client: Arc<DriftClient<T, U>>,
+    pub drift_client: Arc<DriftClient<T>>,
     pub user_stats_account_public_key: Pubkey,
 }
 

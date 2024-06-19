@@ -29,8 +29,8 @@ struct DLOBSubscriberInner {
 
 // https://github.com/drift-labs/protocol-v2/blob/master/sdk/src/dlob/DLOBSubscriber.ts
 #[derive(Clone)]
-pub struct DLOBSubscriber<T: AccountProvider, U> {
-    drift_client: Arc<DriftClient<T, U>>,
+pub struct DLOBSubscriber<T: AccountProvider> {
+    drift_client: Arc<DriftClient<T>>,
 
     dlob_source: DlobSource,
 
@@ -45,12 +45,11 @@ pub struct DLOBSubscriber<T: AccountProvider, U> {
     event_emitter: EventEmitter,
 }
 
-impl<T, U> DLOBSubscriber<T, U>
+impl<T> DLOBSubscriber<T>
 where
     T: AccountProvider + Clone,
-    U: Send + Sync + 'static + Clone,
 {
-    pub fn new(config: DLOBSubscriptionConfig<T, U>) -> Self {
+    pub fn new(config: DLOBSubscriptionConfig<T>) -> Self {
         Self {
             drift_client: config.drift_client,
             dlob_source: config.dlob_source,

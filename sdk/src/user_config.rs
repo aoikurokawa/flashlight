@@ -1,18 +1,22 @@
 use solana_sdk::{commitment_config::CommitmentLevel, pubkey::Pubkey};
 
-use crate::{accounts::BulkAccountLoader, drift_client::DriftClient, AccountProvider};
+use crate::{
+    accounts::{BulkAccountLoader, UserAccountSubscriber},
+    drift_client::DriftClient,
+    AccountProvider,
+};
 
-pub struct UserConfig<T, U>
+pub struct UserConfig<T>
 where
     T: AccountProvider,
 {
-    account_subscription: Option<UserSubscriptionConfig<U>>,
-    drift_client: DriftClient<T, U>,
+    account_subscription: Option<UserSubscriptionConfig>,
+    drift_client: DriftClient<T>,
     user_account_public_key: Pubkey,
 }
 
 #[derive(Clone)]
-pub enum UserSubscriptionConfig<U> {
+pub enum UserSubscriptionConfig {
     WebSocket {
         resub_timeout_ms: u16,
         log_resub_messages: bool,
@@ -22,6 +26,6 @@ pub enum UserSubscriptionConfig<U> {
         account_loader: BulkAccountLoader,
     },
     Custom {
-        user_account_subscriber: Box<U>,
+        user_account_subscriber: UserAccountSubscriber,
     },
 }

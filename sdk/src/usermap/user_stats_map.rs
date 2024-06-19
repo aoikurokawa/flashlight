@@ -16,21 +16,21 @@ use crate::{
 
 use super::UserMap;
 
-pub struct UserStatsMap<T, U>
+pub struct UserStatsMap<T>
 where
     T: AccountProvider,
 {
-    user_stats_map: HashMap<Pubkey, UserStats<T, U>>,
-    drift_client: Arc<DriftClient<T, U>>,
+    user_stats_map: HashMap<Pubkey, UserStats<T>>,
+    drift_client: Arc<DriftClient<T>>,
     bulk_account_loader: BulkAccountLoader,
 }
 
-impl<T, U> UserStatsMap<T, U>
+impl<T> UserStatsMap<T>
 where
     T: AccountProvider,
 {
     pub fn new(
-        drift_client: Arc<DriftClient<T, U>>,
+        drift_client: Arc<DriftClient<T>>,
         bulk_account_loader: Option<BulkAccountLoader>,
     ) -> Self {
         let bulk_account_loader = match bulk_account_loader {
@@ -168,12 +168,12 @@ where
         self.user_stats_map.contains_key(authority)
     }
 
-    pub fn get(&self, authority_pubkey: &Pubkey) -> Option<&UserStats<T, U>> {
+    pub fn get(&self, authority_pubkey: &Pubkey) -> Option<&UserStats<T>> {
         self.user_stats_map.get(authority_pubkey)
     }
 
     /// Enforce that a UserStats will exist for the given authority_pubkey
-    pub async fn must_get(&mut self, authority: &Pubkey) -> SdkResult<Option<&UserStats<T, U>>> {
+    pub async fn must_get(&mut self, authority: &Pubkey) -> SdkResult<Option<&UserStats<T>>> {
         if !self.has(authority) {
             self.add_user_stat(*authority, None, Some(false)).await?;
         }

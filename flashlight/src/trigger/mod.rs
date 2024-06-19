@@ -5,7 +5,7 @@ use std::{
 };
 
 use drift::state::{perp_market::PerpMarket, spot_market::SpotMarket, user::MarketType};
-use futures_util::{Future, FutureExt, TryFutureExt};
+use futures_util::{FutureExt, TryFutureExt};
 use log::{error, info, warn};
 use sdk::{
     dlob::{
@@ -27,14 +27,14 @@ use crate::{config::BaseBotConfig, util::get_node_to_trigger_signature};
 // time to wait between triggering an order
 const TRIGGER_ORDER_COOLDOWN_MS: u64 = 10000;
 
-pub struct TriggerBot<U> {
+pub struct TriggerBot {
     name: String,
     dry_run: bool,
     default_interval_ms: u64,
 
-    drift_client: Arc<DriftClient<RpcAccountProvider, U>>,
+    drift_client: Arc<DriftClient<RpcAccountProvider>>,
     slot_subscriber: SlotSubscriber,
-    dlob_subscriber: Option<DLOBSubscriber<RpcAccountProvider, U>>,
+    dlob_subscriber: Option<DLOBSubscriber<RpcAccountProvider>>,
     triggering_nodes: HashMap<String, Instant>,
     periodic_task_mutex: Arc<Mutex<()>>,
     interval_tx: Option<oneshot::Sender<()>>,
@@ -44,12 +44,9 @@ pub struct TriggerBot<U> {
     priority_fee_calculator: PriorityFeeCalculator,
 }
 
-impl<U> TriggerBot<U>
-where
-    U: Send + Sync + 'static + Clone,
-{
+impl TriggerBot {
     pub fn new(
-        drift_client: Arc<DriftClient<RpcAccountProvider, U>>,
+        drift_client: Arc<DriftClient<RpcAccountProvider>>,
         slot_subscriber: SlotSubscriber,
         user_map: UserMap,
         config: BaseBotConfig,
@@ -169,16 +166,13 @@ where
     }
 }
 
-async fn try_trigger_for_perp_market<U>(
-    drift_client: Arc<DriftClient<RpcAccountProvider, U>>,
-    subscriber: Arc<DLOBSubscriber<RpcAccountProvider, U>>,
+async fn try_trigger_for_perp_market(
+    drift_client: Arc<DriftClient<RpcAccountProvider>>,
+    subscriber: Arc<DLOBSubscriber<RpcAccountProvider>>,
     triggering_nodes: Arc<Mutex<HashMap<String, Instant>>>,
     user_map: UserMap,
     market: PerpMarket,
-) -> Result<(), String>
-where
-    U: Send + Sync + Clone + 'static,
-{
+) -> Result<(), String> {
     let market_index = market.market_index;
 
     let oracle_price_data =
@@ -266,17 +260,14 @@ where
     Ok(())
 }
 
-async fn try_trigger_trigger_fro_spot_market<U>(
-    drift_client: Arc<DriftClient<RpcAccountProvider, U>>,
-    subscriber: Arc<DLOBSubscriber<RpcAccountProvider, U>>,
+async fn try_trigger_trigger_fro_spot_market(
+    drift_client: Arc<DriftClient<RpcAccountProvider>>,
+    subscriber: Arc<DLOBSubscriber<RpcAccountProvider>>,
     triggering_nodes: Arc<Mutex<HashMap<String, Instant>>>,
     user_map: UserMap,
     priority_fee_calculator: Arc<Mutex<PriorityFeeCalculator>>,
     market: SpotMarket,
-) -> Result<(), String>
-where
-    U: Send + Sync + Clone + 'static,
-{
+) -> Result<(), String> {
     let market_index = market.market_index;
 
     let oracle_price_data =

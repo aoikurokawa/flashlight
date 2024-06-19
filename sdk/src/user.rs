@@ -22,9 +22,9 @@ pub struct DriftUser {
 impl DriftUser {
     pub const SUBSCRIPTION_ID: &'static str = "user";
 
-    pub async fn new<A: AccountProvider, U>(
+    pub async fn new<A: AccountProvider>(
         pubkey: Pubkey,
-        drift_client: &DriftClient<A, U>,
+        drift_client: &DriftClient<A>,
         sub_account: Option<u16>,
     ) -> SdkResult<Self> {
         let subscription = WebsocketAccountSubscriber::new(

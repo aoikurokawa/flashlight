@@ -42,7 +42,7 @@ impl ClientOpts {
         &self.sub_account_ids
     }
 
-    pub fn account_subscription<U>(&self) -> Option<UserSubscriptionConfig<U>> {
+    pub fn account_subscription(&self) -> Option<UserSubscriptionConfig> {
         match &self.account_subscription {
             Some(subscription) => match subscription {
                 DriftClientSubscriptionConfig::WebSocket {

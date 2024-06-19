@@ -25,17 +25,11 @@ enum UserAccountEvents {
     Error { e: String },
 }
 
-#[async_trait]
-pub trait UserAccountSubscriber {
-    async fn subscribe(&self, user_account: Option<UserAccount>) -> SdkResult<bool>;
-
-    async fn fetch(&self) -> SdkResult<()>;
-
-    async fn update_data(&self, user_account: UserAccount, slot: u16) -> SdkResult<()>;
-
-    async fn unsubscribe(&self) -> SdkResult<()>;
-
-    async fn get_user_account_and_slot(&self) -> SdkResult<DataAndSlot<UserAccount>>;
+#[derive(Debug, Clone)]
+pub enum UserAccountSubscriber {
+    Basic,
+    WebSocket,
+    Polling,
 }
 
 pub struct ResubOpts {

@@ -7,8 +7,8 @@ pub(crate) struct SolanaPriorityFeeResponse {
     pub(crate) prioritization_fee: u64,
 }
 
-pub(crate) async fn fetch_solana_priority_fee<T: AccountProvider, U>(
-    drift_client: &DriftClient<T, U>,
+pub(crate) async fn fetch_solana_priority_fee<T: AccountProvider>(
+    drift_client: &DriftClient<T>,
     lookback_distance: u8,
     addresses: &[Pubkey],
 ) -> SdkResult<Vec<SolanaPriorityFeeResponse>> {

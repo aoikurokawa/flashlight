@@ -47,13 +47,13 @@ const ERROR_CODES_CAN_RETRY: &[u32] = &[
 
 const CU_EST_MULTIPLIER: f64 = 1.4;
 
-pub struct FundingRateUpdaterBot<T: AccountProvider, U> {
+pub struct FundingRateUpdaterBot<T: AccountProvider> {
     name: String,
     dry_run: bool,
     run_once: bool,
     default_interval_ms: u64,
 
-    drift_client: DriftClient<T, U>,
+    drift_client: DriftClient<T>,
     interval_tx: Option<oneshot::Sender<()>>,
     interval_handles: Option<JoinHandle<()>>,
     priority_fee_subscriber_map: PriorityFeeSubscriberMap,
@@ -63,8 +63,8 @@ pub struct FundingRateUpdaterBot<T: AccountProvider, U> {
     in_progress: bool,
 }
 
-impl<T: AccountProvider, U> FundingRateUpdaterBot<T, U> {
-    pub fn new(drift_client: DriftClient<T, U>, config: BaseBotConfig) -> Self {
+impl<T: AccountProvider> FundingRateUpdaterBot<T> {
+    pub fn new(drift_client: DriftClient<T>, config: BaseBotConfig) -> Self {
         let perp_markets = read_perp_markets(DriftEnv::Devnet);
         let drift_markets = perp_markets
             .iter()
