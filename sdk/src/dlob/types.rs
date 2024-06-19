@@ -8,8 +8,8 @@ use crate::{
 
 use super::dlob::DLOB;
 
-pub struct DLOBSubscriptionConfig<T: AccountProvider + Clone, U: Clone> {
-    pub drift_client: Arc<DriftClient<T, U>>,
+pub struct DLOBSubscriptionConfig<T: AccountProvider + Clone> {
+    pub drift_client: Arc<DriftClient<T>>,
     pub dlob_source: DlobSource,
     pub slot_source: SlotSource,
     pub update_frequency: Duration,

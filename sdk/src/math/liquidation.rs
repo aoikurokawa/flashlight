@@ -38,8 +38,8 @@ pub struct LiquidationAndPnlInfo {
 }
 
 /// Calculate the liquidation price and unrealized PnL of a user's perp position (given by `market_index`)
-pub fn calculate_liquidation_price_and_unrealized_pnl<T: AccountProvider, U>(
-    client: &DriftClient<T, U>,
+pub fn calculate_liquidation_price_and_unrealized_pnl<T: AccountProvider>(
+    client: &DriftClient<T>,
     user: &User,
     market_index: u16,
 ) -> SdkResult<LiquidationAndPnlInfo> {
@@ -59,8 +59,8 @@ pub fn calculate_liquidation_price_and_unrealized_pnl<T: AccountProvider, U>(
 }
 
 /// Calculate the unrealized pnl for user perp position, given by `market_index`
-pub fn calculate_unrealized_pnl<T: AccountProvider, U>(
-    client: &DriftClient<T, U>,
+pub fn calculate_unrealized_pnl<T: AccountProvider>(
+    client: &DriftClient<T>,
     user: &User,
     market_index: u16,
 ) -> SdkResult<i128> {
@@ -102,8 +102,8 @@ pub fn calculate_unrealized_pnl_inner(
 /// Calculate the liquidation price of a user's perp position (given by `market_index`)
 ///
 /// Returns the liquidaton price (PRICE_PRECISION / 1e6)
-pub fn calculate_liquidation_price<T: AccountProvider, U>(
-    client: &DriftClient<T, U>,
+pub fn calculate_liquidation_price<T: AccountProvider>(
+    client: &DriftClient<T>,
     user: &User,
     market_index: u16,
 ) -> SdkResult<i64> {
@@ -271,8 +271,8 @@ pub struct MarginRequirementInfo {
 }
 
 /// Calculate the margin requirements of `user`
-pub fn calculate_margin_requirements<T: AccountProvider, U>(
-    client: &DriftClient<T, U>,
+pub fn calculate_margin_requirements<T: AccountProvider>(
+    client: &DriftClient<T>,
     user: &User,
 ) -> SdkResult<MarginRequirementInfo> {
     let mut accounts_builder = AccountMapBuilder::default();
@@ -337,8 +337,8 @@ impl From<MarginCategory> for MarginRequirementType {
     }
 }
 
-pub fn calculate_collateral<T: AccountProvider, U>(
-    client: &DriftClient<T, U>,
+pub fn calculate_collateral<T: AccountProvider>(
+    client: &DriftClient<T>,
     user: &User,
     margin_category: MarginCategory,
 ) -> SdkResult<CollateralInfo> {

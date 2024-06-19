@@ -65,7 +65,7 @@ struct RemainingAccountParams {
 /// as network connections or memory allocations
 #[derive(Clone)]
 #[must_use]
-pub struct DriftClient<T, U>
+pub struct DriftClient<T>
 where
     T: AccountProvider,
 {
@@ -74,10 +74,10 @@ where
     pub active_sub_account_id: u16,
     pub sub_account_ids: Vec<u16>,
     pub users: Vec<DriftUser>,
-    pub user_account_subscription_config: Option<UserSubscriptionConfig<U>>,
+    pub user_account_subscription_config: Option<UserSubscriptionConfig>,
 }
 
-impl<T, U> DriftClient<T, U>
+impl<T> DriftClient<T>
 where
     T: AccountProvider,
 {

@@ -52,7 +52,7 @@ where
     clock_subscriber: ClockSubscriber,
     bulk_account_loader: Option<BulkAccountLoader>,
     // user_stats_map_subscription_config: &'a UserSubscriptionConfig<U>,
-    drift_client: Arc<DriftClient<T, U>>,
+    drift_client: Arc<DriftClient<T>>,
     /// Connection to use specifically for confirming transactions
     // tx_confirmation_connection: RpcClient,
     polling_interval_ms: u16,
@@ -63,10 +63,10 @@ where
 
     filler_config: FillerConfig,
     global_config: GlobalConfig,
-    dlob_subscriber: Option<DLOBSubscriber<T, U>>,
+    dlob_subscriber: Option<DLOBSubscriber<T>>,
 
     user_map: Option<UserMap>,
-    user_stats_map: Option<UserStatsMap<T, U>>,
+    user_stats_map: Option<UserStatsMap<T>>,
 
     // periodic_task_mutex = new Mutex();
 
@@ -83,7 +83,7 @@ where
     fill_tx_id: u16,
     last_settle_pnl: Instant,
 
-    priority_fee_subscriber: PriorityFeeSubscriber<T, U>,
+    priority_fee_subscriber: PriorityFeeSubscriber<T>,
     blockhash_subscriber: BlockhashSubscriber,
     /// stores txSigs that need to been confirmed in a slower loop, and the time they were confirmed
     // protected pendingTxSigsToconfirm: LRUCache<
@@ -140,12 +140,12 @@ where
     pub async fn new(
         slot_subscriber: SlotSubscriber,
         bulk_account_loader: Option<BulkAccountLoader>,
-        drift_client: Arc<DriftClient<T, U>>,
+        drift_client: Arc<DriftClient<T>>,
         user_map: UserMap,
         runtime_spec: RuntimeSpec,
         global_config: GlobalConfig,
         filler_config: FillerConfig,
-        mut priority_fee_subscriber: PriorityFeeSubscriber<T, U>,
+        mut priority_fee_subscriber: PriorityFeeSubscriber<T>,
         blockhash_subscriber: BlockhashSubscriber,
         bundle_sender: Option<BundleSender>,
     ) -> Self {
