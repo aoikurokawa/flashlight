@@ -4,6 +4,7 @@ pub mod auction;
 pub mod exchange_status;
 pub mod leverage;
 pub mod liquidation;
+pub mod market;
 pub mod oracle;
 pub mod order;
 pub mod position;

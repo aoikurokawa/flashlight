@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use drift::state::perp_market::PerpMarket;
 use log::info;
 use sdk::{
     accounts::BulkAccountLoader,
@@ -364,6 +365,15 @@ where
             self.slot_subscriber.get_slot(),
             slot
         );
+    }
+
+    fn get_perp_nodes_for_market(&self, market: PerpMarket, dlob: DLOB)  {
+        let market_index = market.market_index;
+
+        let oracle_price_data = self.drift_client.get_oracle_price_data_and_slot_for_perp_market(market_index);
+        if let Some(oracle_price_data) = oracle_price_data {
+            // let v_ask = calculate_ask_price
+        }
     }
 
     fn prune_throttled_node(&mut self) {

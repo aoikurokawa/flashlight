@@ -206,6 +206,30 @@ pub fn calculate_updated_amm(amm: &AMM, oracle_price_data: &OraclePriceData) -> 
     Ok(new_amm)
 }
 
+/// Return `base_asset_reserve`, `quote_asset_reserve`, `sqrt_k`, `new_peg`
+pub fn calculate_updated_amm_spread_reserves(
+    amm: &AMM,
+    direction: PositionDirection,
+    oracle_price_data: &OraclePriceData,
+) -> SdkResult<(u128, u128, u128, u128)> {
+    let new_amm = calculate_updated_amm(amm, oracle_price_data)?;
+    let (short_reserves, long_reserves) =
+        calculate_spread_reserves(&new_amm, oracle_price_data, None)?;
+
+    let dir_reserves = if PositionDirection::Long == direction {
+        long_reserves
+    } else {
+        short_reserves
+    };
+
+    Ok((
+        dir_reserves.0,
+        dir_reserves.1,
+        new_amm.sqrt_k,
+        new_amm.peg_multiplier,
+    ))
+}
+
 /// Calculates what the amm reserves would be after swapping a quote or base asset amount.
 pub fn calculate_amm_reserves_after_swap(
     amm: &AMM,
