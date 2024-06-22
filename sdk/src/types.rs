@@ -86,6 +86,14 @@ impl From<(u16, MarketType)> for MarketId {
 }
 
 #[derive(Debug)]
+pub enum InsuranceFundOperation {
+    Init = 1,
+    Add = 2,
+    RequestRemove = 4,
+    Remove = 8,
+}
+
+#[derive(Debug)]
 pub struct SinkError(
     pub <WebSocketStream<MaybeTlsStream<TcpStream>> as Sink<tungstenite::Message>>::Error,
 );

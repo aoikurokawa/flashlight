@@ -427,7 +427,7 @@ where
 
             let sources = HashMap::from([(LiquiditySource::Dlob, size as i128)]);
             Some(L2Level {
-                price: dlob_node.get_price(oracle_price_data, slot) as u128,
+                price: dlob_node.get_price(&oracle_price_data, slot) as u128,
                 size: size as i128,
                 sources,
             })

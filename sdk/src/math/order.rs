@@ -2,7 +2,7 @@ use drift::{
     controller::position::PositionDirection,
     state::{
         oracle::OraclePriceData,
-        user::{Order, OrderType},
+        user::{Order, OrderTriggerCondition, OrderType},
     },
 };
 
@@ -38,6 +38,20 @@ pub fn get_limit_price(
 fn has_auction_price(order: &Order, slot: u64) -> bool {
     !is_auction_complete(order, slot)
         && (order.auction_start_price != 0 || order.auction_end_price != 0)
+}
+
+pub fn must_be_triggered(order: &Order) -> bool {
+    matches!(
+        order.order_type,
+        OrderType::TriggerMarket | OrderType::TriggerLimit
+    )
+}
+
+pub fn is_triggered(order: &Order) -> bool {
+    matches!(
+        order.trigger_condition,
+        OrderTriggerCondition::TriggeredAbove | OrderTriggerCondition::TriggeredBelow
+    )
 }
 
 pub fn is_resting_limit_order(order: &Order, slot: u64) -> bool {
