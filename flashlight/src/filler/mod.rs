@@ -18,6 +18,7 @@ use sdk::{
     },
     drift_client::DriftClient,
     jupiter::JupiterClient,
+    math::market::{calculate_ask_price, calculate_bid_price},
     priority_fee::priority_fee_subscriber::PriorityFeeSubscriber,
     slot_subscriber::SlotSubscriber,
     usermap::{user_stats_map::UserStatsMap, UserMap},
@@ -367,12 +368,17 @@ where
         );
     }
 
-    fn get_perp_nodes_for_market(&self, market: PerpMarket, dlob: DLOB)  {
+    fn get_perp_nodes_for_market(&self, market: PerpMarket, dlob: DLOB) {
         let market_index = market.market_index;
 
-        let oracle_price_data = self.drift_client.get_oracle_price_data_and_slot_for_perp_market(market_index);
-        if let Some(oracle_price_data) = oracle_price_data {
-            // let v_ask = calculate_ask_price
+        let oracle = self
+            .drift_client
+            .get_oracle_price_data_and_slot_for_perp_market(market_index);
+        if let Some(oracle) = oracle {
+            let v_ask = calculate_ask_price(&market, &oracle.data).expect("calculate ask price");
+            let v_bid = calculate_bid_price(&market, &oracle.data).expect("calculate bid price");
+
+            let fill_slot = self.get_max_slot();
         }
     }
 
@@ -403,6 +409,8 @@ where
         // 1) get all fillable nodes
         let mut fillable_nodes = Vec::new();
         let mut triggerable_nodes = Vec::new();
-        for market in self.drift_client.get_perp_market_accounts() {}
+        for market in self.drift_client.get_perp_market_accounts() {
+            self.get_perp_nodes_for_market(market, dlob)
+        }
     }
 }
