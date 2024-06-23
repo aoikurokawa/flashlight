@@ -10,7 +10,7 @@ use drift::state::user::{MarketType, Order, OrderStatus, OrderTriggerCondition, 
 use rayon::prelude::*;
 use solana_sdk::pubkey::Pubkey;
 use std::any::Any;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use std::ops::Sub;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -24,9 +24,9 @@ use crate::event_emitter::Event;
 use crate::math::auction::is_fallback_available_liquidity_source;
 use crate::math::exchange_status::fill_paused;
 use crate::math::order::{
-    get_limit_price, is_resting_limit_order, is_triggered, must_be_triggered,
+    get_limit_price, is_order_expired, is_resting_limit_order, is_triggered, must_be_triggered,
 };
-use crate::types::{SdkError, SdkResult};
+use crate::types::SdkResult;
 use crate::usermap::UserMap;
 use crate::utils::market_type_to_string;
 
@@ -35,8 +35,20 @@ use super::order_book_levels::{
 };
 use super::order_list::Orderlist;
 
+#[derive(Debug)]
+pub struct NodeToFill {
+    node: Node,
+    maker_nodes: Vec<Node>,
+}
+
+impl NodeToFill {
+    pub fn new(node: Node, maker_nodes: Vec<Node>) -> Self {
+        Self { node, maker_nodes }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum MarketAccount {
+pub enum MarketAccount {
     PerpMarket(PerpMarket),
     SpotMarket(SpotMarket),
 }
@@ -205,15 +217,14 @@ impl DLOB {
         fallback_bid: u64,
         fallback_ask: u64,
         slot: u64,
-        ts: u64,
+        ts: i64,
         market_type: MarketType,
         oracle_price_data: &OraclePriceData,
         state_account: &State,
         market_account: &MarketAccount,
-    ) -> SdkResult<Vec<Node>> {
-        let mut nodes = Vec::new();
+    ) -> SdkResult<Vec<NodeToFill>> {
         if fill_paused(state_account, market_account) {
-            return Ok(nodes);
+            return Ok(vec![]);
         }
 
         let is_amm_paused = state_account.amm_paused()?;
@@ -225,7 +236,7 @@ impl DLOB {
         };
 
         let (maker_rebate_numerator, maker_rebate_denominator) =
-            get_maker_rebate(market_type, state_account, market_account);
+            self.get_maker_rebate(market_type, &state_account, market_account);
 
         let resting_limit_order_nodes_to_fill = self.find_resting_limit_order_nodes_to_fill(
             market_index,
@@ -240,39 +251,105 @@ impl DLOB {
             Some(fallback_bid),
         );
 
-        // let taking_order_nodes_to_fill = self.exchange.
+        let taking_order_nodes_to_fill = self.find_taking_nodes_to_fill(
+            market_index,
+            slot,
+            &market_type,
+            oracle_price_data,
+            is_amm_paused,
+            min_auction_duration,
+            Some(fallback_ask),
+            Some(fallback_bid),
+        )?;
 
-        fn get_maker_rebate(
-            market_type: MarketType,
-            state_account: &State,
-            market_account: &MarketAccount,
-        ) -> (u32, u32) {
-            let (mut marker_rebate_numerator, maker_rebate_denominator) =
-                if MarketType::Perp == market_type {
-                    (
-                        state_account.perp_fee_structure.fee_tiers[0].maker_rebate_numerator,
-                        state_account.perp_fee_structure.fee_tiers[0].maker_rebate_denominator,
-                    )
-                } else {
-                    (
-                        state_account.spot_fee_structure.fee_tiers[0].maker_rebate_numerator,
-                        state_account.spot_fee_structure.fee_tiers[0].maker_rebate_denominator,
-                    )
-                };
+        // get expired market nodes
+        let expired_nodes_to_fill = self.find_expired_nodes_to_fill(market_index, ts, market_type);
 
-            let fee_adjustment = if let MarketAccount::PerpMarket(perp) = market_account {
-                perp.fee_adjustment | 0
+        let mut nodes_to_fill = self.merge_nodes_to_fill(
+            &resting_limit_order_nodes_to_fill,
+            &taking_order_nodes_to_fill,
+        );
+        nodes_to_fill.extend(expired_nodes_to_fill);
+
+        Ok(nodes_to_fill)
+    }
+
+    fn get_maker_rebate(
+        &self,
+        market_type: MarketType,
+        state_account: &State,
+        market_account: &MarketAccount,
+    ) -> (u32, u32) {
+        let (mut marker_rebate_numerator, maker_rebate_denominator) =
+            if MarketType::Perp == market_type {
+                (
+                    state_account.perp_fee_structure.fee_tiers[0].maker_rebate_numerator,
+                    state_account.perp_fee_structure.fee_tiers[0].maker_rebate_denominator,
+                )
             } else {
-                0
+                (
+                    state_account.spot_fee_structure.fee_tiers[0].maker_rebate_numerator,
+                    state_account.spot_fee_structure.fee_tiers[0].maker_rebate_denominator,
+                )
             };
-            if fee_adjustment != 0 {
-                marker_rebate_numerator += (maker_rebate_denominator * fee_adjustment as u32) / 100;
-            }
 
-            (marker_rebate_numerator, maker_rebate_denominator)
+        let fee_adjustment = if let MarketAccount::PerpMarket(perp) = market_account {
+            perp.fee_adjustment | 0
+        } else {
+            0
+        };
+        if fee_adjustment != 0 {
+            marker_rebate_numerator += (maker_rebate_denominator * fee_adjustment as u32) / 100;
         }
 
-        Ok(nodes)
+        (marker_rebate_numerator, maker_rebate_denominator)
+    }
+
+    fn merge_nodes_to_fill(
+        &self,
+        resting_limit_order_nodes_to_fill: &[NodeToFill],
+        taking_order_nodes_to_fill: &[NodeToFill],
+    ) -> Vec<NodeToFill> {
+        let mut merged_nodes_to_fill = HashMap::new();
+
+        let mut merged_nodes_to_fill_helper = |nodes_to_fill_array: &[NodeToFill]| {
+            for node_to_fill in nodes_to_fill_array {
+                let node_signature = get_order_signature(
+                    node_to_fill.node.get_order().order_id,
+                    node_to_fill.node.get_user_account(),
+                );
+
+                if !merged_nodes_to_fill.contains_key(&node_signature) {
+                    merged_nodes_to_fill.insert(
+                        node_signature.clone(),
+                        NodeToFill {
+                            node: node_to_fill.node,
+                            maker_nodes: vec![],
+                        },
+                    );
+                }
+
+                if !node_to_fill.maker_nodes.is_empty() {
+                    if let Some(node) = merged_nodes_to_fill.get_mut(&node_signature) {
+                        node.maker_nodes.extend(node_to_fill.maker_nodes.clone());
+                    }
+                }
+            }
+        };
+
+        merged_nodes_to_fill_helper(resting_limit_order_nodes_to_fill);
+        merged_nodes_to_fill_helper(taking_order_nodes_to_fill);
+
+        let array = merged_nodes_to_fill
+            .values()
+            .into_iter()
+            .map(|val| NodeToFill {
+                node: val.node,
+                maker_nodes: val.maker_nodes.to_vec(),
+            })
+            .collect();
+
+        array
     }
 
     pub fn find_resting_limit_order_nodes_to_fill(
@@ -287,7 +364,7 @@ impl DLOB {
         maker_rebate_denominator: u64,
         fallback_ask: Option<u64>,
         fallback_bid: Option<u64>,
-    ) -> Vec<(Node, Vec<Node>)> {
+    ) -> Vec<NodeToFill> {
         let mut nodes_to_fill = Vec::new();
 
         let crossing_nodes = self.find_crossing_resting_limit_orders(
@@ -366,7 +443,7 @@ impl DLOB {
         min_auction_duration: u8,
         fallback_ask: Option<u64>,
         fallback_bid: Option<u64>,
-    ) -> SdkResult<Vec<(Node, Vec<Node>)>> {
+    ) -> SdkResult<Vec<NodeToFill>> {
         let mut nodes_to_fill = Vec::new();
 
         let mut taking_order_generator = self.get_taking_asks(
@@ -490,7 +567,7 @@ impl DLOB {
         taker_node_generator: Vec<Node>,
         // maker_node_generator_fn: FA,
         does_cross: F,
-    ) -> Vec<(Node, Vec<Node>)>
+    ) -> Vec<NodeToFill>
     where
         F: Fn(Option<u64>, u64) -> bool,
     {
@@ -520,7 +597,7 @@ impl DLOB {
                     break;
                 }
 
-                nodes_to_fill.push((taker_node, vec![maker_node]));
+                nodes_to_fill.push(NodeToFill::new(taker_node, vec![maker_node]));
 
                 let maker_order = maker_node.get_order();
                 let taker_order = taker_node.get_order();
@@ -536,7 +613,7 @@ impl DLOB {
                 new_maker_order.base_asset_amount_filled =
                     maker_order.base_asset_amount_filled + base_filled;
                 if let Some(mut orders) = self.get_list_for_order(&new_maker_order, slot) {
-                    let (sub_type, node_type) = get_node_subtype_and_type(&new_maker_order, slot);
+                    let (_sub_type, node_type) = get_node_subtype_and_type(&new_maker_order, slot);
                     let order_node =
                         create_node(node_type, new_maker_order, maker_node.get_user_account());
                     orders.update_bid(order_node);
@@ -546,7 +623,7 @@ impl DLOB {
                 new_taker_order.base_asset_amount_filled =
                     taker_order.base_asset_amount_filled + base_filled;
                 if let Some(mut orders) = self.get_list_for_order(&new_taker_order, slot) {
-                    let (sub_type, node_type) = get_node_subtype_and_type(&new_taker_order, slot);
+                    let (_sub_type, node_type) = get_node_subtype_and_type(&new_taker_order, slot);
                     let order_node =
                         create_node(node_type, new_taker_order, maker_node.get_user_account());
                     orders.update_bid(order_node);
@@ -570,7 +647,7 @@ impl DLOB {
         node_generator: &[Node],
         does_cross: F,
         min_auction_duration: u8,
-    ) -> Vec<(Node, Vec<Node>)>
+    ) -> Vec<NodeToFill>
     where
         F: Fn(Option<u64>) -> bool,
     {
@@ -591,7 +668,57 @@ impl DLOB {
                 || is_fallback_available_liquidity_source(order, min_auction_duration, slot);
 
             if crosses && fallback_available {
-                nodes_to_fill.push((*node, vec![]));
+                nodes_to_fill.push(NodeToFill::new(*node, vec![]));
+            }
+        }
+
+        nodes_to_fill
+    }
+
+    pub fn find_expired_nodes_to_fill(
+        &self,
+        market_index: u16,
+        ts: i64,
+        market_type: MarketType,
+    ) -> Vec<NodeToFill> {
+        let mut nodes_to_fill = Vec::new();
+
+        let markets = match market_type {
+            MarketType::Perp => &self.exchange.perp,
+            MarketType::Spot => &self.exchange.spot,
+        };
+
+        // All bids/asks that can expire
+        // dont try to expire limit orders with tif as its inefficient use of blockspace
+        let mut bid_generators = Vec::new();
+        if let Some(market) = markets.get(&market_index) {
+            bid_generators.extend(market.taking_limit_orders.bids.clone());
+            bid_generators.extend(market.resting_limit_orders.bids.clone());
+            bid_generators.extend(market.floating_limit_orders.bids.clone());
+            bid_generators.extend(market.market_orders.bids.clone());
+        }
+
+        let mut ask_generators = Vec::new();
+        if let Some(market) = markets.get(&market_index) {
+            ask_generators.extend(market.taking_limit_orders.asks.clone());
+            ask_generators.extend(market.resting_limit_orders.asks.clone());
+            ask_generators.extend(market.floating_limit_orders.asks.clone());
+            ask_generators.extend(market.market_orders.asks.clone());
+        }
+
+        for bid in bid_generators {
+            let order = bid.node.get_order();
+
+            if is_order_expired(order, ts, Some(true), Some(25)) {
+                nodes_to_fill.push(NodeToFill::new(bid.node, vec![]));
+            }
+        }
+
+        for ask in ask_generators {
+            let order = ask.node.get_order();
+
+            if is_order_expired(order, ts, Some(true), Some(25)) {
+                nodes_to_fill.push(NodeToFill::new(ask.node, vec![]));
             }
         }
 
@@ -651,21 +778,21 @@ impl DLOB {
         market_index: u16,
         market_type: &MarketType,
         slot: u64,
-        oracle_price_data: &OraclePriceData,
+        _oracle_price_data: &OraclePriceData,
         node_type: NodeType,
     ) -> SdkResult<Vec<Node>> {
-        let market = match market_type {
-            MarketType::Perp => self
-                .exchange
-                .perp
-                .get_mut(&market_index)
-                .ok_or(SdkError::Generic("does not find perp market".to_string()))?,
-            MarketType::Spot => self
-                .exchange
-                .spot
-                .get_mut(&market_index)
-                .ok_or(SdkError::Generic("does not find spot market".to_string()))?,
-        };
+        // let market = match market_type {
+        //     MarketType::Perp => self
+        //         .exchange
+        //         .perp
+        //         .get_mut(&market_index)
+        //         .ok_or(SdkError::Generic("does not find perp market".to_string()))?,
+        //     MarketType::Spot => self
+        //         .exchange
+        //         .spot
+        //         .get_mut(&market_index)
+        //         .ok_or(SdkError::Generic("does not find spot market".to_string()))?,
+        // };
 
         self.update_resting_limit_orders(slot);
 
@@ -679,21 +806,21 @@ impl DLOB {
         market_index: u16,
         market_type: &MarketType,
         slot: u64,
-        oracle_price_data: &OraclePriceData,
+        _oracle_price_data: &OraclePriceData,
         node_type: NodeType,
     ) -> SdkResult<Vec<Node>> {
-        let market = match market_type {
-            MarketType::Perp => self
-                .exchange
-                .perp
-                .get_mut(&market_index)
-                .ok_or(SdkError::Generic("does not find perp market".to_string()))?,
-            MarketType::Spot => self
-                .exchange
-                .spot
-                .get_mut(&market_index)
-                .ok_or(SdkError::Generic("does not find spot market".to_string()))?,
-        };
+        // let market = match market_type {
+        //     MarketType::Perp => self
+        //         .exchange
+        //         .perp
+        //         .get_mut(&market_index)
+        //         .ok_or(SdkError::Generic("does not find perp market".to_string()))?,
+        //     MarketType::Spot => self
+        //         .exchange
+        //         .spot
+        //         .get_mut(&market_index)
+        //         .ok_or(SdkError::Generic("does not find spot market".to_string()))?,
+        // };
 
         self.update_resting_limit_orders(slot);
 
@@ -833,7 +960,7 @@ impl DLOB {
         slot: u64,
         market_type: &MarketType,
         oracle_price_data: &OraclePriceData,
-    ) -> Vec<(Node, Vec<Node>)> {
+    ) -> Vec<NodeToFill> {
         let mut nodes_to_fill = Vec::new();
 
         for ask_node in
@@ -892,7 +1019,7 @@ impl DLOB {
                         orders.update_bid(order_node);
                     }
 
-                    nodes_to_fill.push((taker_node, vec![maker_node]));
+                    nodes_to_fill.push(NodeToFill::new(taker_node, vec![maker_node]));
 
                     if new_ask_order.base_asset_amount == new_ask_order.base_asset_amount_filled {
                         break;

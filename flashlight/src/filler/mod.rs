@@ -5,14 +5,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use drift::state::perp_market::PerpMarket;
+use drift::state::{perp_market::PerpMarket, user::MarketType};
 use log::info;
 use sdk::{
     accounts::BulkAccountLoader,
     blockhash_subscriber::BlockhashSubscriber,
     clock::clock_subscriber::ClockSubscriber,
     dlob::{
-        dlob::DLOB,
+        dlob::{MarketAccount, NodeToFill, DLOB},
+        dlob_node::Node,
         dlob_subscriber::DLOBSubscriber,
         types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
     },
@@ -42,6 +43,8 @@ use crate::{
 const DEFAULT_INTERVAL_MS: u16 = 6000;
 const FILL_ORDER_THROTTLE_BACKOFF: u64 = 1000; // the time to wait before trying to fill a throttled (error filling) node again
 const THROTTLED_NODE_SIZE_TO_PRUNE: usize = 10; // Size of throttled nodes to get to before pruning the map
+
+const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
 
 struct FillerBot<'a, T>
 where
@@ -357,7 +360,7 @@ where
     }
 
     fn log_slots(&self) {
-        let slot = match self.user_map {
+        let slot = match &self.user_map {
             Some(map) => map.get_latest_slot(),
             None => 0,
         };
@@ -368,7 +371,12 @@ where
         );
     }
 
-    fn get_perp_nodes_for_market(&self, market: PerpMarket, dlob: DLOB) {
+    /// Return `nodes_to_fill`, `nodes_to_trigger`
+    async fn get_perp_nodes_for_market(
+        &self,
+        market: PerpMarket,
+        dlob: &mut DLOB,
+    ) -> Option<(Vec<NodeToFill>, Vec<Node>)> {
         let market_index = market.market_index;
 
         let oracle = self
@@ -379,7 +387,39 @@ where
             let v_bid = calculate_bid_price(&market, &oracle.data).expect("calculate bid price");
 
             let fill_slot = self.get_max_slot();
+
+            let state_account = self.drift_client.get_state_account();
+            let state = state_account.read().expect("read state account");
+            let perp_market = self
+                .drift_client
+                .get_perp_market_account(market_index)
+                .expect("get perp market_account");
+
+            let nodes_to_fill = dlob
+                .find_nodes_to_fill(
+                    market_index,
+                    v_bid,
+                    v_ask,
+                    fill_slot,
+                    self.clock_subscriber.get_unix_ts().await - EXPIRE_ORDER_BUFFER_SEC,
+                    MarketType::Perp,
+                    &oracle.data,
+                    &state,
+                    &MarketAccount::PerpMarket(perp_market),
+                )
+                .expect("find nodes to fill");
+
+            let nodes_to_trigger = dlob.find_nodes_to_trigger(
+                market_index,
+                oracle.data.price as u64,
+                MarketType::Perp,
+                self.drift_client.get_state_account(),
+            );
+
+            return Some((nodes_to_fill, nodes_to_trigger));
         }
+
+        None
     }
 
     fn prune_throttled_node(&mut self) {
@@ -403,14 +443,21 @@ where
 
         let user = self.drift_client.get_user(None);
 
-        let dlob = self.get_dlob().await;
+        let mut dlob = self.get_dlob().await;
         self.prune_throttled_node();
 
         // 1) get all fillable nodes
         let mut fillable_nodes = Vec::new();
         let mut triggerable_nodes = Vec::new();
         for market in self.drift_client.get_perp_market_accounts() {
-            self.get_perp_nodes_for_market(market, dlob)
+            if let Some(ref mut dlob) = dlob {
+                if let Some((nodes_to_fill, nodes_to_trigger)) =
+                    self.get_perp_nodes_for_market(market, dlob).await
+                {
+                    fillable_nodes.extend(nodes_to_fill);
+                    triggerable_nodes.extend(nodes_to_trigger);
+                }
+            }
         }
     }
 }
