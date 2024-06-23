@@ -202,9 +202,9 @@ where
         let mut dlob = self.dlob.lock().await.dlob.clone();
         Ok(dlob.get_l2::<VammL2Generator>(
             market_index,
-            market_type,
+            &market_type,
             self.slot_source.get_slot(),
-            oracle_price_data.data,
+            &oracle_price_data.data,
             depth,
             &mut fallback_l2_generators,
         ))
@@ -256,9 +256,9 @@ where
         let mut dlob = self.dlob.lock().await.dlob.clone();
         Ok(dlob.get_l3(
             market_index,
-            market_type,
+            &market_type,
             self.slot_source.get_slot(),
-            oracle_price_data.data,
+            &oracle_price_data.data,
         ))
     }
 

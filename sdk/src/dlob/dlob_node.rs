@@ -19,7 +19,7 @@ pub enum SortDirection {
 }
 
 pub trait DLOBNode {
-    fn get_price(&self, oracle_price_data: OraclePriceData, slot: u64) -> u64;
+    fn get_price(&self, oracle_price_data: &OraclePriceData, slot: u64) -> u64;
     fn is_vamm_node(&self) -> bool;
     fn is_base_filled(&self) -> bool;
     fn get_sort_value(&self, order: &Order) -> Option<i128>;
@@ -117,7 +117,7 @@ impl Node {
 }
 
 impl DLOBNode for Node {
-    fn get_price(&self, oracle_price_data: OraclePriceData, slot: u64) -> u64 {
+    fn get_price(&self, oracle_price_data: &OraclePriceData, slot: u64) -> u64 {
         match self {
             Node::OrderNode(order_node) => order_node.get_price(oracle_price_data, slot),
             Node::VAMMNode(vamm_node) => vamm_node.get_price(oracle_price_data, slot),
@@ -199,8 +199,8 @@ impl OrderNode {
 }
 
 impl DLOBNode for OrderNode {
-    fn get_price(&self, oracle_price_data: OraclePriceData, slot: u64) -> u64 {
-        get_limit_price(&self.order, &oracle_price_data, slot, None)
+    fn get_price(&self, oracle_price_data: &OraclePriceData, slot: u64) -> u64 {
+        get_limit_price(&self.order, oracle_price_data, slot, None)
     }
 
     fn is_vamm_node(&self) -> bool {
@@ -256,7 +256,7 @@ impl VAMMNode {
 }
 
 impl DLOBNode for VAMMNode {
-    fn get_price(&self, _oracle_price_data: OraclePriceData, _slot: u64) -> u64 {
+    fn get_price(&self, _oracle_price_data: &OraclePriceData, _slot: u64) -> u64 {
         self.price
     }
 

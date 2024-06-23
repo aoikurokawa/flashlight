@@ -2,7 +2,7 @@ use drift::{
     controller::position::PositionDirection,
     state::{
         oracle::OraclePriceData,
-        user::{Order, OrderType},
+        user::{Order, OrderStatus, OrderTriggerCondition, OrderType},
     },
 };
 
@@ -38,6 +38,42 @@ pub fn get_limit_price(
 fn has_auction_price(order: &Order, slot: u64) -> bool {
     !is_auction_complete(order, slot)
         && (order.auction_start_price != 0 || order.auction_end_price != 0)
+}
+
+pub fn is_order_expired(
+    order: &Order,
+    ts: i64,
+    enforce_buffer: Option<bool>,
+    buffer_seconds: Option<i64>,
+) -> bool {
+    let enforce_buffer = enforce_buffer.unwrap_or(false);
+    let buffer_seconds = buffer_seconds.unwrap_or(15);
+
+    if must_be_triggered(order) || OrderStatus::Open != order.status || order.max_ts == 0 {
+        return false;
+    }
+
+    let max_ts = if enforce_buffer && order.is_limit_order() {
+        order.max_ts + buffer_seconds
+    } else {
+        order.max_ts
+    };
+
+    ts > max_ts
+}
+
+pub fn must_be_triggered(order: &Order) -> bool {
+    matches!(
+        order.order_type,
+        OrderType::TriggerMarket | OrderType::TriggerLimit
+    )
+}
+
+pub fn is_triggered(order: &Order) -> bool {
+    matches!(
+        order.trigger_condition,
+        OrderTriggerCondition::TriggeredAbove | OrderTriggerCondition::TriggeredBelow
+    )
 }
 
 pub fn is_resting_limit_order(order: &Order, slot: u64) -> bool {
