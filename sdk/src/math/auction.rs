@@ -15,6 +15,18 @@ pub fn is_auction_complete(order: &Order, slot: u64) -> bool {
     (order.slot + order.auction_duration as u64) < slot
 }
 
+pub fn is_fallback_available_liquidity_source(
+    order: &Order,
+    min_auction_available: u8,
+    slot: u64,
+) -> bool {
+    if min_auction_available == 0 {
+        return true;
+    }
+
+    slot - order.slot > min_auction_available as u64
+}
+
 #[track_caller]
 pub fn get_auction_price(order: &Order, slot: u64, price: i64) -> i128 {
     if is_one_of_variant(

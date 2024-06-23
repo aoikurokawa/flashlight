@@ -81,6 +81,34 @@ impl Orderlist {
     pub fn size(&self) -> usize {
         self.bids.len() + self.asks.len()
     }
+
+    pub fn update_bid(&mut self, node: Node) {
+        let mut temp_heap = BinaryHeap::new();
+        while let Some(bid) = self.bids.pop() {
+            if bid.node != node {
+                temp_heap.push(bid);
+            }
+        }
+
+        let directional = DirectionalNode::new(node, self.bid_sort_direction);
+        temp_heap.push(directional);
+
+        self.bids = temp_heap;
+    }
+
+    pub fn update_ask(&mut self, node: Node) {
+        let mut temp_heap = BinaryHeap::new();
+        while let Some(bid) = self.bids.pop() {
+            if bid.node != node {
+                temp_heap.push(bid);
+            }
+        }
+
+        let directional = DirectionalNode::new(node, self.ask_sort_direction);
+        temp_heap.push(directional);
+
+        self.bids = temp_heap;
+    }
 }
 
 #[cfg(test)]

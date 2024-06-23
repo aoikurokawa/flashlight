@@ -21,8 +21,11 @@ use crate::dlob::dlob_node::{
 use crate::dlob::market::{get_node_subtype_and_type, Exchange, OpenOrders, SubType};
 use crate::dlob::order_book_levels::{create_l2_levels, merge_l2_level_generators};
 use crate::event_emitter::Event;
+use crate::math::auction::is_fallback_available_liquidity_source;
 use crate::math::exchange_status::fill_paused;
-use crate::math::order::{is_resting_limit_order, is_triggered, must_be_triggered};
+use crate::math::order::{
+    get_limit_price, is_resting_limit_order, is_triggered, must_be_triggered,
+};
 use crate::types::SdkResult;
 use crate::usermap::UserMap;
 use crate::utils::market_type_to_string;
@@ -135,7 +138,7 @@ impl DLOB {
         None
     }
 
-    pub fn get_list_for_order(&self, order: &Order, slot: u64) -> Option<Vec<DirectionalNode>> {
+    pub fn get_list_for_order(&self, order: &Order, slot: u64) -> Option<Orderlist> {
         let is_inactive_trigger_order = must_be_triggered(order) && !is_triggered(order);
 
         let node_type = if is_inactive_trigger_order {
@@ -175,8 +178,8 @@ impl DLOB {
                 if let Some(market) = self.exchange.perp.get(&order.market_index) {
                     let order_list = market.get_order_list_for_node_type(node_type);
                     let nodes = match sub_type {
-                        SubType::Ask | SubType::Below => order_list.asks.into_vec(),
-                        SubType::Bid | SubType::Above => order_list.bids.into_vec(),
+                        SubType::Ask | SubType::Below => order_list,
+                        SubType::Bid | SubType::Above => order_list,
                     };
                     return Some(nodes);
                 }
@@ -185,8 +188,8 @@ impl DLOB {
                 if let Some(market) = self.exchange.spot.get(&order.market_index) {
                     let order_list = market.get_order_list_for_node_type(node_type);
                     let nodes = match sub_type {
-                        SubType::Ask | SubType::Below => order_list.asks.into_vec(),
-                        SubType::Bid | SubType::Above => order_list.bids.into_vec(),
+                        SubType::Ask | SubType::Below => order_list,
+                        SubType::Bid | SubType::Above => order_list,
                     };
                     return Some(nodes);
                 }
@@ -257,8 +260,82 @@ impl DLOB {
         Ok(nodes)
     }
 
-    pub fn find_resting_limit_order_nodes_to_fill(&self) -> Vec<Node> {
+    pub fn find_resting_limit_order_nodes_to_fill(
+        &mut self,
+        market_index: u16,
+        slot: u64,
+        market_type: MarketType,
+        oracle_price_data: &OraclePriceData,
+        is_amm_paused: bool,
+        min_auction_duratin: u64,
+        maker_rebate_numerator: u64,
+        maker_rebate_denominator: u64,
+        fallback_ask: Option<u64>,
+        fallback_bid: Option<u64>,
+    ) -> Vec<(Node, Node)> {
         let mut nodes_to_fill = Vec::new();
+
+        let crossing_nodes = self.find_crossing_resting_limit_orders(
+            market_index,
+            slot,
+            &market_type,
+            oracle_price_data,
+        );
+
+        nodes_to_fill.extend(crossing_nodes);
+
+        if let Some(fallback_bid) = fallback_bid {
+            if !is_amm_paused {
+                let ask_generator = self.get_resting_limit_asks(
+                    slot,
+                    &market_type,
+                    market_index,
+                    oracle_price_data,
+                );
+
+                let fallback_bid_with_buffer = fallback_bid
+                    - (fallback_bid * maker_rebate_numerator / maker_rebate_denominator);
+
+                // let asks_crossing_fallback = self.find_nodes_crossing
+            }
+        }
+
+        nodes_to_fill
+    }
+
+    /// Return `node`, `maker_nodes`
+    pub fn find_nodes_crossing_fallback_liquidity<F>(
+        &mut self,
+        market_type: &MarketType,
+        slot: u64,
+        oracle_price_data: &OraclePriceData,
+        node_generator: &[Node],
+        does_cross: F,
+        min_auction_duration: u8,
+    ) -> Vec<(Node, Vec<Node>)>
+    where
+        F: Fn(Option<u64>) -> bool,
+    {
+        let mut nodes_to_fill = Vec::new();
+
+        for node in node_generator {
+            let order = node.get_order();
+            if &MarketType::Spot == market_type && order.post_only {
+                continue;
+            }
+
+            let node_price = get_limit_price(order, oracle_price_data, slot, None);
+
+            // order crosses if there is no limit price or it crosses fallback price
+            let crosses = does_cross(Some(node_price));
+
+            let fallback_available = &MarketType::Spot == market_type
+                || is_fallback_available_liquidity_source(order, min_auction_duration, slot);
+
+            if crosses && fallback_available {
+                nodes_to_fill.push((*node, vec![]));
+            }
+        }
 
         nodes_to_fill
     }
@@ -435,13 +512,14 @@ impl DLOB {
         all_orders
     }
 
+    /// Return `node`, single `marker_nodes`
     fn find_crossing_resting_limit_orders(
         &mut self,
         market_index: u16,
         slot: u64,
         market_type: &MarketType,
         oracle_price_data: &OraclePriceData,
-    ) -> Vec<Node> {
+    ) -> Vec<(Node, Node)> {
         let mut nodes_to_fill = Vec::new();
 
         for ask_node in
@@ -480,9 +558,35 @@ impl DLOB {
                     let mut new_bid_order = bid_order.clone();
                     new_bid_order.base_asset_amount_filled =
                         bid_order.base_asset_amount_filled + base_filled;
+
+                    if let Some(mut orders) = self.get_list_for_order(&new_bid_order, slot) {
+                        let (sub_type, node_type) = get_node_subtype_and_type(&new_bid_order, slot);
+                        let order_node =
+                            create_node(node_type, new_bid_order, bid_node.get_user_account());
+                        orders.update_bid(order_node);
+                    }
+
+                    // ask completely filled
+                    let mut new_ask_order = ask_order.clone();
+                    new_ask_order.base_asset_amount_filled =
+                        ask_order.base_asset_amount_filled + base_filled;
+
+                    if let Some(mut orders) = self.get_list_for_order(&new_ask_order, slot) {
+                        let (sub_type, node_type) = get_node_subtype_and_type(&new_ask_order, slot);
+                        let order_node =
+                            create_node(node_type, new_ask_order, ask_node.get_user_account());
+                        orders.update_bid(order_node);
+                    }
+
+                    nodes_to_fill.push((taker_node, maker_node));
+
+                    if new_ask_order.base_asset_amount == new_ask_order.base_asset_amount_filled {
+                        break;
+                    }
                 }
             }
         }
+
         nodes_to_fill
     }
 
