@@ -26,7 +26,7 @@ use crate::math::exchange_status::fill_paused;
 use crate::math::order::{
     get_limit_price, is_resting_limit_order, is_triggered, must_be_triggered,
 };
-use crate::types::SdkResult;
+use crate::types::{SdkError, SdkResult};
 use crate::usermap::UserMap;
 use crate::utils::market_type_to_string;
 
@@ -240,7 +240,7 @@ impl DLOB {
             Some(fallback_bid),
         );
 
-        let taking_order_nodes_to_fill = self.find_taking
+        // let taking_order_nodes_to_fill = self.exchange.
 
         fn get_maker_rebate(
             market_type: MarketType,
@@ -356,6 +356,211 @@ impl DLOB {
         nodes_to_fill
     }
 
+    pub fn find_taking_nodes_to_fill(
+        &mut self,
+        market_index: u16,
+        slot: u64,
+        market_type: &MarketType,
+        oracle_price_data: &OraclePriceData,
+        is_amm_paused: bool,
+        min_auction_duration: u8,
+        fallback_ask: Option<u64>,
+        fallback_bid: Option<u64>,
+    ) -> SdkResult<Vec<(Node, Vec<Node>)>> {
+        let mut nodes_to_fill = Vec::new();
+
+        let mut taking_order_generator = self.get_taking_asks(
+            market_index,
+            market_type,
+            slot,
+            oracle_price_data,
+            NodeType::TakingLimit,
+        )?;
+
+        let taking_asks_crossing_bids = self.find_taking_nodes_crossing_maker_nodes(
+            market_index,
+            slot,
+            market_type,
+            oracle_price_data,
+            taking_order_generator,
+            |taker_price, maker_price| {
+                if &MarketType::Spot == market_type {
+                    if taker_price.is_none() {
+                        return false;
+                    }
+
+                    if fallback_bid.is_some() && maker_price < fallback_bid.unwrap() {
+                        return false;
+                    }
+
+                    return taker_price.is_none() || taker_price.unwrap() <= maker_price;
+                }
+
+                false
+            },
+        );
+
+        nodes_to_fill.extend(taking_asks_crossing_bids);
+
+        if let Some(fallback_bid) = fallback_bid {
+            taking_order_generator = self.get_taking_asks(
+                market_index,
+                market_type,
+                slot,
+                oracle_price_data,
+                NodeType::TakingLimit,
+            )?;
+
+            let taking_asks_crossing_fallback = self.find_nodes_crossing_fallback_liquidity(
+                market_type,
+                slot,
+                oracle_price_data,
+                &taking_order_generator,
+                |taker_price| taker_price.is_none() || taker_price.unwrap() <= fallback_bid,
+                min_auction_duration,
+            );
+
+            nodes_to_fill.extend(taking_asks_crossing_fallback);
+        }
+
+        taking_order_generator = self.get_taking_bids(
+            market_index,
+            market_type,
+            slot,
+            oracle_price_data,
+            NodeType::TakingLimit,
+        )?;
+
+        let taking_bids_to_fill = self.find_taking_nodes_crossing_maker_nodes(
+            market_index,
+            slot,
+            market_type,
+            oracle_price_data,
+            taking_order_generator,
+            |taker_price, maker_price| {
+                if &MarketType::Spot == market_type {
+                    if taker_price.is_none() {
+                        return false;
+                    }
+
+                    if fallback_bid.is_some() && maker_price < fallback_bid.unwrap() {
+                        return false;
+                    }
+
+                    return taker_price.is_none() || taker_price.unwrap() >= maker_price;
+                }
+
+                false
+            },
+        );
+
+        nodes_to_fill.extend(taking_bids_to_fill);
+
+        if let Some(fallback_ask) = fallback_ask {
+            if !is_amm_paused {
+                taking_order_generator = self.get_taking_bids(
+                    market_index,
+                    market_type,
+                    slot,
+                    oracle_price_data,
+                    NodeType::TakingLimit,
+                )?;
+                let taking_bids_crossing_fallback = self.find_nodes_crossing_fallback_liquidity(
+                    market_type,
+                    slot,
+                    oracle_price_data,
+                    &taking_order_generator,
+                    |taker_price| taker_price.is_none() || taker_price.unwrap() >= fallback_ask,
+                    min_auction_duration,
+                );
+
+                nodes_to_fill.extend(taking_bids_crossing_fallback);
+            }
+        }
+
+        Ok(nodes_to_fill)
+    }
+
+    pub fn find_taking_nodes_crossing_maker_nodes<F>(
+        &mut self,
+        market_index: u16,
+        slot: u64,
+        market_type: &MarketType,
+        oracle_price_data: &OraclePriceData,
+        taker_node_generator: Vec<Node>,
+        // maker_node_generator_fn: FA,
+        does_cross: F,
+    ) -> Vec<(Node, Vec<Node>)>
+    where
+        F: Fn(Option<u64>, u64) -> bool,
+    {
+        let mut nodes_to_fill = Vec::new();
+
+        for taker_node in taker_node_generator {
+            // let maker_node_generator =
+            //     maker_node_generator_fn(market_index, slot, market_type, oracle_price_data);
+            // FIXME: use generator
+            let maker_node_generator =
+                self.get_resting_limit_bids(slot, market_type, market_index, oracle_price_data);
+
+            for maker_node in maker_node_generator {
+                // Can't match orders from the same user
+                let same_user = taker_node.get_user_account() == maker_node.get_user_account();
+                if same_user {
+                    continue;
+                }
+
+                let maker_price = maker_node.get_price(oracle_price_data, slot);
+                let taker_price = taker_node.get_price(oracle_price_data, slot);
+
+                let order_cross = does_cross(Some(taker_price), maker_price);
+                if !order_cross {
+                    // market orders aren't sorted by price, they are sorted by time, so we need to
+                    // traverse through all of em
+                    break;
+                }
+
+                nodes_to_fill.push((taker_node, vec![maker_node]));
+
+                let maker_order = maker_node.get_order();
+                let taker_order = taker_node.get_order();
+
+                let maker_base_remaining =
+                    maker_order.base_asset_amount - maker_order.base_asset_amount_filled;
+                let taker_base_remaining =
+                    taker_order.base_asset_amount - taker_order.base_asset_amount_filled;
+
+                let base_filled = std::cmp::min(maker_base_remaining, taker_base_remaining);
+
+                let mut new_maker_order = maker_order.clone();
+                new_maker_order.base_asset_amount_filled =
+                    maker_order.base_asset_amount_filled + base_filled;
+                if let Some(mut orders) = self.get_list_for_order(&new_maker_order, slot) {
+                    let (sub_type, node_type) = get_node_subtype_and_type(&new_maker_order, slot);
+                    let order_node =
+                        create_node(node_type, new_maker_order, maker_node.get_user_account());
+                    orders.update_bid(order_node);
+                }
+
+                let mut new_taker_order = taker_order.clone();
+                new_taker_order.base_asset_amount_filled =
+                    taker_order.base_asset_amount_filled + base_filled;
+                if let Some(mut orders) = self.get_list_for_order(&new_taker_order, slot) {
+                    let (sub_type, node_type) = get_node_subtype_and_type(&new_taker_order, slot);
+                    let order_node =
+                        create_node(node_type, new_taker_order, maker_node.get_user_account());
+                    orders.update_bid(order_node);
+                }
+
+                if new_taker_order.base_asset_amount_filled == taker_order.base_asset_amount {
+                    break;
+                }
+            }
+        }
+
+        nodes_to_fill
+    }
+
     /// Return `node`, `maker_nodes`
     pub fn find_nodes_crossing_fallback_liquidity<F>(
         &mut self,
@@ -439,6 +644,62 @@ impl DLOB {
 
         self.update_resting_limit_orders_for_market_type(slot, MarketType::Perp);
         self.update_resting_limit_orders_for_market_type(slot, MarketType::Spot);
+    }
+
+    fn get_taking_bids(
+        &mut self,
+        market_index: u16,
+        market_type: &MarketType,
+        slot: u64,
+        oracle_price_data: &OraclePriceData,
+        node_type: NodeType,
+    ) -> SdkResult<Vec<Node>> {
+        let market = match market_type {
+            MarketType::Perp => self
+                .exchange
+                .perp
+                .get_mut(&market_index)
+                .ok_or(SdkError::Generic("does not find perp market".to_string()))?,
+            MarketType::Spot => self
+                .exchange
+                .spot
+                .get_mut(&market_index)
+                .ok_or(SdkError::Generic("does not find spot market".to_string()))?,
+        };
+
+        self.update_resting_limit_orders(slot);
+
+        let best_orders = self.get_best_orders(market_type, SubType::Bid, node_type, market_index);
+
+        Ok(best_orders)
+    }
+
+    fn get_taking_asks(
+        &mut self,
+        market_index: u16,
+        market_type: &MarketType,
+        slot: u64,
+        oracle_price_data: &OraclePriceData,
+        node_type: NodeType,
+    ) -> SdkResult<Vec<Node>> {
+        let market = match market_type {
+            MarketType::Perp => self
+                .exchange
+                .perp
+                .get_mut(&market_index)
+                .ok_or(SdkError::Generic("does not find perp market".to_string()))?,
+            MarketType::Spot => self
+                .exchange
+                .spot
+                .get_mut(&market_index)
+                .ok_or(SdkError::Generic("does not find spot market".to_string()))?,
+        };
+
+        self.update_resting_limit_orders(slot);
+
+        let best_orders = self.get_best_orders(market_type, SubType::Ask, node_type, market_index);
+
+        Ok(best_orders)
     }
 
     pub fn get_best_orders(
