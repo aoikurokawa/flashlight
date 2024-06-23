@@ -200,7 +200,7 @@ impl DLOB {
     }
 
     pub fn find_nodes_to_fill(
-        &self,
+        &mut self,
         market_index: u16,
         fallback_bid: u64,
         fallback_ask: u64,
@@ -219,15 +219,30 @@ impl DLOB {
         let is_amm_paused = state_account.amm_paused()?;
 
         let min_auction_duration = if MarketType::Perp == market_type {
-            state_account.min_perp_auction_duration
+            state_account.min_perp_auction_duration as u8
         } else {
             0
         };
 
         let (maker_rebate_numerator, maker_rebate_denominator) =
-            get_market_rebate(market_type, state_account, market_account);
+            get_maker_rebate(market_type, state_account, market_account);
 
-        fn get_market_rebate(
+        let resting_limit_order_nodes_to_fill = self.find_resting_limit_order_nodes_to_fill(
+            market_index,
+            slot,
+            market_type,
+            oracle_price_data,
+            is_amm_paused,
+            min_auction_duration,
+            maker_rebate_numerator as u64,
+            maker_rebate_denominator as u64,
+            Some(fallback_ask),
+            Some(fallback_bid),
+        );
+
+        let taking_order_nodes_to_fill = self.find_taking
+
+        fn get_maker_rebate(
             market_type: MarketType,
             state_account: &State,
             market_account: &MarketAccount,
@@ -267,7 +282,7 @@ impl DLOB {
         market_type: MarketType,
         oracle_price_data: &OraclePriceData,
         is_amm_paused: bool,
-        min_auction_duratin: u8,
+        min_auction_duration: u8,
         maker_rebate_numerator: u64,
         maker_rebate_denominator: u64,
         fallback_ask: Option<u64>,
@@ -302,7 +317,7 @@ impl DLOB {
                     oracle_price_data,
                     &ask_generator,
                     |ask_price| ask_price <= Some(fallback_bid_with_buffer),
-                    min_auction_duratin,
+                    min_auction_duration,
                 );
 
                 for ask_crossing_fallback in asks_crossing_fallback {
@@ -329,7 +344,7 @@ impl DLOB {
                     oracle_price_data,
                     &bid_generator,
                     |bid_price| bid_price <= Some(fallback_ask_with_buffer),
-                    min_auction_duratin,
+                    min_auction_duration,
                 );
 
                 for bid_crossing_fallback in bids_crossing_fallback {
