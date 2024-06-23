@@ -267,12 +267,12 @@ impl DLOB {
         market_type: MarketType,
         oracle_price_data: &OraclePriceData,
         is_amm_paused: bool,
-        min_auction_duratin: u64,
+        min_auction_duratin: u8,
         maker_rebate_numerator: u64,
         maker_rebate_denominator: u64,
         fallback_ask: Option<u64>,
         fallback_bid: Option<u64>,
-    ) -> Vec<(Node, Node)> {
+    ) -> Vec<(Node, Vec<Node>)> {
         let mut nodes_to_fill = Vec::new();
 
         let crossing_nodes = self.find_crossing_resting_limit_orders(
@@ -296,7 +296,45 @@ impl DLOB {
                 let fallback_bid_with_buffer = fallback_bid
                     - (fallback_bid * maker_rebate_numerator / maker_rebate_denominator);
 
-                // let asks_crossing_fallback = self.find_nodes_crossing
+                let asks_crossing_fallback = self.find_nodes_crossing_fallback_liquidity(
+                    &market_type,
+                    slot,
+                    oracle_price_data,
+                    &ask_generator,
+                    |ask_price| ask_price <= Some(fallback_bid_with_buffer),
+                    min_auction_duratin,
+                );
+
+                for ask_crossing_fallback in asks_crossing_fallback {
+                    nodes_to_fill.push(ask_crossing_fallback);
+                }
+            }
+        }
+
+        if let Some(fallback_ask) = fallback_ask {
+            if !is_amm_paused {
+                let bid_generator = self.get_resting_limit_bids(
+                    slot,
+                    &market_type,
+                    market_index,
+                    oracle_price_data,
+                );
+
+                let fallback_ask_with_buffer = fallback_ask
+                    - (fallback_ask * maker_rebate_numerator / maker_rebate_denominator);
+
+                let bids_crossing_fallback = self.find_nodes_crossing_fallback_liquidity(
+                    &market_type,
+                    slot,
+                    oracle_price_data,
+                    &bid_generator,
+                    |bid_price| bid_price <= Some(fallback_ask_with_buffer),
+                    min_auction_duratin,
+                );
+
+                for bid_crossing_fallback in bids_crossing_fallback {
+                    nodes_to_fill.push(bid_crossing_fallback);
+                }
             }
         }
 
@@ -519,7 +557,7 @@ impl DLOB {
         slot: u64,
         market_type: &MarketType,
         oracle_price_data: &OraclePriceData,
-    ) -> Vec<(Node, Node)> {
+    ) -> Vec<(Node, Vec<Node>)> {
         let mut nodes_to_fill = Vec::new();
 
         for ask_node in
@@ -578,7 +616,7 @@ impl DLOB {
                         orders.update_bid(order_node);
                     }
 
-                    nodes_to_fill.push((taker_node, maker_node));
+                    nodes_to_fill.push((taker_node, vec![maker_node]));
 
                     if new_ask_order.base_asset_amount == new_ask_order.base_asset_amount_filled {
                         break;
