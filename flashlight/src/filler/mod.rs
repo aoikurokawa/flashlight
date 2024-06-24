@@ -1,19 +1,20 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     str::FromStr,
     sync::Arc,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, num::NonZeroUsize,
 };
 
 use drift::state::{perp_market::PerpMarket, user::MarketType};
 use log::info;
+use lru::LruCache;
 use sdk::{
     accounts::BulkAccountLoader,
     blockhash_subscriber::BlockhashSubscriber,
     clock::clock_subscriber::ClockSubscriber,
     dlob::{
         dlob::{MarketAccount, NodeToFill, DLOB},
-        dlob_node::Node,
+        dlob_node::{DLOBNode, Node},
         dlob_subscriber::DLOBSubscriber,
         types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
     },
@@ -37,7 +38,9 @@ use crate::{
     bundle_sender::BundleSender,
     config::{FillerConfig, GlobalConfig},
     metrics::RuntimeSpec,
-    util::{valid_minimum_gas_amount, valid_rebalance_settled_pnl_threshold},
+    util::{
+        get_node_to_fill_signature, valid_minimum_gas_amount, valid_rebalance_settled_pnl_threshold,
+    },
 };
 
 const DEFAULT_INTERVAL_MS: u16 = 6000;
@@ -80,7 +83,7 @@ where
 
     interval_ids: Vec<Instant>,
     throttled_nodes: HashMap<String, Instant>,
-    filling_nodes: HashMap<String, u16>,
+    filling_nodes: HashMap<String, Instant>,
     triggering_nodes: HashMap<String, u16>,
 
     use_burst_cu_limit: bool,
@@ -100,7 +103,7 @@ where
     // 		txType: TxType;
     // 	}
     // >;
-    // expiredNodesSet: LRUCache<string, boolean>;
+    expired_nodes_set: LruCache<String, bool>,
     confirm_loop_running: bool,
     confirm_loop_rate_limit_ts: Instant,
 
@@ -261,6 +264,7 @@ where
             rebalance_settled_pnl_threshold,
             priority_fee_subscriber,
             blockhash_subscriber,
+            expired_nodes_set: LruCache::new(NonZeroUsize::new(100).unwrap()),
             confirm_loop_running: false,
             confirm_loop_rate_limit_ts: Instant::now() - Duration::from_secs(5_000),
             dlob_subscriber: None,
@@ -432,6 +436,60 @@ where
         }
     }
 
+    fn filter_fillable_nodes(&self, node_to_fill: &NodeToFill) -> bool {
+        let node = node_to_fill.get_node();
+
+        if node.is_vamm_node() {
+            log::warn!(
+                "filtered out a vAMM node on market {} for user {}-{}",
+                node.get_order().market_index,
+                node.get_user_account(),
+                node.get_order().order_id
+            );
+            return false;
+        }
+
+        // if (nodeToFill.node.haveFilled) {
+        // 	logger.warn(
+        // 		`filtered out filled node on market ${nodeToFill.node.order.marketIndex} for user ${nodeToFill.node.userAccount}-${nodeToFill.node.order.orderId}`
+        // 	);
+        // 	return false;
+        // }
+
+        let now = Instant::now();
+        let node_to_fill_signature = get_node_to_fill_signature(node_to_fill);
+        if self.filling_nodes.contains_key(&node_to_fill_signature) {
+            if let Some(time_started_to_fill_node) = self.filling_nodes.get(&node_to_fill_signature)
+            {
+                let duration = Duration::new(FILL_ORDER_THROTTLE_BACKOFF, 0);
+                if *time_started_to_fill_node + duration > now {
+                    // still cooling down on this node, filter it out
+                    return false;
+                }
+            }
+        }
+
+        // expired orders that we previously tried to fill
+        if self.expired
+        false
+    }
+
+    fn filter_perp_nodes_for_market(
+        &self,
+        fillable_nodes: &[NodeToFill],
+        triggerable_nodes: &[Node],
+    ) {
+        let mut seen_fillable_nodes = HashSet::new();
+        let filtered_fillable_nodes = fillable_nodes.iter().filter(|node| {
+            let sig = get_node_to_fill_signature(node);
+            if seen_fillable_nodes.contains(&sig) {
+                return false;
+            }
+            seen_fillable_nodes.insert(sig);
+            return self.filter_fillable_nodes(node);
+        });
+    }
+
     async fn try_fill(&mut self) {
         let start_time = Instant::now();
         let ran = false;
@@ -451,13 +509,24 @@ where
         let mut triggerable_nodes = Vec::new();
         for market in self.drift_client.get_perp_market_accounts() {
             if let Some(ref mut dlob) = dlob {
-                if let Some((nodes_to_fill, nodes_to_trigger)) =
-                    self.get_perp_nodes_for_market(market, dlob).await
-                {
-                    fillable_nodes.extend(nodes_to_fill);
-                    triggerable_nodes.extend(nodes_to_trigger);
+                match self.get_perp_nodes_for_market(market, dlob).await {
+                    Some((nodes_to_fill, nodes_to_trigger)) => {
+                        fillable_nodes.extend(nodes_to_fill);
+                        triggerable_nodes.extend(nodes_to_trigger);
+                    }
+                    None => {
+                        log::warn!(
+                            "{}: :x: Failed to get fillable nodes for market {}",
+                            self.name,
+                            market.market_index
+                        );
+                        continue;
+                    }
                 }
             }
         }
+
+        // filler out nodes that we know can not be filled
+        self.filter_perp_nodes_for_market(&fillable_nodes, &triggerable_nodes);
     }
 }

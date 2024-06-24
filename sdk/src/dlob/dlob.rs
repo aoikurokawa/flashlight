@@ -45,6 +45,14 @@ impl NodeToFill {
     pub fn new(node: Node, maker_nodes: Vec<Node>) -> Self {
         Self { node, maker_nodes }
     }
+
+    pub fn get_node(&self) -> Node {
+        self.node
+    }
+
+    pub fn get_maker_nodes(&self) -> &[Node] {
+        &self.maker_nodes
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
