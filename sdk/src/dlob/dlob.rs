@@ -670,7 +670,7 @@ impl DLOB {
             let node_price = get_limit_price(order, oracle_price_data, slot, None);
 
             // order crosses if there is no limit price or it crosses fallback price
-            let crosses = does_cross(Some(node_price));
+            let crosses = does_cross(node_price);
 
             let fallback_available = &MarketType::Spot == market_type
                 || is_fallback_available_liquidity_source(order, min_auction_duration, slot);
@@ -1009,7 +1009,7 @@ impl DLOB {
                         bid_order.base_asset_amount_filled + base_filled;
 
                     if let Some(mut orders) = self.get_list_for_order(&new_bid_order, slot) {
-                        let (sub_type, node_type) = get_node_subtype_and_type(&new_bid_order, slot);
+                        let (_sub_type, node_type) = get_node_subtype_and_type(&new_bid_order, slot);
                         let order_node =
                             create_node(node_type, new_bid_order, bid_node.get_user_account());
                         orders.update_bid(order_node);
@@ -1021,7 +1021,7 @@ impl DLOB {
                         ask_order.base_asset_amount_filled + base_filled;
 
                     if let Some(mut orders) = self.get_list_for_order(&new_ask_order, slot) {
-                        let (sub_type, node_type) = get_node_subtype_and_type(&new_ask_order, slot);
+                        let (_sub_type, node_type) = get_node_subtype_and_type(&new_ask_order, slot);
                         let order_node =
                             create_node(node_type, new_ask_order, ask_node.get_user_account());
                         orders.update_bid(order_node);

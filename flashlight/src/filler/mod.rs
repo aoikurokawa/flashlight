@@ -8,7 +8,7 @@ use std::{
 
 use drift::state::{
     perp_market::PerpMarket,
-    user::{MarketType, OrderType},
+    user::{MarketType, OrderType}, oracle::OracleSource,
 };
 use log::info;
 use lru::LruCache;
@@ -26,7 +26,7 @@ use sdk::{
     jupiter::JupiterClient,
     math::{
         market::{calculate_ask_price, calculate_bid_price},
-        order::is_order_expired,
+        order::{is_fillable_by_vamm, is_order_expired},
     },
     priority_fee::priority_fee_subscriber::PriorityFeeSubscriber,
     slot_subscriber::SlotSubscriber,
@@ -494,7 +494,7 @@ where
         }
     }
 
-    fn filter_fillable_nodes(&self, node_to_fill: &NodeToFill) -> bool {
+    async fn filter_fillable_nodes(&self, node_to_fill: &NodeToFill) -> bool {
         let node = node_to_fill.get_node();
 
         if node.is_vamm_node() {
@@ -537,7 +537,7 @@ where
             return false;
         }
 
-        let node = node_to_fill.get_node();
+        let user_account = node.get_user_account();
         let order = node.get_order();
         let market_index = order.market_index;
         let oracle = self
@@ -558,12 +558,51 @@ where
         }
 
         if let Some(oracle_price_data) = oracle {
+            let market_info = self
+                .drift_client
+                .get_perp_market_info(market_index)
+                .await
+                .expect("find perp market info");
+            let state_account = self.drift_client.get_state_account();
+            let state = state_account.read().expect("read state account");
             if node_to_fill.get_maker_nodes().is_empty()
                 && matches!(order.market_type, MarketType::Perp)
-            {}
+                && is_fillable_by_vamm(
+                    order,
+                    market_info,
+                    &oracle_price_data.data,
+                    self.get_max_slot(),
+                    since_the_epoch.as_secs() as i64,
+                    state.min_perp_auction_duration,
+                )
+                .expect("is fillable by vamm")
+            {
+                log::warn!(
+                    "filtered out unfillable node on market {} for user {}-{}",
+                    market_index,
+                    user_account,
+                    order.order_id
+                );
+                log::warn!(
+                    " . no maker node: {}",
+                    node_to_fill.get_maker_nodes().is_empty()
+                );
+                log::warn!(
+                    " . is perp: {}",
+                    matches!(order.market_type, MarketType::Perp)
+                );
+                return false;
+            }
         }
 
-        false
+        let perp_market = self.drift_client.get_perp_market_info(market_index).await.expect("find perp market info");
+
+        // if making with vAMM, ensure valid oracle
+        if node_to_fill.get_maker_nodes().is_empty() && !matches!(perp_market.amm.oracle_source, OracleSource::Prelaunch) {
+            let oracle_is_valid = is_oracle
+        }
+
+       true 
     }
 
     fn filter_perp_nodes_for_market(

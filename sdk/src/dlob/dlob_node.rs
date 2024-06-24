@@ -200,7 +200,7 @@ impl OrderNode {
 
 impl DLOBNode for OrderNode {
     fn get_price(&self, oracle_price_data: &OraclePriceData, slot: u64) -> u64 {
-        get_limit_price(&self.order, oracle_price_data, slot, None)
+        get_limit_price(&self.order, oracle_price_data, slot, None).unwrap_or(0)
     }
 
     fn is_vamm_node(&self) -> bool {
