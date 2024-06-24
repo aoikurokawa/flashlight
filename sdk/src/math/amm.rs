@@ -9,9 +9,10 @@ use drift::{
         amm::{calculate_price, calculate_swap_output},
         amm_spread::{calculate_inventory_liquidity_ratio, calculate_reference_price_offset},
         constants::{
-            AMM_TIMES_PEG_TO_QUOTE_PRECISION_RATIO, BID_ASK_SPREAD_PRECISION, PERCENTAGE_PRECISION,
-            PRICE_PRECISION,
+            AMM_TIMES_PEG_TO_QUOTE_PRECISION_RATIO, BID_ASK_SPREAD_PRECISION, PEG_PRECISION,
+            PERCENTAGE_PRECISION, PRICE_PRECISION,
         },
+        orders::standardize_base_asset_amount,
         repeg::{calculate_peg_from_target_price, calculate_repeg_cost},
     },
     state::{oracle::OraclePriceData, perp_market::AMM, user::AssetType},
@@ -25,7 +26,7 @@ use crate::{
 use super::{
     oracle::{calculate_live_oracle_std, get_new_oracle_conf_pct},
     repeg::calculate_adjust_k_cost,
-    util::clamp_bn,
+    util::{clamp_bn, square_root_u128},
 };
 
 #[derive(Debug, Default)]
@@ -543,6 +544,7 @@ pub fn calculate_spread(
     Ok((spreads.0, spreads.1))
 }
 
+/// Return `bid_reserves`, `ask_reserves`
 pub fn calculate_spread_reserves(
     amm: &AMM,
     oracle_price_data: &OraclePriceData,
@@ -635,4 +637,60 @@ pub fn get_swap_direction(
         PositionDirection::Short if input_asset_type == AssetType::Quote => SwapDirection::Remove,
         _ => SwapDirection::Add,
     }
+}
+
+pub fn calculate_max_base_asset_amount_to_trade(
+    amm: &AMM,
+    limit_price: u64,
+    direction: PositionDirection,
+    oracle_price_data: &OraclePriceData,
+    now: Option<i64>,
+) -> SdkResult<(u128, PositionDirection)> {
+    let invariant = amm.sqrt_k * amm.sqrt_k;
+
+    let new_base_asset_reserve_squared =
+        invariant * PRICE_PRECISION * amm.peg_multiplier / limit_price as u128 / PEG_PRECISION;
+
+    let new_base_asset_reserve = square_root_u128(new_base_asset_reserve_squared);
+    let (short_spread_reserves, long_spread_reserves) =
+        calculate_spread_reserves(amm, oracle_price_data, now)?;
+
+    let base_asset_reserve_before = if matches!(direction, PositionDirection::Long) {
+        long_spread_reserves.0
+    } else {
+        short_spread_reserves.0
+    };
+
+    if new_base_asset_reserve > base_asset_reserve_before {
+        return Ok((
+            new_base_asset_reserve - base_asset_reserve_before,
+            PositionDirection::Short,
+        ));
+    } else if new_base_asset_reserve < base_asset_reserve_before {
+        return Ok((
+            base_asset_reserve_before - new_base_asset_reserve,
+            PositionDirection::Long,
+        ));
+    } else {
+        log::info!("trade size too small");
+        return Ok((0, PositionDirection::Long));
+    }
+}
+
+pub fn calculate_max_base_asset_amount_fillable(
+    amm: &AMM,
+    order_direction: PositionDirection,
+) -> SdkResult<u64> {
+    let max_fill_size = amm.base_asset_reserve / amm.max_fill_reserve_fraction as u128;
+
+    let max_base_asset_amount_on_side = if matches!(order_direction, PositionDirection::Long) {
+        std::cmp::max(0, amm.base_asset_reserve - amm.min_base_asset_reserve)
+    } else {
+        std::cmp::max(0, amm.max_base_asset_reserve - amm.base_asset_reserve)
+    };
+
+    Ok(standardize_base_asset_amount(
+        std::cmp::min(max_fill_size, max_base_asset_amount_on_side) as u64,
+        amm.order_step_size,
+    )?)
 }

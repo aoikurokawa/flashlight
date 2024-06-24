@@ -3,10 +3,13 @@ use std::{
     num::NonZeroUsize,
     str::FromStr,
     sync::Arc,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use drift::state::{perp_market::PerpMarket, user::MarketType};
+use drift::state::{
+    perp_market::PerpMarket,
+    user::{MarketType, OrderType},
+};
 use log::info;
 use lru::LruCache;
 use sdk::{
@@ -21,7 +24,10 @@ use sdk::{
     },
     drift_client::DriftClient,
     jupiter::JupiterClient,
-    math::market::{calculate_ask_price, calculate_bid_price},
+    math::{
+        market::{calculate_ask_price, calculate_bid_price},
+        order::is_order_expired,
+    },
     priority_fee::priority_fee_subscriber::PriorityFeeSubscriber,
     slot_subscriber::SlotSubscriber,
     usermap::{user_stats_map::UserStatsMap, UserMap},
@@ -30,6 +36,7 @@ use sdk::{
 use solana_client::nonblocking::pubsub_client::PubsubClient;
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,
+    clock::Clock,
     commitment_config::{CommitmentConfig, CommitmentLevel},
     native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
@@ -40,7 +47,8 @@ use crate::{
     config::{FillerConfig, GlobalConfig},
     metrics::RuntimeSpec,
     util::{
-        get_node_to_fill_signature, valid_minimum_gas_amount, valid_rebalance_settled_pnl_threshold,
+        get_fill_signature_from_user_account_and_orader_id, get_node_to_fill_signature,
+        valid_minimum_gas_amount, valid_rebalance_settled_pnl_threshold,
     },
 };
 
@@ -427,6 +435,55 @@ where
         None
     }
 
+    /// Check if the node is still throttled, if not, clears it from the throttled_nodes map
+    fn is_throttled_node_still_throttled(&mut self, throttle_key: String) -> bool {
+        if let Some(last_fill_attempt) = self.throttled_nodes.get(&throttle_key.to_string()) {
+            let duration = Duration::new(FILL_ORDER_THROTTLE_BACKOFF, 0);
+            if *last_fill_attempt + duration > Instant::now() {
+                return true;
+            } else {
+                self.clear_throttled_node(throttle_key);
+                return false;
+            }
+        }
+
+        false
+    }
+
+    fn is_dlob_node_throttled(&self, dlob_node: Node) -> bool {
+        // first check if the user_account itself is throttled
+        let user_account_pubkey = dlob_node.get_user_account();
+        if self
+            .throttled_nodes
+            .contains_key(&user_account_pubkey.to_string())
+        {
+            if self.is_throttled_node_still_throttled(user_account_pubkey.to_string()) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        // then check if the specific order is throttled
+        let order_sig = get_fill_signature_from_user_account_and_orader_id(
+            user_account_pubkey,
+            dlob_node.get_order().order_id,
+        );
+        if self.throttled_nodes.contains_key(&order_sig) {
+            if self.is_throttled_node_still_throttled(order_sig) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        false
+    }
+
+    fn clear_throttled_node(&mut self, sig: String) {
+        self.throttled_nodes.remove(&sig);
+    }
+
     fn prune_throttled_node(&mut self) {
         if self.throttled_nodes.len() > THROTTLED_NODE_SIZE_TO_PRUNE {
             let now = Instant::now();
@@ -471,7 +528,41 @@ where
         }
 
         // expired orders that we previously tried to fill
-        // if self.expired
+        if self.expired_nodes_set.contains(&node_to_fill_signature) {
+            return false;
+        }
+
+        // check if taker node is throttled
+        if self.is_dlob_node_throttled(node_to_fill.get_node()) {
+            return false;
+        }
+
+        let node = node_to_fill.get_node();
+        let order = node.get_order();
+        let market_index = order.market_index;
+        let oracle = self
+            .drift_client
+            .get_oracle_price_data_and_slot_for_perp_market(market_index);
+
+        let now = SystemTime::now();
+        let since_the_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
+        if is_order_expired(order, since_the_epoch.as_secs() as i64, Some(true), None) {
+            if matches!(order.order_type, OrderType::Limit) {
+                // do not try to fill (expire) limit orders b/c they will auto expire when filled
+                // against
+                // or the user places a new order
+                return false;
+            }
+
+            return true;
+        }
+
+        if let Some(oracle_price_data) = oracle {
+            if node_to_fill.get_maker_nodes().is_empty()
+                && matches!(order.market_type, MarketType::Perp)
+            {}
+        }
+
         false
     }
 
