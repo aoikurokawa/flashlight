@@ -1,8 +1,9 @@
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZeroUsize,
     str::FromStr,
     sync::Arc,
-    time::{Duration, Instant}, num::NonZeroUsize,
+    time::{Duration, Instant},
 };
 
 use drift::state::{perp_market::PerpMarket, user::MarketType};
@@ -470,7 +471,7 @@ where
         }
 
         // expired orders that we previously tried to fill
-        if self.expired
+        // if self.expired
         false
     }
 
