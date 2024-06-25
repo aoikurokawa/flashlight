@@ -4,9 +4,53 @@ use drift::{
     math::constants::{BID_ASK_SPREAD_PRECISION, FIVE_MINUTE},
     state::{
         oracle::{HistoricalOracleData, OraclePriceData},
-        perp_market::AMM,
+        perp_market::{ContractTier, PerpMarket, AMM},
+        state::OracleGuardRails,
     },
 };
+
+pub fn get_max_confidence_internal_multiplier(market: &PerpMarket) -> u64 {
+    match market.contract_tier {
+        ContractTier::A => 1,
+        ContractTier::B => 1,
+        ContractTier::C => 2,
+        ContractTier::Speculative => 10,
+        ContractTier::Isolated | ContractTier::HighlySpeculative => 50,
+    }
+}
+
+/// Checks if oracle is valid for an AMM only fill
+pub fn is_oracle_valid(
+    market: &PerpMarket,
+    oracle_price_data: &OraclePriceData,
+    oracle_guard_rails: &OracleGuardRails,
+    _slot: u64,
+) -> bool {
+    let amm = market.amm;
+    let is_oracle_price_non_positive = oracle_price_data.price <= 0;
+    let is_oracle_price_too_volatile = oracle_price_data.price
+        / std::cmp::max(1, amm.historical_oracle_data.last_oracle_price_twap)
+        > oracle_guard_rails.validity.too_volatile_ratio
+        || amm.historical_oracle_data.last_oracle_price_twap
+            / std::cmp::max(1, oracle_price_data.price)
+            > oracle_guard_rails.validity.too_volatile_ratio;
+
+    let max_confidence_internal_multiplier = get_max_confidence_internal_multiplier(market);
+    let is_confidence_too_large = std::cmp::max(1, oracle_price_data.confidence)
+        * BID_ASK_SPREAD_PRECISION
+        / oracle_price_data.price as u64
+        > oracle_guard_rails.validity.confidence_interval_max_size
+            * max_confidence_internal_multiplier;
+
+    let oracle_is_stale =
+        oracle_price_data.delay > oracle_guard_rails.validity.slots_before_stale_for_amm;
+
+    !(!oracle_price_data.has_sufficient_number_of_data_points
+        || oracle_is_stale
+        || is_oracle_price_non_positive
+        || is_oracle_price_too_volatile
+        || is_confidence_too_large)
+}
 
 pub fn calculate_live_oracle_twap(
     hist_oracle_data: &HistoricalOracleData,

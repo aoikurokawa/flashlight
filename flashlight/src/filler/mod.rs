@@ -7,8 +7,9 @@ use std::{
 };
 
 use drift::state::{
+    oracle::OracleSource,
     perp_market::PerpMarket,
-    user::{MarketType, OrderType}, oracle::OracleSource,
+    user::{MarketType, OrderType},
 };
 use log::info;
 use lru::LruCache;
@@ -18,7 +19,7 @@ use sdk::{
     clock::clock_subscriber::ClockSubscriber,
     dlob::{
         dlob::{MarketAccount, NodeToFill, DLOB},
-        dlob_node::{DLOBNode, Node},
+        dlob_node::{DLOBNode, Node, NodeType},
         dlob_subscriber::DLOBSubscriber,
         types::{DLOBSubscriptionConfig, DlobSource, SlotSource},
     },
@@ -26,6 +27,7 @@ use sdk::{
     jupiter::JupiterClient,
     math::{
         market::{calculate_ask_price, calculate_bid_price},
+        oracle::is_oracle_valid,
         order::{is_fillable_by_vamm, is_order_expired},
     },
     priority_fee::priority_fee_subscriber::PriorityFeeSubscriber,
@@ -48,13 +50,15 @@ use crate::{
     metrics::RuntimeSpec,
     util::{
         get_fill_signature_from_user_account_and_orader_id, get_node_to_fill_signature,
-        valid_minimum_gas_amount, valid_rebalance_settled_pnl_threshold,
+        get_node_to_trigger_signature, valid_minimum_gas_amount,
+        valid_rebalance_settled_pnl_threshold,
     },
 };
 
 const DEFAULT_INTERVAL_MS: u16 = 6000;
 const FILL_ORDER_THROTTLE_BACKOFF: u64 = 1000; // the time to wait before trying to fill a throttled (error filling) node again
 const THROTTLED_NODE_SIZE_TO_PRUNE: usize = 10; // Size of throttled nodes to get to before pruning the map
+const TRIGGER_ORDER_COOLDOWN_MS: u64 = 1000; // the time to wait before trying to a node in the triggering map again
 
 const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
 
@@ -93,7 +97,7 @@ where
     interval_ids: Vec<Instant>,
     throttled_nodes: HashMap<String, Instant>,
     filling_nodes: HashMap<String, Instant>,
-    triggering_nodes: HashMap<String, u16>,
+    triggering_nodes: HashMap<String, Instant>,
 
     use_burst_cu_limit: bool,
     fill_tx_since_burst_cu: u16,
@@ -593,32 +597,85 @@ where
                 );
                 return false;
             }
+
+            let perp_market = self
+                .drift_client
+                .get_perp_market_info(market_index)
+                .await
+                .expect("find perp market info");
+
+            // if making with vAMM, ensure valid oracle
+            if node_to_fill.get_maker_nodes().is_empty()
+                && !matches!(perp_market.amm.oracle_source, OracleSource::Prelaunch)
+            {
+                let oracle_is_valid = is_oracle_valid(
+                    &perp_market,
+                    &oracle_price_data.data,
+                    &state.oracle_guard_rails,
+                    self.get_max_slot(),
+                );
+
+                if !oracle_is_valid {
+                    log::error!(
+                        "Oracle is not valid for market {market_index}, skipping fill with vAMM"
+                    );
+                    return false;
+                }
+            }
         }
 
-        let perp_market = self.drift_client.get_perp_market_info(market_index).await.expect("find perp market info");
-
-        // if making with vAMM, ensure valid oracle
-        if node_to_fill.get_maker_nodes().is_empty() && !matches!(perp_market.amm.oracle_source, OracleSource::Prelaunch) {
-            let oracle_is_valid = is_oracle
-        }
-
-       true 
+        true
     }
 
-    fn filter_perp_nodes_for_market(
+    fn filter_triggerable_nodes(&self, node_to_trigger: &Node) -> bool {
+        if matches!(node_to_trigger.get_node_type(), NodeType::Trigger) {
+            return false;
+        }
+
+        let now = Instant::now();
+        let node_to_fill_sig = get_node_to_trigger_signature(node_to_trigger);
+        if let Some(time_started_to_trigger_node) = self.triggering_nodes.get(&node_to_fill_sig) {
+            let duration = Duration::new(TRIGGER_ORDER_COOLDOWN_MS, 0);
+            if *time_started_to_trigger_node + duration > now {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    async fn filter_perp_nodes_for_market(
         &self,
         fillable_nodes: &[NodeToFill],
         triggerable_nodes: &[Node],
-    ) {
+    ) -> (Vec<NodeToFill>, Vec<Node>) {
         let mut seen_fillable_nodes = HashSet::new();
-        let filtered_fillable_nodes = fillable_nodes.iter().filter(|node| {
+        let mut filtered_fillable_nodes = Vec::new();
+        for node in fillable_nodes {
             let sig = get_node_to_fill_signature(node);
             if seen_fillable_nodes.contains(&sig) {
-                return false;
+                continue;
             }
             seen_fillable_nodes.insert(sig);
-            return self.filter_fillable_nodes(node);
-        });
+            if self.filter_fillable_nodes(node).await {
+                filtered_fillable_nodes.push(node.clone());
+            }
+        }
+
+        let mut seen_triggerable_nodes = HashSet::new();
+        let mut filtered_triggerable_nodes = Vec::new();
+        for node in triggerable_nodes {
+            let sig = get_node_to_trigger_signature(node);
+            if seen_triggerable_nodes.contains(&sig) {
+                continue;
+            }
+            seen_triggerable_nodes.insert(sig);
+            if self.filter_triggerable_nodes(node) {
+                filtered_triggerable_nodes.push(*node);
+            }
+        }
+
+        (filtered_fillable_nodes, filtered_triggerable_nodes)
     }
 
     async fn try_fill(&mut self) {

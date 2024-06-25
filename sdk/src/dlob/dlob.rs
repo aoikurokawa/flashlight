@@ -35,7 +35,7 @@ use super::order_book_levels::{
 };
 use super::order_list::Orderlist;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NodeToFill {
     node: Node,
     maker_nodes: Vec<Node>,
@@ -1009,7 +1009,8 @@ impl DLOB {
                         bid_order.base_asset_amount_filled + base_filled;
 
                     if let Some(mut orders) = self.get_list_for_order(&new_bid_order, slot) {
-                        let (_sub_type, node_type) = get_node_subtype_and_type(&new_bid_order, slot);
+                        let (_sub_type, node_type) =
+                            get_node_subtype_and_type(&new_bid_order, slot);
                         let order_node =
                             create_node(node_type, new_bid_order, bid_node.get_user_account());
                         orders.update_bid(order_node);
@@ -1021,7 +1022,8 @@ impl DLOB {
                         ask_order.base_asset_amount_filled + base_filled;
 
                     if let Some(mut orders) = self.get_list_for_order(&new_ask_order, slot) {
-                        let (_sub_type, node_type) = get_node_subtype_and_type(&new_ask_order, slot);
+                        let (_sub_type, node_type) =
+                            get_node_subtype_and_type(&new_ask_order, slot);
                         let order_node =
                             create_node(node_type, new_ask_order, ask_node.get_user_account());
                         orders.update_bid(order_node);
