@@ -38,8 +38,9 @@ use sdk::{
 use solana_client::nonblocking::pubsub_client::PubsubClient;
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,
-    clock::Clock,
     commitment_config::{CommitmentConfig, CommitmentLevel},
+    compute_budget::ComputeBudgetInstruction,
+    instruction::Instruction,
     native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
 };
@@ -59,6 +60,8 @@ const DEFAULT_INTERVAL_MS: u16 = 6000;
 const FILL_ORDER_THROTTLE_BACKOFF: u64 = 1000; // the time to wait before trying to fill a throttled (error filling) node again
 const THROTTLED_NODE_SIZE_TO_PRUNE: usize = 10; // Size of throttled nodes to get to before pruning the map
 const TRIGGER_ORDER_COOLDOWN_MS: u64 = 1000; // the time to wait before trying to a node in the triggering map again
+const MAX_MAKERS_PER_FILL: usize = 6; // max number of unique makers to include per fill
+const SLOTS_UNTIL_JITO_LEADER_TO_SEND: u64 = 4;
 
 const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
 
@@ -454,7 +457,7 @@ where
         false
     }
 
-    fn is_dlob_node_throttled(&self, dlob_node: Node) -> bool {
+    fn is_dlob_node_throttled(&mut self, dlob_node: &Node) -> bool {
         // first check if the user_account itself is throttled
         let user_account_pubkey = dlob_node.get_user_account();
         if self
@@ -498,7 +501,7 @@ where
         }
     }
 
-    async fn filter_fillable_nodes(&self, node_to_fill: &NodeToFill) -> bool {
+    async fn filter_fillable_nodes(&mut self, node_to_fill: &NodeToFill) -> bool {
         let node = node_to_fill.get_node();
 
         if node.is_vamm_node() {
@@ -537,7 +540,7 @@ where
         }
 
         // check if taker node is throttled
-        if self.is_dlob_node_throttled(node_to_fill.get_node()) {
+        if self.is_dlob_node_throttled(&node_to_fill.get_node()) {
             return false;
         }
 
@@ -644,8 +647,167 @@ where
         true
     }
 
-    async fn filter_perp_nodes_for_market(
+    async fn get_node_fill_info(&self, node_to_fill: &NodeToFill) {
+        let mut maker_infos = Vec::new();
+
+        if !node_to_fill.get_maker_nodes().is_empty() {
+            let mut maker_nodes_map = HashMap::new();
+            for maker_node in node_to_fill.get_maker_nodes() {
+                if self.is_dlob_node_throttled(maker_node) {
+                    continue;
+                }
+
+                let user_account = maker_node.get_user_account();
+                // if maker_node.get_user_account()
+
+                maker_nodes_map
+                    .entry(user_account)
+                    .and_modify(|dlob_nodes: &mut Vec<Node>| dlob_nodes.push(*maker_node))
+                    .or_insert(vec![*maker_node]);
+            }
+
+            if maker_nodes_map.len() > MAX_MAKERS_PER_FILL {
+                log::info!("selecting from {} makers", maker_nodes_map.len());
+                maker_nodes_map = select
+            }
+        }
+    }
+
+    // Returns the number of bytes occupied by this array if it were serialized in compact-u16-format.
+    // NOTE: assumes each element of the array is 1 byte (not sure if this holds?)
+    //
+    // https://docs.solana.com/developing/programming-model/transactions#compact-u16-format
+    //
+    // https://stackoverflow.com/a/69951832
+    //  hex     |  compact-u16
+    //  --------+------------
+    //  0x0000  |  [0x00]
+    //  0x0001  |  [0x01]
+    //  0x007f  |  [0x7f]
+    //  0x0080  |  [0x80 0x01]
+    //  0x3fff  |  [0xff 0x7f]
+    //  0x4000  |  [0x80 0x80 0x01]
+    //  0xc000  |  [0x80 0x80 0x03]
+    //  0xffff  |  [0xff 0xff 0x03])
+    //
+    fn calc_compact_u16_encoded_size<A>(&self, array: &[A], elem_size: Option<usize>) -> usize {
+        let elem_size = elem_size.unwrap_or(1);
+
+        if array.len() > 0x3fff {
+            3 + array.len() * elem_size
+        } else if array.len() > 0x7f {
+            2 + array.len() * elem_size
+        } else {
+            let array_len = array.len();
+            let product = array_len * elem_size;
+            let safe_product = if product == 0 { 1 } else { product };
+            1 + safe_product
+        }
+    }
+
+    // Instruction are made of 3 parts:
+    // - index of accounts where program_id resides (1 byte)
+    // - affected accounts (compact-u16-format byte array)
+    // - raw instruction data (compact-u16-format byte array)
+    fn calc_ix_encoded_size(&self, ix: &Instruction) -> usize {
+        1 + self.calc_compact_u16_encoded_size(&[ix.accounts.len()], Some(1))
+            + self.calc_compact_u16_encoded_size(&[ix.data.len()], Some(1))
+    }
+
+    async fn fill_multi_maker_perp_nodes(
         &self,
+        fill_tx_id: u16,
+        node_to_fill: &NodeToFill,
+        build_for_bundle: bool,
+    ) -> bool {
+        let mut ixs = vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
+        if !build_for_bundle {
+            ixs.push(ComputeBudgetInstruction::set_compute_unit_price(
+                self.priority_fee_subscriber.get_custom_strategy_result() as u64,
+            ));
+        }
+
+        self.get_nodes_fill_info();
+        false
+    }
+
+    /// It's difficult to estimate CU cost of multi maker ix, so we'll just send it in its own transaction
+    async fn try_fill_multi_maker_perp_nodes(
+        &mut self,
+        node_to_fill: &NodeToFill,
+        build_for_bundle: bool,
+    ) {
+        let fill_tx_id = self.fill_tx_id;
+        self.fill_tx_id += 1;
+
+        let node_with_market_set = node_to_fill;
+        // while
+    }
+
+    async fn try_bulk_fill_perp_nodes_for_market(
+        &mut self,
+        nodes_to_fill: &[NodeToFill],
+        build_for_bundle: bool,
+    ) -> usize {
+        let mut ixs = vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
+        if !build_for_bundle {
+            ixs.push(ComputeBudgetInstruction::set_compute_unit_price(
+                self.priority_fee_subscriber.get_custom_strategy_result() as u64,
+            ));
+        }
+
+        //
+        // At all times, the running Tx size is:
+        // - signatures (compact-u16 array, 64 bytes per elem)
+        // - message header (3 bytes)
+        // - affected accounts (compact-u16 array, 32 bytes per elem)
+        // - previous block hash (32 bytes)
+        // - message instructions (
+        //		- progamIdIdx (1 byte)
+        //		- accountsIdx (compact-u16, 1 byte per elem)
+        //   	- instruction data (compact-u16, 1 byte per elem)
+        //
+        let mut running_tx_size = 0;
+        let mut running_cu_used = 0;
+
+        let mut unique_accounts = HashSet::new();
+        unique_accounts.insert(*self.drift_client.wallet().authority());
+
+        let compute_budget_ix = &ixs[0];
+        for key in compute_budget_ix.accounts.iter() {
+            unique_accounts.insert(key.pubkey);
+        }
+        unique_accounts.insert(compute_budget_ix.program_id);
+
+        // initialize the barebones transactions
+        // signatures
+        running_tx_size += self.calc_compact_u16_encoded_size(&[1], Some(64));
+        // msssage header
+        running_tx_size += 3;
+        // accounts
+        running_tx_size += self.calc_compact_u16_encoded_size(&[unique_accounts.len()], Some(32));
+        // blockhash
+        running_tx_size += 32;
+        running_tx_size += self.calc_ix_encoded_size(&compute_budget_ix);
+
+        let nodes_sent: Vec<_> = Vec::new();
+        let idx_used = 0;
+        let starting_ixs_size = ixs.len();
+        let fill_tx_id = self.fill_tx_id;
+        self.fill_tx_id += 1;
+
+        for (idx, node_to_fill) in nodes_to_fill.iter().enumerate() {
+            // do multi maker fills in a separate tx since they're larger
+            if !node_to_fill.get_maker_nodes().is_empty() {
+                // self.try_fill_multi
+            }
+        }
+
+        0
+    }
+
+    async fn filter_perp_nodes_for_market(
+        &mut self,
         fillable_nodes: &[NodeToFill],
         triggerable_nodes: &[Node],
     ) -> (Vec<NodeToFill>, Vec<Node>) {
@@ -678,9 +840,39 @@ where
         (filtered_fillable_nodes, filtered_triggerable_nodes)
     }
 
+    fn using_jito(&self) -> bool {
+        self.bundle_sender.is_some()
+    }
+
+    fn slots_until_jito_leader(&self) -> Option<u64> {
+        if !self.using_jito() {
+            return None;
+        }
+
+        match &self.bundle_sender {
+            Some(sender) => sender.slots_until_next_leader(),
+            None => None,
+        }
+    }
+
+    fn should_build_for_bundle(&self) -> bool {
+        if !self.using_jito() {
+            return false;
+        }
+
+        if let Some(true) = self.global_config.only_send_during_jito_leader {
+            match self.slots_until_jito_leader() {
+                Some(slots) => return slots < SLOTS_UNTIL_JITO_LEADER_TO_SEND,
+                None => return false,
+            }
+        }
+
+        true
+    }
+
     async fn try_fill(&mut self) {
         let start_time = Instant::now();
-        let ran = false;
+        let mut ran = false;
 
         if !self.has_enough_sol_to_fill {
             log::info!("Not enough SOL to fill, skipping fill");
@@ -715,6 +907,22 @@ where
         }
 
         // filler out nodes that we know can not be filled
-        self.filter_perp_nodes_for_market(&fillable_nodes, &triggerable_nodes);
+        let (filtered_fillable_nodes, filtered_triggerable_nodes) = self
+            .filter_perp_nodes_for_market(&fillable_nodes, &triggerable_nodes)
+            .await;
+        log::debug!(
+            "filtered fillable nodes from {} to {}, filtered triggerable nodes from {} to {}",
+            fillable_nodes.len(),
+            filtered_fillable_nodes.len(),
+            triggerable_nodes.len(),
+            filtered_triggerable_nodes.len()
+        );
+
+        let build_bundle = self.should_build_for_bundle();
+
+        // TODO: execute_fillable_perp_nodes_for_market
+        // TODO: execute_triggerable_perp_nodes_for_market
+
+        ran = true;
     }
 }
