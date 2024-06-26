@@ -60,7 +60,7 @@ const DEFAULT_INTERVAL_MS: u16 = 6000;
 const FILL_ORDER_THROTTLE_BACKOFF: u64 = 1000; // the time to wait before trying to fill a throttled (error filling) node again
 const THROTTLED_NODE_SIZE_TO_PRUNE: usize = 10; // Size of throttled nodes to get to before pruning the map
 const TRIGGER_ORDER_COOLDOWN_MS: u64 = 1000; // the time to wait before trying to a node in the triggering map again
-const MAX_MAKERS_PER_FILL: usize = 6; // max number of unique makers to include per fill
+pub(crate) const MAX_MAKERS_PER_FILL: usize = 6; // max number of unique makers to include per fill
 const SLOTS_UNTIL_JITO_LEADER_TO_SEND: u64 = 4;
 
 const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
