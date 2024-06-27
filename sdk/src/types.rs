@@ -6,7 +6,7 @@ use std::{
 use anchor_lang::AccountDeserialize;
 use drift::{
     error::ErrorCode,
-    state::user::{MarketType, UserStats},
+    state::user::{MarketType, Order, User, UserStats},
 };
 use futures_util::Sink;
 use serde::Deserialize;
@@ -319,4 +319,28 @@ pub struct ProcessingTxParams {
 pub struct TxParams {
     pub base: BaseTxParams,
     pub processing: ProcessingTxParams,
+}
+
+#[derive(Debug)]
+pub struct MakerInfo {
+    pub maker: Pubkey,
+    pub maker_stats: Pubkey,
+    pub maker_user_account: User,
+    pub order: Option<Order>,
+}
+
+impl MakerInfo {
+    pub fn new(
+        maker: Pubkey,
+        maker_stats: Pubkey,
+        maker_user_account: User,
+        order: Option<Order>,
+    ) -> Self {
+        Self {
+            maker,
+            maker_stats,
+            maker_user_account,
+            order,
+        }
+    }
 }

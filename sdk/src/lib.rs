@@ -1,5 +1,6 @@
 use std::{borrow::Cow, sync::Arc, time::Duration};
 
+use addresses::pda::get_user_stats_account_pubkey;
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
 use async_utils::{retry_policy, spawn_retry_task};
 use constants::{derive_perp_market_account, derive_spot_market_account, ProgramData};
@@ -16,7 +17,7 @@ use drift::{
 };
 use fnv::FnvHashMap;
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
-use log::{debug, info, warn};
+use log::{debug, warn};
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::{pubsub_client::PubsubClient, rpc_client::RpcClient},
@@ -913,6 +914,46 @@ impl<'a> TransactionBuilder<'a> {
         };
         self.ixs.push(ix);
 
+        self
+    }
+
+    // TODO: 
+    pub fn fill_perp_order(
+        mut self,
+        user_account_pubkey: Pubkey,
+        user_account: &User,
+        order: &Order,
+        maker_info: &[MakerInfo],
+        referre_info: Option<ReferrerInfo>,
+        filler_sub_account_id: u16,
+    ) -> Self {
+        let user_stats_pubkey =
+            get_user_stats_account_pubkey(&constants::PROGRAM_ID, user_account.authority);
+
+        let filler = self.account_data.authority;
+        let filler_stats_pubkey = get_user_stats_account_pubkey(&constants::PROGRAM_ID, filler);
+
+        let market_index = order.market_index;
+
+        let mut user_accounts = vec![user_account];
+        for maker in maker_info {
+            user_accounts.push(&maker.maker_user_account);
+        }
+        let accounts = build_accounts(
+            self.program_data,
+            drift::accounts::FillOrder {
+                state: *state_account(),
+                authority: self.authority,
+                filler,
+                filler_stats: filler_stats_pubkey,
+                user: user_account_pubkey,
+                user_stats: user_stats_pubkey,
+            },
+            &[],
+            &[],
+            &[MarketId::perp(market_index)],
+        );
+        let order_id = order.order_id;
         self
     }
 

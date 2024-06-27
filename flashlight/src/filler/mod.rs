@@ -9,7 +9,7 @@ use std::{
 use drift::state::{
     oracle::OracleSource,
     perp_market::PerpMarket,
-    user::{MarketType, OrderType},
+    user::{MarketType, OrderType, User},
 };
 use log::info;
 use lru::LruCache;
@@ -32,6 +32,7 @@ use sdk::{
     },
     priority_fee::priority_fee_subscriber::PriorityFeeSubscriber,
     slot_subscriber::SlotSubscriber,
+    types::{MakerInfo, ReferrerInfo},
     usermap::{user_stats_map::UserStatsMap, UserMap},
     AccountProvider,
 };
@@ -48,11 +49,12 @@ use solana_sdk::{
 use crate::{
     bundle_sender::BundleSender,
     config::{FillerConfig, GlobalConfig},
+    maker_selection::select_makers,
     metrics::RuntimeSpec,
     util::{
         get_fill_signature_from_user_account_and_orader_id, get_node_to_fill_signature,
         get_node_to_trigger_signature, valid_minimum_gas_amount,
-        valid_rebalance_settled_pnl_threshold,
+        valid_rebalance_settled_pnl_threshold, SimulateAndGetTxWithCUsResponse,
     },
 };
 
@@ -361,6 +363,18 @@ where
         // self.try
     }
 
+    async fn get_user_account_and_slot_from_map(&self, key: Pubkey) -> Option<(User, u64)> {
+        if let Some(user_map) = &self.user_map {
+            let (user, slot) = user_map
+                .must_get_with_slot(key)
+                .await
+                .expect("must get with user and slot");
+            return Some((user, slot));
+        }
+
+        None
+    }
+
     async fn get_dlob(&self) -> Option<DLOB> {
         if let Some(dlob_sub) = &self.dlob_subscriber {
             return Some(dlob_sub.get_dlob().await);
@@ -647,7 +661,19 @@ where
         true
     }
 
-    async fn get_node_fill_info(&self, node_to_fill: &NodeToFill) {
+    /// Return `maker_info`, `taker_user_pubkey`, `taker_user`, `taker_user_slot`, `referrer_info`,
+    /// `market_type`
+    async fn get_node_fill_info(
+        &mut self,
+        node_to_fill: &NodeToFill,
+    ) -> Option<(
+        Vec<(u64, MakerInfo)>,
+        Pubkey,
+        User,
+        u64,
+        Option<ReferrerInfo>,
+        MarketType,
+    )> {
         let mut maker_infos = Vec::new();
 
         if !node_to_fill.get_maker_nodes().is_empty() {
@@ -668,9 +694,67 @@ where
 
             if maker_nodes_map.len() > MAX_MAKERS_PER_FILL {
                 log::info!("selecting from {} makers", maker_nodes_map.len());
-                maker_nodes_map = select
+                maker_nodes_map = select_makers(&maker_nodes_map);
+                // log::info!("selected: {}", maker_nodes_map.keys)
+            }
+
+            for (maker_account, maker_nodes) in maker_nodes_map {
+                let maker_node = maker_nodes[0];
+
+                if let Some((maker_user_account, slot)) =
+                    self.get_user_account_and_slot_from_map(maker_account).await
+                {
+                    let maker_authority = maker_user_account.authority;
+
+                    if let Some(ref mut user_stats_map) = self.user_stats_map {
+                        let user_stats = user_stats_map
+                            .must_get(&maker_authority)
+                            .await
+                            .expect("must get userstats");
+                        if let Some(user_stats) = user_stats {
+                            let maker_user_stats = user_stats.user_stats_account_pubkey;
+
+                            maker_infos.push((
+                                slot,
+                                MakerInfo::new(
+                                    maker_account,
+                                    maker_user_stats,
+                                    maker_user_account,
+                                    Some(*maker_node.get_order()),
+                                ),
+                            ));
+                        }
+                    }
+                }
             }
         }
+
+        let taker_user_pubkey = node_to_fill.get_node().get_user_account();
+        if let Some((taker_user_account, taker_user_account_slot)) = self
+            .get_user_account_and_slot_from_map(taker_user_pubkey)
+            .await
+        {
+            if let Some(ref mut user_stats_map) = self.user_stats_map {
+                let user_stats = user_stats_map
+                    .must_get(&taker_user_account.authority)
+                    .await
+                    .expect("must get userstats");
+                if let Some(user_stats) = user_stats {
+                    let referrer_info = user_stats.get_referrer_info().expect("get referrer info");
+
+                    return Some((
+                        maker_infos,
+                        taker_user_pubkey,
+                        taker_user_account,
+                        taker_user_account_slot,
+                        referrer_info,
+                        node_to_fill.get_node().get_order().market_type,
+                    ));
+                }
+            }
+        }
+
+        None
     }
 
     // Returns the number of bytes occupied by this array if it were serialized in compact-u16-format.
@@ -705,6 +789,16 @@ where
         }
     }
 
+    async fn build_tx_with_maker_infos(
+        &self,
+        makers: &[MakerInfo],
+        ixs: &mut Vec<Instruction>,
+    ) -> SimulateAndGetTxWithCUsResponse {
+        todo!()
+        // let order_ix = self.drift_client.get_fill
+        // ixs.push
+    }
+
     // Instruction are made of 3 parts:
     // - index of accounts where program_id resides (1 byte)
     // - affected accounts (compact-u16-format byte array)
@@ -719,7 +813,7 @@ where
         fill_tx_id: u16,
         node_to_fill: &NodeToFill,
         build_for_bundle: bool,
-    ) -> bool {
+    ) -> Result<bool, String> {
         let mut ixs = vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
         if !build_for_bundle {
             ixs.push(ComputeBudgetInstruction::set_compute_unit_price(
@@ -727,8 +821,24 @@ where
             ));
         }
 
-        self.get_nodes_fill_info();
-        false
+        if let Some((
+            maker_infos,
+            taker_user_pubkey,
+            taker_user,
+            taker_user_slot,
+            referrer_info,
+            market_type,
+        )) = self.get_node_fill_info(node_to_fill).await
+        {
+            if MarketType::Perp != market_type {
+                return Err(String::from("expected perp market type"));
+            }
+
+            let user = self.drift_client.get_user(None);
+            let maker_infos_to_use = maker_infos;
+        }
+
+        Ok(false)
     }
 
     /// It's difficult to estimate CU cost of multi maker ix, so we'll just send it in its own transaction

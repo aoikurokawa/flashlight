@@ -157,6 +157,24 @@ impl UserMap {
         }
     }
 
+    /// Return `User`, `latest_slot`
+    pub async fn must_get_with_slot(&self, pubkey: Pubkey) -> SdkResult<(User, u64)> {
+        let latest_slot = self.get_latest_slot();
+        let pubkey = &pubkey.to_string();
+
+        if let Some(user) = self.get(pubkey) {
+            Ok((user, latest_slot))
+        } else {
+            let user_data = self
+                .rpc
+                .get_account_data(&Pubkey::from_str(pubkey).unwrap())
+                .await?;
+            let user = User::try_deserialize(&mut user_data.as_slice()).unwrap();
+            self.usermap.insert(pubkey.to_string(), user);
+            Ok((self.get(pubkey).unwrap(), latest_slot))
+        }
+    }
+
     #[allow(clippy::await_holding_lock)]
     async fn sync(&mut self) -> SdkResult<()> {
         let sync_lock = self.sync_lock.clone();
