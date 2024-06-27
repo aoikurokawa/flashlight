@@ -34,7 +34,7 @@ use sdk::{
     slot_subscriber::SlotSubscriber,
     types::{MakerInfo, ReferrerInfo},
     usermap::{user_stats_map::UserStatsMap, UserMap},
-    AccountProvider,
+    AccountProvider, TransactionBuilder,
 };
 use solana_client::nonblocking::pubsub_client::PubsubClient;
 use solana_sdk::{
@@ -53,8 +53,9 @@ use crate::{
     metrics::RuntimeSpec,
     util::{
         get_fill_signature_from_user_account_and_orader_id, get_node_to_fill_signature,
-        get_node_to_trigger_signature, valid_minimum_gas_amount,
-        valid_rebalance_settled_pnl_threshold, SimulateAndGetTxWithCUsResponse,
+        get_node_to_trigger_signature, simulate_and_get_tx_with_cus, valid_minimum_gas_amount,
+        valid_rebalance_settled_pnl_threshold, SimulateAndGetTxWithCUsParams,
+        SimulateAndGetTxWithCUsResponse,
     },
 };
 
@@ -793,10 +794,42 @@ where
         &self,
         makers: &[MakerInfo],
         ixs: &mut Vec<Instruction>,
+        node_to_fill: &NodeToFill,
     ) -> SimulateAndGetTxWithCUsResponse {
-        todo!()
-        // let order_ix = self.drift_client.get_fill
-        // ixs.push
+        // ixs.push();
+        let msg = self
+            .drift_client
+            .init_tx(&sub_account, false)
+            .expect("build tx")
+            .fill_perp_order(
+                &node_to_trigger.get_user_account(),
+                &user,
+                node_to_trigger.get_order(),
+                Some(&user_account.pubkey),
+                vec![],
+            );
+
+        let sig = get_node_to_fill_signature(node_to_fill);
+        self.filling_nodes.insert(sig, Instant::now());
+
+        if self.revert_on_failure.is_some() {}
+
+        let params = SimulateAndGetTxWithCUsParams {
+            connection: self.drift_client.backend.rpc_client.clone(),
+            payer: self.drift_client.wallet.signer.clone(),
+            lookup_table_accounts: vec![lookup_table_account.clone()],
+            ixs: ixs.into(),
+            cu_limit_multiplier: Some(CU_EST_MULTIPLIER),
+            do_simulation: Some(true),
+            recent_blockhash: Some(recent_blockhash),
+            dump_tx: None,
+        };
+
+        let sim_res = simulate_and_get_tx_with_cus(params)
+            .await
+            .expect("simulate");
+
+        sim_res
     }
 
     // Instruction are made of 3 parts:

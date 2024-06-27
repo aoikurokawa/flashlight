@@ -917,7 +917,7 @@ impl<'a> TransactionBuilder<'a> {
         self
     }
 
-    // TODO:
+    // TODO: remaining_accounts
     pub fn fill_perp_order(
         mut self,
         user_account_pubkey: Pubkey,
@@ -938,8 +938,10 @@ impl<'a> TransactionBuilder<'a> {
         let mut user_accounts = vec![user_account];
         for maker in maker_info {
             user_accounts.push(&maker.maker_user_account);
+            user_accounts.push(&maker.maker_user_account);
         }
-        let accounts = build_accounts(
+
+        let mut accounts = build_accounts(
             self.program_data,
             drift::accounts::FillOrder {
                 state: *state_account(),
@@ -949,11 +951,22 @@ impl<'a> TransactionBuilder<'a> {
                 user: user_account_pubkey,
                 user_stats: user_stats_pubkey,
             },
-            &[],
+            &user_accounts,
             &[],
             &[MarketId::perp(market_index)],
         );
+
         let order_id = order.order_id;
+        let ix = Instruction {
+            program_id: constants::PROGRAM_ID,
+            accounts,
+            data: InstructionData::data(&drift::instruction::FillPerpOrder {
+                order_id: Some(order_id),
+                _maker_order_id: None,
+            }),
+        };
+        self.ixs.push(ix);
+
         self
     }
 
