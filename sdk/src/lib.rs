@@ -893,14 +893,16 @@ impl<'a> TransactionBuilder<'a> {
         self
     }
 
-    pub fn revert_fill(mut self, filler: &Pubkey, filler_stats: &Pubkey) -> Self {
+    pub fn revert_fill(mut self, filler: Pubkey) -> Self {
+        let filler_stats = get_user_stats_account_pubkey(&constants::PROGRAM_ID, filler);
+
         let accounts = build_accounts(
             self.program_data,
             drift::accounts::RevertFill {
                 state: *state_account(),
                 authority: self.authority,
-                filler: *filler,
-                filler_stats: *filler_stats,
+                filler,
+                filler_stats,
             },
             &[],
             &[],
@@ -924,8 +926,7 @@ impl<'a> TransactionBuilder<'a> {
         user_account: &User,
         order: &Order,
         maker_info: &[MakerInfo],
-        referre_info: Option<ReferrerInfo>,
-        filler_sub_account_id: u16,
+        referre_info: &Option<ReferrerInfo>,
     ) -> Self {
         let user_stats_pubkey =
             get_user_stats_account_pubkey(&constants::PROGRAM_ID, user_account.authority);
@@ -997,6 +998,10 @@ impl<'a> TransactionBuilder<'a> {
 
     pub fn account_data(&self) -> &Cow<'_, User> {
         &self.account_data
+    }
+
+    pub fn instructions(&self) -> &[Instruction] {
+        &self.ixs
     }
 }
 

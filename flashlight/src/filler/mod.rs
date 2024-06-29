@@ -34,7 +34,7 @@ use sdk::{
     slot_subscriber::SlotSubscriber,
     types::{MakerInfo, ReferrerInfo},
     usermap::{user_stats_map::UserStatsMap, UserMap},
-    AccountProvider, TransactionBuilder,
+    AccountProvider,
 };
 use solana_client::nonblocking::pubsub_client::PubsubClient;
 use solana_sdk::{
@@ -64,6 +64,9 @@ const FILL_ORDER_THROTTLE_BACKOFF: u64 = 1000; // the time to wait before trying
 const THROTTLED_NODE_SIZE_TO_PRUNE: usize = 10; // Size of throttled nodes to get to before pruning the map
 const TRIGGER_ORDER_COOLDOWN_MS: u64 = 1000; // the time to wait before trying to a node in the triggering map again
 pub(crate) const MAX_MAKERS_PER_FILL: usize = 6; // max number of unique makers to include per fill
+const MAX_ACCOUNTS_PER_TX: usize = 64; // solana limit, track https://github.com/solana-labs/solana/issues/27241
+
+const SIM_CU_ESTIMATE_MULTIPLIER: f64 = 1.15;
 const SLOTS_UNTIL_JITO_LEADER_TO_SEND: u64 = 4;
 
 const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
@@ -791,41 +794,71 @@ where
     }
 
     async fn build_tx_with_maker_infos(
-        &self,
+        &mut self,
         makers: &[MakerInfo],
-        ixs: &mut Vec<Instruction>,
+        param_ixs: &[Instruction],
         node_to_fill: &NodeToFill,
+        taker_user: &User,
+        referrer_info: &Option<ReferrerInfo>,
     ) -> SimulateAndGetTxWithCUsResponse {
-        // ixs.push();
-        let msg = self
+        let user_account_pubkey = self.drift_client.wallet().authority();
+        let mut builder = self
             .drift_client
-            .init_tx(&sub_account, false)
+            .init_tx(&user_account_pubkey, false)
             .expect("build tx")
             .fill_perp_order(
-                &node_to_trigger.get_user_account(),
-                &user,
-                node_to_trigger.get_order(),
-                Some(&user_account.pubkey),
-                vec![],
+                *user_account_pubkey,
+                taker_user,
+                node_to_fill.get_node().get_order(),
+                makers,
+                referrer_info,
             );
 
         let sig = get_node_to_fill_signature(node_to_fill);
         self.filling_nodes.insert(sig, Instant::now());
 
-        if self.revert_on_failure.is_some() {}
+        if self.revert_on_failure.is_some() {
+            builder = builder.revert_fill(*user_account_pubkey);
+        }
 
-        let params = SimulateAndGetTxWithCUsParams {
+        let builder_ixs: Vec<Instruction> = builder
+            .instructions()
+            .into_iter()
+            .map(|ix| ix.clone())
+            .collect();
+        let mut ixs = Vec::new();
+        for param_ix in param_ixs.into_iter() {
+            ixs.push(param_ix.clone());
+        }
+
+        for builder_ix in builder_ixs {
+            ixs.push(builder_ix);
+        }
+
+        let recent_blockhash = self
+            .drift_client
+            .backend
+            .rpc_client
+            .get_latest_blockhash()
+            .await
+            .expect("get recent blockhash");
+
+        let mut params = SimulateAndGetTxWithCUsParams {
             connection: self.drift_client.backend.rpc_client.clone(),
             payer: self.drift_client.wallet.signer.clone(),
-            lookup_table_accounts: vec![lookup_table_account.clone()],
+            lookup_table_accounts: vec![self
+                .lookup_table_account
+                .clone()
+                .expect("lookup table account")
+                .clone()],
             ixs: ixs.into(),
-            cu_limit_multiplier: Some(CU_EST_MULTIPLIER),
+            cu_limit_multiplier: Some(SIM_CU_ESTIMATE_MULTIPLIER),
             do_simulation: Some(true),
             recent_blockhash: Some(recent_blockhash),
             dump_tx: None,
         };
 
-        let sim_res = simulate_and_get_tx_with_cus(params)
+        let sim_res = simulate_and_get_tx_with_cus(&mut params)
             .await
             .expect("simulate");
 
@@ -841,8 +874,10 @@ where
             + self.calc_compact_u16_encoded_size(&[ix.data.len()], Some(1))
     }
 
+    async fn send_fill_tx_and_parse_logs() {}
+
     async fn fill_multi_maker_perp_nodes(
-        &self,
+        &mut self,
         fill_tx_id: u16,
         node_to_fill: &NodeToFill,
         build_for_bundle: bool,
@@ -868,10 +903,65 @@ where
             }
 
             let user = self.drift_client.get_user(None);
-            let maker_infos_to_use = maker_infos;
+            let mut maker_infos_to_use: Vec<MakerInfo> = maker_infos
+                .into_iter()
+                .map(|(_slot, maker_info)| maker_info)
+                .collect();
+
+            let mut sim_res = self
+                .build_tx_with_maker_infos(
+                    &maker_infos_to_use,
+                    &ixs,
+                    node_to_fill,
+                    &taker_user,
+                    &referrer_info,
+                )
+                .await;
+            let mut tx_accounts = sim_res.tx.message.static_account_keys().len();
+            let attempt = 0;
+            while tx_accounts > MAX_ACCOUNTS_PER_TX && maker_infos_to_use.len() > 0 {
+                log::info!("(fill_tx_id: {fill_tx_id} attempt {attempt}) Too many accounts, remove 1 and try again (had {} maker and {tx_accounts} accounts)", maker_infos_to_use.len());
+                maker_infos_to_use = maker_infos_to_use[0..maker_infos_to_use.len() - 1].to_vec();
+                sim_res = self
+                    .build_tx_with_maker_infos(
+                        &maker_infos_to_use,
+                        &ixs,
+                        node_to_fill,
+                        &taker_user,
+                        &referrer_info,
+                    )
+                    .await;
+                tx_accounts = sim_res.tx.message.static_account_keys().len();
+            }
+
+            if maker_infos_to_use.is_empty() {
+                log::error!("No maker_infos left to use for multi maker perp node (fill_tx_id: {fill_tx_id}");
+                return Ok(true);
+            }
+
+            match sim_res.sim_error {
+                Some(err) => {
+                    log::error!("Error simulating multi maker perp node (fill_ix_id: {fill_tx_id}: {:?}\nTaker slot: {taker_user_slot}\n", err);
+
+                    if let Some(log) = sim_res.sim_tx_logs {
+                        // handle_transaction_logs()
+                    }
+                }
+                None => {
+                    if self.dry_run {
+                        log::info!("dry run, not sending tx {fill_tx_id: {fill_tx_id}");
+                    } else {
+                        if self.has_enough_sol_to_fill {
+                            self.send
+                        } else {
+                            log::info!("not sending tx because we don't have enough SOL to fill (fill_tx_id: {fill_tx_id}");
+                        }
+                    }
+                }
+            }
         }
 
-        Ok(false)
+        Ok(true)
     }
 
     /// It's difficult to estimate CU cost of multi maker ix, so we'll just send it in its own transaction

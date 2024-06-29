@@ -45,7 +45,7 @@ const ERROR_CODES_CAN_RETRY: &[u32] = &[
     6096, // AMMNotUpdatedInSameSlot
 ];
 
-const CU_EST_MULTIPLIER: f64 = 1.4;
+pub const CU_EST_MULTIPLIER: f64 = 1.4;
 
 pub struct FundingRateUpdaterBot<T: AccountProvider> {
     name: String,

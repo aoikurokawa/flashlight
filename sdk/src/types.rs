@@ -321,7 +321,7 @@ pub struct TxParams {
     pub processing: ProcessingTxParams,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MakerInfo {
     pub maker: Pubkey,
     pub maker_stats: Pubkey,

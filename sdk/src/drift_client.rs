@@ -833,7 +833,7 @@ where
         let drifit_user = self.get_user(None).unwrap();
         let filler = filler_pubkey.unwrap_or(&drifit_user.pubkey);
 
-        let filler_stats = self.get_user_stats(self.wallet().authority()).await?;
+        // let filler_stats = self.get_user_stats(self.wallet().authority()).await?;
 
         let account_data: User = self
             .backend
@@ -846,7 +846,7 @@ where
             Cow::Owned(account_data),
             false,
         )
-        .revert_fill(filler, &filler_stats.authority)
+        .revert_fill(*filler)
         .ixs[0];
 
         Ok(ix.clone())
