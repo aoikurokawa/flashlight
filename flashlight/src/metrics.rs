@@ -1,5 +1,6 @@
 /// RuntimeSpec is the attributes of the runtime environment, used to
 /// distinguish this metric set from others
+#[derive(Debug, Default)]
 pub struct RuntimeSpec {
     pub rpc_endpoint: String,
     pub drift_env: String,

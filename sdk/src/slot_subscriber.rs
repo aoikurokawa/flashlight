@@ -43,13 +43,13 @@ impl Event for SlotUpdate {
 impl SlotSubscriber {
     pub const SUBSCRIPTION_ID: &'static str = "slot";
 
-    pub fn new(url: String) -> Self {
+    pub fn new(url: &str) -> Self {
         let event_emitter = EventEmitter::new();
         Self {
             current_slot: Arc::new(Mutex::new(0)),
             event_emitter,
             subscribed: false,
-            url,
+            url: url.to_string(),
             unsubscriber: None,
         }
     }
@@ -141,7 +141,7 @@ mod tests {
         let cluster = Cluster::from_str("d").unwrap();
         let url = cluster.ws_url().to_string();
 
-        let mut slot_subscriber = SlotSubscriber::new(url);
+        let mut slot_subscriber = SlotSubscriber::new(&url);
         let _ = slot_subscriber.subscribe().await;
 
         slot_subscriber.event_emitter.clone().subscribe(

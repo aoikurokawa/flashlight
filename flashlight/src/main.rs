@@ -76,7 +76,7 @@ async fn main() {
         .await
         .expect("drift client subscribing");
 
-    let mut slot_subscriber = SlotSubscriber::new(websocket_url);
+    let mut slot_subscriber = SlotSubscriber::new(&websocket_url);
     slot_subscriber.subscribe().await.expect("subscribing slot");
 
     let lamports_balance = drift_client
@@ -115,11 +115,12 @@ async fn main() {
                     .expect("construct PriorityFeeSubscriber");
 
             let mut bot = FillerBot::new(
+                &websocket_url,
                 slot_subscriber,
                 None,
                 drift_client.clone(),
                 user_map,
-                RuntimeSpec::new(),
+                RuntimeSpec::default(),
                 GlobalConfig::default(),
                 FillerConfig::default(),
                 priority_fee_subscriber,

@@ -175,6 +175,7 @@ where
     T: AccountProvider + Clone,
 {
     pub async fn new(
+        websocket_url: &str,
         slot_subscriber: SlotSubscriber,
         bulk_account_loader: Option<BulkAccountLoader>,
         drift_client: Arc<DriftClient<T>>,
@@ -264,7 +265,7 @@ where
             Pubkey::from_str("8UJgxaiQx5nTrdDgph5FiahMmzduuLTLf5WmsPegYA6W").unwrap(),
         ]);
 
-        let pubsub_client = PubsubClient::new("wss://api.devnet.solana.com/")
+        let pubsub_client = PubsubClient::new(websocket_url)
             .await
             .expect("init pubsub client");
 
