@@ -10,7 +10,9 @@ use crate::filler::MAX_MAKERS_PER_FILL;
 
 const PROBABILITY_PRECISION: u64 = 1000;
 
-pub fn select_makers(maker_node_map: &mut HashMap<Pubkey, Vec<Node>>) -> HashMap<Pubkey, Vec<Node>> {
+pub fn select_makers(
+    maker_node_map: &mut HashMap<Pubkey, Vec<Node>>,
+) -> HashMap<Pubkey, Vec<Node>> {
     let mut selected_makers = HashMap::new();
 
     while selected_makers.len() < MAX_MAKERS_PER_FILL && !maker_node_map.is_empty() {

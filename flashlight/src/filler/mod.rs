@@ -187,7 +187,6 @@ where
         blockhash_subscriber: BlockhashSubscriber,
         bundle_sender: Option<BundleSender>,
     ) -> Self {
-        // todo!()
         // let tx_confirmation_connection = match global_config.tx_confirmation_endpoint {
         //     Some(ref endpoint) => RpcClient::new(endpoint.to_string()),
         //     None => drift_client.backend.rpc_client,
@@ -374,6 +373,7 @@ where
 
     pub async fn start_interval_loop(&mut self) {
         self.try_fill().await;
+        self.settle_pnls().await;
         // self.try
     }
 
@@ -943,7 +943,8 @@ where
             let tx_sig = tx.signatures[0];
 
             if build_for_bundle {
-                self.send_tx_through_jito(&tx, fill_tx_id, Some(tx_sig));
+                self.send_tx_through_jito(&tx, fill_tx_id, Some(tx_sig))
+                    .await;
                 self.remove_filling_nodes(nodes_sent);
             } else if self.can_send_outside_jito() {
                 match self.drift_client.sign_and_send(tx.message, false).await {
@@ -1042,7 +1043,8 @@ where
                                 &[node_to_fill.clone()],
                                 sim_res.tx,
                                 build_for_bundle,
-                            );
+                            )
+                            .await;
                         } else {
                             log::info!("not sending tx because we don't have enough SOL to fill (fill_tx_id: {fill_tx_id}");
                         }
@@ -1331,7 +1333,8 @@ where
                         &nodes_sent,
                         sim_res.tx,
                         build_for_bundle,
-                    );
+                    )
+                    .await;
                 } else {
                     log::info!("not sending tx because we don't have enough SOL to fill (fill_tx_id: {fill_tx_id}");
                 }
@@ -1382,6 +1385,23 @@ where
     ) {
         self.try_bulk_fill_perp_nodes(fillable_nodes, build_for_bundle)
             .await;
+    }
+
+    async fn settle_pnls(&mut self) {
+        // Check if we have enough SOL to fill
+        let authority = self.drift_client.wallet().authority();
+        let filler_sol_balance = self
+            .drift_client
+            .backend
+            .rpc_client
+            .get_balance(authority)
+            .await
+            .expect("get balance");
+        log::warn!(
+            "Minimum gas balance to fill: {}",
+            self.min_gas_balance_to_fill
+        );
+        self.has_enough_sol_to_fill = filler_sol_balance as f64 >= self.min_gas_balance_to_fill;
     }
 
     fn using_jito(&self) -> bool {
@@ -1476,7 +1496,8 @@ where
 
         let build_bundle = self.should_build_for_bundle();
 
-        self.execute_fillable_perp_nodes_for_market(&filtered_fillable_nodes, build_bundle);
+        self.execute_fillable_perp_nodes_for_market(&filtered_fillable_nodes, build_bundle)
+            .await;
         // TODO: execute_triggerable_perp_nodes_for_market
 
         ran = true;
