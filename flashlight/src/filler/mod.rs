@@ -42,8 +42,7 @@ use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,
     commitment_config::{CommitmentConfig, CommitmentLevel},
     compute_budget::ComputeBudgetInstruction,
-    instruction::Instruction,
-    message::VersionedMessage,
+    instruction::{AccountMeta, Instruction},
     native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::Signature,
@@ -64,6 +63,10 @@ use crate::{
     },
 };
 
+const MAX_TX_PACK_SIZE: usize = 1230; //1232;
+const CU_PER_FILL: usize = 260_000; // CU cost for a successful fill
+const BURST_CU_PER_FILL: usize = 350_000; // CU cost for a successful fill
+const MAX_CU_PER_TX: usize = 1_400_000; // seems like this is all budget program gives us...on devnet
 const DEFAULT_INTERVAL_MS: u16 = 6000;
 const FILL_ORDER_THROTTLE_BACKOFF: u64 = 1000; // the time to wait before trying to fill a throttled (error filling) node again
 const THROTTLED_NODE_SIZE_TO_PRUNE: usize = 10; // Size of throttled nodes to get to before pruning the map
@@ -874,9 +877,16 @@ where
     // - index of accounts where program_id resides (1 byte)
     // - affected accounts (compact-u16-format byte array)
     // - raw instruction data (compact-u16-format byte array)
-    fn calc_ix_encoded_size(&self, ix: &Instruction) -> usize {
-        1 + self.calc_compact_u16_encoded_size(&[ix.accounts.len()], Some(1))
-            + self.calc_compact_u16_encoded_size(&[ix.data.len()], Some(1))
+    fn calc_ix_encoded_size(&self, ixs: &[Instruction]) -> usize {
+        let mut sum = 0;
+
+        for ix in ixs {
+            sum += 1
+                + self.calc_compact_u16_encoded_size(&[ix.accounts.len()], Some(1))
+                + self.calc_compact_u16_encoded_size(&[ix.data.len()], Some(1));
+        }
+
+        sum
     }
 
     // TODO:
@@ -1079,7 +1089,12 @@ where
         &mut self,
         nodes_to_fill: &[NodeToFill],
         build_for_bundle: bool,
-    ) -> usize {
+    ) -> Result<usize, String> {
+        let drift_client = self.drift_client.clone();
+        let user_account_pubkey = drift_client.wallet().authority();
+        let mut builder = drift_client
+            .init_tx(&user_account_pubkey, false)
+            .expect("build tx");
         let mut ixs = vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
         if !build_for_bundle {
             ixs.push(ComputeBudgetInstruction::set_compute_unit_price(
@@ -1119,15 +1134,15 @@ where
         running_tx_size += self.calc_compact_u16_encoded_size(&[unique_accounts.len()], Some(32));
         // blockhash
         running_tx_size += 32;
-        running_tx_size += self.calc_ix_encoded_size(&compute_budget_ix);
+        running_tx_size += self.calc_ix_encoded_size(&[compute_budget_ix.clone()]);
 
         let mut nodes_sent: Vec<_> = Vec::new();
-        let idx_used = 0;
+        let mut idx_used = 0;
         let starting_ixs_size = ixs.len();
         let fill_tx_id = self.fill_tx_id;
         self.fill_tx_id += 1;
 
-        for (idx, node_to_fill) in nodes_to_fill.iter().enumerate() {
+        for node_to_fill in nodes_to_fill.iter() {
             // do multi maker fills in a separate tx since they're larger
             if !node_to_fill.get_maker_nodes().is_empty() {
                 self.try_fill_multi_maker_perp_nodes(node_to_fill, build_for_bundle)
@@ -1135,9 +1150,163 @@ where
                 nodes_sent.push(node_to_fill);
                 continue;
             }
+
+            // otherwise pack fill ixs untis est. tx size or CU limit is hit
+            if let Some((
+                maker_infos,
+                _taker_user_pubkey,
+                taker_user,
+                _taker_user_slot,
+                referrer_info,
+                market_type,
+            )) = self.get_node_fill_info(node_to_fill).await
+            {
+                // log_message_fo_node_to_fill
+                log::info!("");
+
+                if !matches!(market_type, MarketType::Perp) {
+                    return Err(String::from("expected perp market type"));
+                }
+
+                let maker_info: Vec<MakerInfo> =
+                    maker_infos.into_iter().map(|(_, info)| info).collect();
+                builder = builder.fill_perp_order(
+                    *user_account_pubkey,
+                    &taker_user,
+                    node_to_fill.get_node().get_order(),
+                    &maker_info,
+                    &referrer_info,
+                );
+
+                let instructions = builder.instructions();
+                if instructions.is_empty() {
+                    log::error!("failed to generate an ix");
+                    break;
+                }
+
+                let sig = get_node_to_fill_signature(node_to_fill);
+                self.filling_nodes.insert(sig, Instant::now());
+
+                // first estimate new tx size with this additional ix and new accounts
+                let mut ix_keys = Vec::new();
+                for ix in ixs.clone() {
+                    ix_keys.extend(ix.accounts);
+                }
+                let mut new_accounts: Vec<AccountMeta> = Vec::new();
+                for ix_key in ix_keys {
+                    if !unique_accounts.contains(&ix_key.pubkey) {
+                        new_accounts.push(ix_key);
+                    }
+                }
+                let new_ix_cost = self.calc_ix_encoded_size(instructions);
+                let additional_accounts_cost = if new_accounts.is_empty() {
+                    0
+                } else {
+                    self.calc_compact_u16_encoded_size(&new_accounts, Some(32)) - 1
+                };
+
+                // We have to use MAX_TX_PACK_SIZE because it appears we cannnot send tx with a
+                // size of exactly 1232 bytes.
+                // Also, some logs may get truncated near the end of the tx, so we need to leave
+                // some room for that.
+                let cu_to_user_per_fill = if self.use_burst_cu_limit {
+                    BURST_CU_PER_FILL
+                } else {
+                    CU_PER_FILL
+                };
+
+                // ensure at least 1 attempted fill
+                if (running_tx_size + new_ix_cost + additional_accounts_cost >= MAX_TX_PACK_SIZE
+                    || running_cu_used + cu_to_user_per_fill >= MAX_CU_PER_TX)
+                    && ixs.len() > starting_ixs_size + 1
+                {
+                    log::info!("Fully packed fill tx (ixs: {}): est. tx size {}, max: {MAX_TX_PACK_SIZE}, est. CU used: expected {}, max {MAX_CU_PER_TX}, (fill_tx_id: {fill_tx_id}", ixs.len(), running_tx_size + new_ix_cost + additional_accounts_cost, running_cu_used + cu_to_user_per_fill);
+                    break;
+                }
+
+                // add to tx
+                // log::info!("");
+                let instructions: Vec<Instruction> =
+                    instructions.into_iter().map(|ix| ix.clone()).collect();
+                ixs.extend(instructions);
+                running_tx_size += new_ix_cost + additional_accounts_cost;
+                running_cu_used += cu_to_user_per_fill;
+
+                for new_account in new_accounts {
+                    unique_accounts.insert(new_account.pubkey);
+                }
+                idx_used += 1;
+                nodes_sent.push(node_to_fill);
+            }
         }
 
-        0
+        if idx_used == 0 {
+            return Ok(nodes_sent.len());
+        }
+
+        if nodes_sent.is_empty() {
+            return Ok(0);
+        }
+
+        if let Some(true) = self.revert_on_failure {
+            builder.revert_fill(*user_account_pubkey);
+        }
+
+        let recent_blockhash = self
+            .drift_client
+            .backend
+            .rpc_client
+            .get_latest_blockhash()
+            .await
+            .expect("get recent blockhash");
+
+        let mut params = SimulateAndGetTxWithCUsParams {
+            connection: self.drift_client.backend.rpc_client.clone(),
+            payer: self.drift_client.wallet.signer.clone(),
+            lookup_table_accounts: vec![self
+                .lookup_table_account
+                .clone()
+                .expect("lookup table account")
+                .clone()],
+            ixs: ixs.into(),
+            cu_limit_multiplier: Some(SIM_CU_ESTIMATE_MULTIPLIER),
+            do_simulation: Some(true),
+            recent_blockhash: Some(recent_blockhash),
+            dump_tx: None,
+        };
+
+        let sim_res = simulate_and_get_tx_with_cus(&mut params)
+            .await
+            .expect("simulate");
+
+        if self.simulate_tx_for_cu_estimate.is_some() && sim_res.sim_error.is_some() {
+            log::error!(
+                "sim_error: {} (fill_tx_id: {fill_tx_id})",
+                sim_res.sim_error.unwrap()
+            );
+        } else {
+            if self.dry_run {
+                log::info!("dry run, not sending tx (fill_tx_id: {fill_tx_id}");
+            } else {
+                let nodes_sent: Vec<NodeToFill> = nodes_sent
+                    .clone()
+                    .into_iter()
+                    .map(|node| node.clone())
+                    .collect();
+                if self.has_enough_sol_to_fill {
+                    self.send_fill_tx_and_parse_logs(
+                        fill_tx_id,
+                        &nodes_sent,
+                        sim_res.tx,
+                        build_for_bundle,
+                    );
+                } else {
+                    log::info!("not sending tx because we don't have enough SOL to fill (fill_tx_id: {fill_tx_id}");
+                }
+            }
+        }
+
+        Ok(nodes_sent.len())
     }
 
     async fn filter_perp_nodes_for_market(
