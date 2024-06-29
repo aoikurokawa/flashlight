@@ -12,6 +12,7 @@ pub(crate) trait Bot {
     async fn health_check() -> bool;
 }
 
+#[derive(Debug)]
 pub enum JitoStrategy {
     JitoOnly,
     NonJitoOnly,

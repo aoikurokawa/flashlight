@@ -3,12 +3,24 @@ use std::{env, sync::Arc, time::Duration};
 use clap::{Parser, Subcommand};
 use dotenv::dotenv;
 use flashlight::{
-    config::BaseBotConfig, funding_rate_updater::FundingRateUpdaterBot, trigger::TriggerBot,
+    config::{BaseBotConfig, FillerConfig, GlobalConfig},
+    filler::FillerBot,
+    funding_rate_updater::FundingRateUpdaterBot,
+    metrics::RuntimeSpec,
+    trigger::TriggerBot,
 };
 use log::info;
 use sdk::{
-    drift_client::DriftClient, slot_subscriber::SlotSubscriber, types::Context, usermap::UserMap,
-    utils::load_keypair_multi_format, RpcAccountProvider, Wallet,
+    blockhash_subscriber::BlockhashSubscriber,
+    drift_client::DriftClient,
+    priority_fee::{
+        priority_fee_subscriber::PriorityFeeSubscriber, types::PriorityFeeSubscriberConfig,
+    },
+    slot_subscriber::SlotSubscriber,
+    types::Context,
+    usermap::UserMap,
+    utils::load_keypair_multi_format,
+    RpcAccountProvider, Wallet,
 };
 use solana_sdk::commitment_config::CommitmentConfig;
 
@@ -54,7 +66,7 @@ async fn main() {
     let wallet = Wallet::new(load_keypair_multi_format(&private_key).expect("valid keypair"));
     let account_provider = RpcAccountProvider::new(&endpoint);
 
-    let mut drift_client: DriftClient<RpcAccountProvider, u16> =
+    let mut drift_client: DriftClient<RpcAccountProvider> =
         DriftClient::new(Context::DevNet, account_provider, &wallet)
             .await
             .expect("fail to construct drift client");
@@ -87,7 +99,39 @@ async fn main() {
             // println!("{:?}", wallet.signer());
         }
         Commands::Jit {} => {}
-        Commands::Filler {} => {}
+        Commands::Filler {} => {
+            let drift_client = Arc::new(drift_client);
+            let _config = BaseBotConfig {
+                bot_id: "trigger".to_string(),
+                dry_run: true,
+                metrics_port: Some(9465),
+                run_once: Some(true),
+            };
+
+            let mut user_map = UserMap::new(CommitmentConfig::confirmed(), &endpoint, true, None);
+            user_map.subscribe().await.expect("subscribing usermap");
+            let priority_fee_subscriber =
+                PriorityFeeSubscriber::new(PriorityFeeSubscriberConfig::new(drift_client.clone()))
+                    .expect("construct PriorityFeeSubscriber");
+
+            let mut bot = FillerBot::new(
+                slot_subscriber,
+                None,
+                drift_client.clone(),
+                user_map,
+                RuntimeSpec::new(),
+                GlobalConfig::default(),
+                FillerConfig::default(),
+                priority_fee_subscriber,
+                BlockhashSubscriber::new(60, endpoint),
+                None,
+            )
+            .await;
+
+            bot.init().await;
+
+            bot.start_interval_loop().await;
+        }
         Commands::FundingRateUpdater {} => {
             let config = BaseBotConfig {
                 bot_id: "funding_rate_updater".to_string(),
@@ -96,7 +140,7 @@ async fn main() {
                 run_once: Some(true),
             };
 
-            let mut bot: FundingRateUpdaterBot<RpcAccountProvider, _> =
+            let mut bot: FundingRateUpdaterBot<RpcAccountProvider> =
                 FundingRateUpdaterBot::new(drift_client, config);
             if let Err(e) = bot.init().await {
                 println!("{e}");
@@ -117,10 +161,10 @@ async fn main() {
                 run_once: Some(true),
             };
 
-            let mut user_map = UserMap::new(CommitmentConfig::confirmed(), endpoint, true, None);
+            let mut user_map = UserMap::new(CommitmentConfig::confirmed(), &endpoint, true, None);
             user_map.subscribe().await.expect("subscribing usermap");
 
-            let mut bot: TriggerBot<_> =
+            let mut bot: TriggerBot =
                 TriggerBot::new(Arc::new(drift_client), slot_subscriber, user_map, config);
             if let Err(e) = bot.init().await {
                 println!("{e}");

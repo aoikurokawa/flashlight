@@ -2,7 +2,11 @@ use std::{num::NonZeroUsize, time::Duration};
 
 use lru::LruCache;
 use sdk::slot_subscriber::SlotSubscriber;
-use solana_sdk::{pubkey::Pubkey, signature::{Keypair, Signature}, transaction::VersionedTransaction};
+use solana_sdk::{
+    pubkey::Pubkey,
+    signature::{Keypair, Signature},
+    transaction::VersionedTransaction,
+};
 
 use crate::types::JitoStrategy;
 
@@ -49,7 +53,7 @@ pub(crate) struct BundleStats {
     dropped_blockhash_bot_found: u16,
 }
 
-pub(crate) struct BundleSender {
+pub struct BundleSender {
     // ws: Option<WebSocket>,
     // searcher_client: SearcherClient,
     leader_schedule_interval_id: Option<Duration>,

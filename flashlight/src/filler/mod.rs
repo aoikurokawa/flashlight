@@ -79,7 +79,7 @@ const SLOTS_UNTIL_JITO_LEADER_TO_SEND: u64 = 4;
 
 const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
 
-struct FillerBot<'a, T>
+pub struct FillerBot<'a, T>
 where
     T: AccountProvider,
 {
@@ -372,6 +372,7 @@ where
     }
 
     pub async fn start_interval_loop(&mut self) {
+        self.try_fill().await;
         // self.try
     }
 
@@ -706,7 +707,7 @@ where
 
             if maker_nodes_map.len() > MAX_MAKERS_PER_FILL {
                 log::info!("selecting from {} makers", maker_nodes_map.len());
-                maker_nodes_map = select_makers(&maker_nodes_map);
+                maker_nodes_map = select_makers(&mut maker_nodes_map);
                 // log::info!("selected: {}", maker_nodes_map.keys)
             }
 
@@ -1085,6 +1086,36 @@ where
         }
     }
 
+    async fn try_bulk_fill_perp_nodes(
+        &mut self,
+        nodes_to_fill: &[NodeToFill],
+        build_for_bundle: bool,
+    ) -> usize {
+        let mut nodes_sent = 0;
+        let mut market_node_map = HashMap::new();
+
+        for node_to_fill in nodes_to_fill {
+            let market_index = node_to_fill.get_node().get_order().market_index;
+            // if !market_node_map.contains_key(&market_index) {
+            //     market_node_map.insert(market_index, Vec::new());
+            // }
+            market_node_map
+                .entry(market_index)
+                .and_modify(|nodes: &mut Vec<NodeToFill>| nodes.push(node_to_fill.clone()))
+                .or_insert(Vec::new());
+        }
+
+        for nodes_to_fill_for_market in market_node_map.values() {
+            let sent = self
+                .try_bulk_fill_perp_nodes_for_market(nodes_to_fill_for_market, build_for_bundle)
+                .await
+                .expect("try bulk");
+            nodes_sent += sent;
+        }
+
+        nodes_sent
+    }
+
     async fn try_bulk_fill_perp_nodes_for_market(
         &mut self,
         nodes_to_fill: &[NodeToFill],
@@ -1343,6 +1374,15 @@ where
         (filtered_fillable_nodes, filtered_triggerable_nodes)
     }
 
+    async fn execute_fillable_perp_nodes_for_market(
+        &mut self,
+        fillable_nodes: &[NodeToFill],
+        build_for_bundle: bool,
+    ) {
+        self.try_bulk_fill_perp_nodes(fillable_nodes, build_for_bundle)
+            .await;
+    }
+
     fn using_jito(&self) -> bool {
         self.bundle_sender.is_some()
     }
@@ -1435,7 +1475,7 @@ where
 
         let build_bundle = self.should_build_for_bundle();
 
-        // TODO: execute_fillable_perp_nodes_for_market
+        self.execute_fillable_perp_nodes_for_market(&filtered_fillable_nodes, build_bundle);
         // TODO: execute_triggerable_perp_nodes_for_market
 
         ran = true;

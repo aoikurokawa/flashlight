@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
@@ -22,7 +24,7 @@ use super::{
 
 pub struct PriorityFeeSubscriber<T: AccountProvider> {
     // connection: Connection,
-    drift_client: Option<DriftClient<T>>,
+    drift_client: Option<Arc<DriftClient<T>>>,
     frequency_ms: u64,
     addresses: Vec<Pubkey>,
     drift_markets: Option<Vec<DriftMarketInfo>>,

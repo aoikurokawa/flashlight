@@ -42,7 +42,7 @@ impl UserMap {
 
     pub fn new(
         commitment: CommitmentConfig,
-        endpoint: String,
+        endpoint: &str,
         sync: bool,
         additional_filters: Option<Vec<RpcFilterType>>,
     ) -> Self {
@@ -55,7 +55,7 @@ impl UserMap {
         };
         let event_emitter = EventEmitter::new();
 
-        let url = get_ws_url(&endpoint.clone()).unwrap();
+        let url = get_ws_url(endpoint).unwrap();
 
         let subscription = WebsocketProgramAccountSubscriber::new(
             UserMap::SUBSCRIPTION_ID,
@@ -66,7 +66,7 @@ impl UserMap {
 
         let usermap = Arc::new(DashMap::new());
 
-        let rpc = RpcClient::new_with_commitment(endpoint.clone(), commitment);
+        let rpc = RpcClient::new_with_commitment(endpoint.to_string(), commitment);
 
         let sync_lock = if sync { Some(Mutex::new(())) } else { None };
 
@@ -255,7 +255,7 @@ mod tests {
             commitment: CommitmentLevel::Processed,
         };
 
-        let mut usermap = UserMap::new(commitment, endpoint, true, None);
+        let mut usermap = UserMap::new(commitment, &endpoint, true, None);
         usermap.subscribe().await.unwrap();
 
         tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{drift_client::DriftClient, AccountProvider};
@@ -21,7 +23,7 @@ pub trait PriorityFeeStrategy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum PriorityFeeMethod {
+pub enum PriorityFeeMethod {
     Solana,
     Helius,
     Drift,
@@ -38,10 +40,11 @@ impl From<&str> for PriorityFeeMethod {
     }
 }
 
+#[derive(Default)]
 pub struct PriorityFeeSubscriberConfig<T: AccountProvider> {
     /// rpc connection, optional if using priorityFeeMethod.HELIUS
     //connection?: Connection;
-    pub drift_client: Option<DriftClient<T>>,
+    pub drift_client: Option<Arc<DriftClient<T>>>,
 
     /// frequency to make RPC calls to update priority fee samples, in milliseconds
     pub frequency_ms: Option<u64>,
@@ -72,6 +75,24 @@ pub struct PriorityFeeSubscriberConfig<T: AccountProvider> {
 
     /// multiplier applied to priority fee before maxFeeMicroLamports, defaults to 1.0
     pub priority_fee_multiplier: Option<f64>,
+}
+
+impl<T: AccountProvider> PriorityFeeSubscriberConfig<T> {
+    pub fn new(drift_client: Arc<DriftClient<T>>) -> Self {
+        Self {
+            drift_client: Some(drift_client),
+            frequency_ms: None,
+            addresses: None,
+            drift_markets: None,
+            custom_strategy: None,
+            priority_fee_method: None,
+            slots_to_check: None,
+            helius_rpc_url: None,
+            drift_priority_fee_endpoint: None,
+            max_fee_micro_lamports: None,
+            priority_fee_multiplier: None,
+        }
+    }
 }
 
 pub struct PriorityFeeSubscriberMapConfig {
