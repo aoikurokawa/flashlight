@@ -2,7 +2,7 @@ use std::{num::NonZeroUsize, time::Duration};
 
 use lru::LruCache;
 use sdk::slot_subscriber::SlotSubscriber;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair};
+use solana_sdk::{pubkey::Pubkey, signature::{Keypair, Signature}, transaction::VersionedTransaction};
 
 use crate::types::JitoStrategy;
 
@@ -91,7 +91,7 @@ pub(crate) struct BundleSender {
     slot_subscriber: SlotSubscriber,
 
     /// tip algo params
-    strategy: JitoStrategy,
+    pub(crate) strategy: JitoStrategy,
 
     // cant be lower than this
     min_bundle_tip: u16,
@@ -138,5 +138,20 @@ impl BundleSender {
             Some(leader) => Some(leader.next_leader_slot - self.slot_subscriber.current_slot()),
             None => None,
         }
+    }
+
+    /// Alternatively, don't create the bundle now, but batch them and send them together with 1
+    /// tip.
+    pub(crate) async fn send_transaction(
+        &self,
+        signed_tx: &VersionedTransaction,
+        metadata: Option<String>,
+        tx_sig: Option<Signature>,
+    ) {
+        if !self.is_subscribed {
+            log::warn!("You should call bundle_sender.subscribe() before send_transaction()");
+        }
+
+        todo!()
     }
 }

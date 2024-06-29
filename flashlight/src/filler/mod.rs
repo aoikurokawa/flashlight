@@ -13,6 +13,7 @@ use drift::state::{
 };
 use log::info;
 use lru::LruCache;
+use rand::{seq::SliceRandom, thread_rng};
 use sdk::{
     accounts::BulkAccountLoader,
     blockhash_subscriber::BlockhashSubscriber,
@@ -42,8 +43,11 @@ use solana_sdk::{
     commitment_config::{CommitmentConfig, CommitmentLevel},
     compute_budget::ComputeBudgetInstruction,
     instruction::Instruction,
+    message::VersionedMessage,
     native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
+    signature::Signature,
+    transaction::VersionedTransaction,
 };
 
 use crate::{
@@ -51,11 +55,12 @@ use crate::{
     config::{FillerConfig, GlobalConfig},
     maker_selection::select_makers,
     metrics::RuntimeSpec,
+    types::JitoStrategy,
     util::{
         get_fill_signature_from_user_account_and_orader_id, get_node_to_fill_signature,
-        get_node_to_trigger_signature, simulate_and_get_tx_with_cus, valid_minimum_gas_amount,
-        valid_rebalance_settled_pnl_threshold, SimulateAndGetTxWithCUsParams,
-        SimulateAndGetTxWithCUsResponse,
+        get_node_to_trigger_signature, get_transaction_account_metas, simulate_and_get_tx_with_cus,
+        valid_minimum_gas_amount, valid_rebalance_settled_pnl_threshold,
+        SimulateAndGetTxWithCUsParams, SimulateAndGetTxWithCUsResponse,
     },
 };
 
@@ -874,7 +879,75 @@ where
             + self.calc_compact_u16_encoded_size(&[ix.data.len()], Some(1))
     }
 
-    async fn send_fill_tx_and_parse_logs() {}
+    // TODO:
+    /// Queues up the tx_sig to be confirmed in a slower loop, and have tx logs handled
+    // async fn register_tx_sig_to_confirm()
+
+    fn remove_filling_nodes(&mut self, nodes: &[NodeToFill]) {
+        for node in nodes {
+            self.filling_nodes.remove(&get_node_to_fill_signature(node));
+        }
+    }
+
+    async fn send_tx_through_jito(
+        &self,
+        tx: &VersionedTransaction,
+        metadata: u16,
+        tx_sig: Option<Signature>,
+    ) {
+        match &self.bundle_sender {
+            Some(sender) => {
+                if matches!(
+                    sender.strategy,
+                    JitoStrategy::JitoOnly | JitoStrategy::Hybrid
+                ) {
+                    let slots_until_next_leader = sender.slots_until_next_leader();
+                    if let Some(_leader) = slots_until_next_leader {
+                        sender
+                            .send_transaction(tx, Some(format!("(fill_tx_id: {metadata})")), tx_sig)
+                            .await;
+                    }
+                }
+            }
+            None => {
+                log::error!("Called send_tx_through_jito without jito property enabled");
+                return;
+            }
+        }
+    }
+
+    async fn send_fill_tx_and_parse_logs(
+        &mut self,
+        fill_tx_id: u16,
+        nodes_sent: &[NodeToFill],
+        tx: VersionedTransaction,
+        build_for_bundle: bool,
+    ) {
+        if let Some(look_up_table_account) = &self.lookup_table_account {
+            let (est_tx_size, account_metas, write_accs, tx_accounts) =
+                get_transaction_account_metas(&tx, &[look_up_table_account]);
+
+            let tx_start = Instant::now();
+            let tx_sig = tx.signatures[0];
+
+            if build_for_bundle {
+                self.send_tx_through_jito(&tx, fill_tx_id, Some(tx_sig));
+                self.remove_filling_nodes(nodes_sent);
+            } else if self.can_send_outside_jito() {
+                match self.drift_client.sign_and_send(tx.message, false).await {
+                    Ok(resp) => {
+                        log::info!(
+                            "sent tx: {resp}, took: {}ms (fill_tx_id: {fill_tx_id}",
+                            tx_start.elapsed().as_millis()
+                        );
+                    }
+                    Err(e) => {
+                        log::error!("Failed to send packed tx tx_account_keys: {tx_accounts} ({write_accs} writeable) (fill_tx_id: {fill_tx_id}), error: {e}");
+                    }
+                }
+            }
+        }
+    }
 
     async fn fill_multi_maker_perp_nodes(
         &mut self,
@@ -949,10 +1022,15 @@ where
                 }
                 None => {
                     if self.dry_run {
-                        log::info!("dry run, not sending tx {fill_tx_id: {fill_tx_id}");
+                        log::info!("dry run, not sending tx (fill_tx_id: {fill_tx_id})");
                     } else {
                         if self.has_enough_sol_to_fill {
-                            self.send
+                            self.send_fill_tx_and_parse_logs(
+                                fill_tx_id,
+                                &[node_to_fill.clone()],
+                                sim_res.tx,
+                                build_for_bundle,
+                            );
                         } else {
                             log::info!("not sending tx because we don't have enough SOL to fill (fill_tx_id: {fill_tx_id}");
                         }
@@ -973,8 +1051,28 @@ where
         let fill_tx_id = self.fill_tx_id;
         self.fill_tx_id += 1;
 
-        let node_with_market_set = node_to_fill;
-        // while
+        let mut node_with_market_set = node_to_fill.clone();
+        while !self
+            .fill_multi_maker_perp_nodes(fill_tx_id, &node_with_market_set, build_for_bundle)
+            .await
+            .expect("fill multi maker perp nodes")
+        {
+            let mut maker_nodes: Vec<Node> = node_with_market_set.get_maker_nodes().to_vec();
+
+            let mut rng = thread_rng();
+            maker_nodes.shuffle(&mut rng);
+
+            let midpoint = (maker_nodes.len() as f64 / 2.0).ceil() as usize;
+
+            let new_maker_set = maker_nodes[0..midpoint].to_vec();
+            if new_maker_set.is_empty() {
+                log::error!(
+                    "No makers left to use for multi maker perp node (fill_tx_id: {fill_tx_id}"
+                );
+                return;
+            }
+            node_with_market_set = NodeToFill::new(node_with_market_set.get_node(), new_maker_set);
+        }
     }
 
     async fn try_bulk_fill_perp_nodes_for_market(
@@ -1023,7 +1121,7 @@ where
         running_tx_size += 32;
         running_tx_size += self.calc_ix_encoded_size(&compute_budget_ix);
 
-        let nodes_sent: Vec<_> = Vec::new();
+        let mut nodes_sent: Vec<_> = Vec::new();
         let idx_used = 0;
         let starting_ixs_size = ixs.len();
         let fill_tx_id = self.fill_tx_id;
@@ -1032,7 +1130,10 @@ where
         for (idx, node_to_fill) in nodes_to_fill.iter().enumerate() {
             // do multi maker fills in a separate tx since they're larger
             if !node_to_fill.get_maker_nodes().is_empty() {
-                // self.try_fill_multi
+                self.try_fill_multi_maker_perp_nodes(node_to_fill, build_for_bundle)
+                    .await;
+                nodes_sent.push(node_to_fill);
+                continue;
             }
         }
 
@@ -1075,6 +1176,18 @@ where
 
     fn using_jito(&self) -> bool {
         self.bundle_sender.is_some()
+    }
+
+    fn can_send_outside_jito(&self) -> bool {
+        if let Some(sender) = &self.bundle_sender {
+            return self.using_jito()
+                || matches!(
+                    sender.strategy,
+                    JitoStrategy::NonJitoOnly | JitoStrategy::Hybrid
+                );
+        }
+
+        false
     }
 
     fn slots_until_jito_leader(&self) -> Option<u64> {
