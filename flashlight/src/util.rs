@@ -18,7 +18,7 @@ use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,
     compute_budget::{ComputeBudgetInstruction, ID as ComputeBudgetProgramId},
     hash::Hash,
-    instruction::Instruction,
+    instruction::{AccountMeta, Instruction},
     message::{v0::Message, VersionedMessage},
     pubkey::Pubkey,
     signature::Keypair,
@@ -209,6 +209,41 @@ pub async fn simulate_and_get_tx_with_cus(
         sim_tx_duration,
         tx,
     })
+}
+
+/// Return `est_tx_size`, `account_metas`, write_accs`, `tx_accounts`
+pub fn get_transaction_account_metas(
+    tx: &VersionedTransaction,
+    lut_accounts: &[AddressLookupTableAccount],
+) -> (usize, Vec<AccountMeta>, u32, usize) {
+    let mut write_accs = 0_u32;
+    let mut account_metas = Vec::new();
+    let est_tx_size = tx.message.serialize().len();
+    let acc = tx.message.static_account_keys();
+    let tx_accounts = acc.len();
+
+    for i in 0..tx_accounts {
+        let mut is_writable = false;
+        let mut is_signer = false;
+
+        if tx.message.is_maybe_writable(i) {
+            write_accs += 1;
+            is_writable = true;
+        }
+
+        if tx.message.is_signer(i) {
+            is_signer = true;
+        }
+
+        let meta = AccountMeta {
+            pubkey: acc[i],
+            is_writable,
+            is_signer,
+        };
+        account_metas.push(meta);
+    }
+
+    (tx_accounts, account_metas, write_accs, tx_accounts)
 }
 
 pub fn get_drift_priority_fee_endpoint(drift_env: DriftEnv) -> String {
