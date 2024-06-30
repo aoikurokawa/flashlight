@@ -893,7 +893,15 @@ where
 
     // TODO:
     /// Queues up the tx_sig to be confirmed in a slower loop, and have tx logs handled
-    // async fn register_tx_sig_to_confirm()
+    async fn register_tx_sig_to_confirm(
+        &mut self,
+        tx_sig: Signature,
+        now: Instant,
+        node_filled: &[NodeToFill],
+        fill_tx_id: u16,
+    ) {
+        // self.pendig
+    }
 
     fn remove_filling_nodes(&mut self, nodes: &[NodeToFill]) {
         for node in nodes {
@@ -904,7 +912,7 @@ where
     async fn send_tx_through_jito(
         &self,
         tx: &VersionedTransaction,
-        metadata: u16,
+        metadata: &str,
         tx_sig: Option<Signature>,
     ) {
         match &self.bundle_sender {
@@ -943,7 +951,7 @@ where
             let tx_sig = tx.signatures[0];
 
             if build_for_bundle {
-                self.send_tx_through_jito(&tx, fill_tx_id, Some(tx_sig))
+                self.send_tx_through_jito(&tx, &format!("{fill_tx_id}"), Some(tx_sig))
                     .await;
                 self.remove_filling_nodes(nodes_sent);
             } else if self.can_send_outside_jito() {
@@ -1387,6 +1395,111 @@ where
             .await;
     }
 
+    async fn execute_triggerable_perp_nodes_for_market(
+        &mut self,
+        triggerable_nodes: &[Node],
+        build_for_bundle: bool,
+    ) {
+        let authority = self.drift_client.wallet().authority();
+        for node_to_trigger in triggerable_nodes {
+            let user_account = node_to_trigger.get_user_account();
+            let user = self.get_user_account_and_slot_from_map(user_account).await;
+            let order = node_to_trigger.get_order();
+            if let Some((user, slot)) = user {
+                log::info!(
+                    "trying to trigger (account: {}, slot: {}) order {}",
+                    user_account,
+                    slot,
+                    order.order_id
+                );
+
+                let node_sig = get_node_to_trigger_signature(node_to_trigger);
+                self.triggering_nodes.insert(node_sig, Instant::now());
+
+                let mut ixs = vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
+                ixs.push(ComputeBudgetInstruction::set_compute_unit_price(
+                    self.priority_fee_subscriber.get_custom_strategy_result() as u64,
+                ));
+
+                let mut builder = self
+                    .drift_client
+                    .init_tx(authority, false)
+                    .expect("build tx")
+                    .trigger_order_ix(&user_account, &user, order, None, vec![]);
+
+                if let Some(true) = self.revert_on_failure {
+                    builder = builder.revert_fill(*authority);
+                }
+
+                ixs.extend(builder.instructions().to_vec());
+
+                let recent_blockhash = self
+                    .drift_client
+                    .backend
+                    .rpc_client
+                    .get_latest_blockhash()
+                    .await
+                    .expect("get recent blockhash");
+
+                let mut params = SimulateAndGetTxWithCUsParams {
+                    connection: self.drift_client.backend.rpc_client.clone(),
+                    payer: self.drift_client.wallet.signer.clone(),
+                    lookup_table_accounts: vec![self
+                        .lookup_table_account
+                        .clone()
+                        .expect("lookup table account")
+                        .clone()],
+                    ixs: ixs.into(),
+                    cu_limit_multiplier: Some(SIM_CU_ESTIMATE_MULTIPLIER),
+                    do_simulation: Some(true),
+                    recent_blockhash: Some(recent_blockhash),
+                    dump_tx: None,
+                };
+
+                let sim_res = simulate_and_get_tx_with_cus(&mut params)
+                    .await
+                    .expect("simulate");
+
+                if self.simulate_tx_for_cu_estimate.is_some() && sim_res.sim_error.is_some() {
+                    log::error!(
+                        "execute_triggerable_perp_nodes_for_market sim_error: {})",
+                        sim_res.sim_error.unwrap()
+                    );
+                } else {
+                    if self.dry_run {
+                        log::info!("dry run, not triggering node");
+                    } else {
+                        if self.has_enough_sol_to_fill {
+                            if build_for_bundle {
+                                self.send_tx_through_jito(
+                                    &sim_res.tx,
+                                    "trigger_order",
+                                    Some(sim_res.tx.signatures[0]),
+                                )
+                                .await;
+                            } else {
+                                match self
+                                    .drift_client
+                                    .sign_and_send(sim_res.tx.message, false)
+                                    .await
+                                {
+                                    Ok(sig) => {
+                                        log::info!("Signature: {sig}");
+                                    }
+                                    Err(e) => {
+                                        log::error!("Error ({e}) triggering order for user (account: {user_account}) order: {}", order.order_id);
+                                    }
+                                }
+                            }
+                        } else {
+                            log::info!("Not enough SOL to trigger, not triggering node");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     async fn settle_pnls(&mut self) {
         // Check if we have enough SOL to fill
         let authority = self.drift_client.wallet().authority();
@@ -1498,7 +1611,8 @@ where
 
         self.execute_fillable_perp_nodes_for_market(&filtered_fillable_nodes, build_bundle)
             .await;
-        // TODO: execute_triggerable_perp_nodes_for_market
+        self.execute_triggerable_perp_nodes_for_market(&filtered_triggerable_nodes, build_bundle)
+            .await;
 
         ran = true;
     }
