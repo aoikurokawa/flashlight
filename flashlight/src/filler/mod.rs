@@ -1517,6 +1517,15 @@ where
                         log::info!("dry run, not triggering node");
                     } else {
                         if self.has_enough_sol_to_fill {
+                            let tx_sig = sim_res.tx.signatures[0];
+                            self.register_tx_sig_to_confirm(
+                                tx_sig,
+                                Instant::now(),
+                                &[],
+                                u16::MAX,
+                                TxType::Trigger,
+                            );
+
                             if build_for_bundle {
                                 self.send_tx_through_jito(
                                     &sim_res.tx,
