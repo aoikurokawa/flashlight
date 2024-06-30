@@ -63,6 +63,10 @@ use crate::{
     },
 };
 
+use self::pending_tx_sigs_to_confirm::{PendingTxSigsToconfirm, TxType};
+
+mod pending_tx_sigs_to_confirm;
+
 const MAX_TX_PACK_SIZE: usize = 1230; //1232;
 const CU_PER_FILL: usize = 260_000; // CU cost for a successful fill
 const BURST_CU_PER_FILL: usize = 350_000; // CU cost for a successful fill
@@ -76,6 +80,7 @@ const MAX_ACCOUNTS_PER_TX: usize = 64; // solana limit, track https://github.com
 
 const SIM_CU_ESTIMATE_MULTIPLIER: f64 = 1.15;
 const SLOTS_UNTIL_JITO_LEADER_TO_SEND: u64 = 4;
+const CONFIRM_TX_RATE_LIMIT_BACKOFF_MS: u64 = 5_000; // wait this long until trying to confirm tx again if rate limited
 
 const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
 
@@ -124,15 +129,7 @@ where
     priority_fee_subscriber: PriorityFeeSubscriber<T>,
     blockhash_subscriber: BlockhashSubscriber,
     /// stores txSigs that need to been confirmed in a slower loop, and the time they were confirmed
-    // protected pendingTxSigsToconfirm: LRUCache<
-    // 	string,
-    // 	{
-    // 		ts: number;
-    // 		nodeFilled: Array<NodeToFill>;
-    // 		fillTxId: number;
-    // 		txType: TxType;
-    // 	}
-    // >;
+    pending_tx_sigs_toconfirm: LruCache<Signature, PendingTxSigsToconfirm>,
     expired_nodes_set: LruCache<String, bool>,
     confirm_loop_running: bool,
     confirm_loop_rate_limit_ts: Instant,
@@ -294,6 +291,7 @@ where
             rebalance_settled_pnl_threshold,
             priority_fee_subscriber,
             blockhash_subscriber,
+            pending_tx_sigs_toconfirm: LruCache::new(NonZeroUsize::new(10_000).unwrap()),
             expired_nodes_set: LruCache::new(NonZeroUsize::new(100).unwrap()),
             confirm_loop_running: false,
             confirm_loop_rate_limit_ts: Instant::now() - Duration::from_secs(5_000),
@@ -340,6 +338,7 @@ where
             Duration::from_secs(0),
         );
         let user_stats_map = UserStatsMap::new(self.drift_client.clone(), Some(user_stats_loader));
+
         log::info!(
             "Initialized user_stats_map: {}, took: {}ms",
             user_stats_map.size(),
@@ -362,12 +361,13 @@ where
         let user_map = self.user_map.clone().unwrap();
         let slot_subscriber = self.slot_subscriber.clone();
 
-        self.dlob_subscriber = Some(DLOBSubscriber::new(DLOBSubscriptionConfig {
+        let dlob_subscriber = DLOBSubscriber::new(DLOBSubscriptionConfig {
             drift_client,
             dlob_source: DlobSource::UserMap(user_map),
             slot_source: SlotSource::SlotSubscriber(slot_subscriber),
             update_frequency: Duration::from_millis((self.polling_interval_ms - 500) as u64),
-        }));
+        });
+        self.dlob_subscriber = Some(dlob_subscriber);
 
         if let Some(dlob_subscriber) = &self.dlob_subscriber {
             dlob_subscriber.subscribe().await.unwrap();
@@ -389,6 +389,28 @@ where
         self.try_fill().await;
         self.settle_pnls().await;
         // self.try
+
+        log::info!(
+            "{} Bot started! (websocket: {})",
+            self.name,
+            self.bulk_account_loader.is_none()
+        );
+    }
+
+    fn record_jito_bundle_stats() {
+        todo!()
+    }
+
+    async fn confirm_pending_tx_sigs(&mut self) {
+        let next_time_can_run =
+            self.confirm_loop_rate_limit_ts + Duration::from_secs(CONFIRM_TX_RATE_LIMIT_BACKOFF_MS);
+        let now = Instant::now();
+        if now < next_time_can_run {
+            log::warn!(
+                "Skipping confirm loop due to rate limit, next run in {} ms",
+                (next_time_can_run - now).as_millis()
+            );
+        }
     }
 
     async fn get_user_account_and_slot_from_map(&self, key: Pubkey) -> Option<(User, u64)> {
@@ -905,16 +927,19 @@ where
         sum
     }
 
-    // TODO:
     /// Queues up the tx_sig to be confirmed in a slower loop, and have tx logs handled
-    async fn register_tx_sig_to_confirm(
+    fn register_tx_sig_to_confirm(
         &mut self,
         tx_sig: Signature,
         now: Instant,
         node_filled: &[NodeToFill],
         fill_tx_id: u16,
+        tx_type: TxType,
     ) {
-        // self.pendig
+        self.pending_tx_sigs_toconfirm.put(
+            tx_sig,
+            PendingTxSigsToconfirm::new(now, node_filled, fill_tx_id, tx_type),
+        );
     }
 
     fn remove_filling_nodes(&mut self, nodes: &[NodeToFill]) {
@@ -981,6 +1006,14 @@ where
                     }
                 }
             }
+
+            self.register_tx_sig_to_confirm(
+                tx_sig,
+                Instant::now(),
+                nodes_sent,
+                fill_tx_id,
+                TxType::Fill,
+            );
         }
     }
 
