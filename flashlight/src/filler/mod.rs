@@ -315,6 +315,20 @@ where
     }
 
     pub async fn base_init(&mut self) {
+        let filler_sol_balance = self
+            .drift_client
+            .backend
+            .rpc_client
+            .get_balance(self.drift_client.wallet().authority())
+            .await
+            .expect("get sol balance");
+        self.has_enough_sol_to_fill = filler_sol_balance as f64 >= self.min_gas_balance_to_fill;
+        log::info!(
+            "{}: has_enoght_sol_to_fill: {}, balance: {filler_sol_balance}",
+            self.name,
+            self.has_enough_sol_to_fill
+        );
+
         let start_init_user_stats_map = Instant::now();
         info!("Initializing user_stats_map");
 
