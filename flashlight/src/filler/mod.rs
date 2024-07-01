@@ -1447,7 +1447,8 @@ where
         triggerable_nodes: &[Node],
         build_for_bundle: bool,
     ) {
-        let authority = self.drift_client.wallet().authority();
+        let drift_client = self.drift_client.clone();
+        let authority = drift_client.wallet().authority();
         for node_to_trigger in triggerable_nodes {
             let user_account = node_to_trigger.get_user_account();
             let user = self.get_user_account_and_slot_from_map(user_account).await;
@@ -1468,8 +1469,7 @@ where
                     self.priority_fee_subscriber.get_custom_strategy_result() as u64,
                 ));
 
-                let mut builder = self
-                    .drift_client
+                let mut builder = drift_client
                     .init_tx(authority, false)
                     .expect("build tx")
                     .trigger_order_ix(&user_account, &user, order, None, vec![]);
@@ -1480,8 +1480,7 @@ where
 
                 ixs.extend(builder.instructions().to_vec());
 
-                let recent_blockhash = self
-                    .drift_client
+                let recent_blockhash = drift_client
                     .backend
                     .rpc_client
                     .get_latest_blockhash()
@@ -1489,8 +1488,8 @@ where
                     .expect("get recent blockhash");
 
                 let mut params = SimulateAndGetTxWithCUsParams {
-                    connection: self.drift_client.backend.rpc_client.clone(),
-                    payer: self.drift_client.wallet.signer.clone(),
+                    connection: drift_client.backend.rpc_client.clone(),
+                    payer: drift_client.wallet.signer.clone(),
                     lookup_table_accounts: vec![self
                         .lookup_table_account
                         .clone()
@@ -1534,11 +1533,7 @@ where
                                 )
                                 .await;
                             } else {
-                                match self
-                                    .drift_client
-                                    .sign_and_send(sim_res.tx.message, false)
-                                    .await
-                                {
+                                match drift_client.sign_and_send(sim_res.tx.message, false).await {
                                     Ok(sig) => {
                                         log::info!("Signature: {sig}");
                                     }
