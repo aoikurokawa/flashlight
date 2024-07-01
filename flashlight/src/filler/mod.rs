@@ -37,7 +37,7 @@ use sdk::{
     usermap::{user_stats_map::UserStatsMap, UserMap},
     AccountProvider,
 };
-use solana_client::nonblocking::pubsub_client::PubsubClient;
+use solana_client::nonblocking::{pubsub_client::PubsubClient, rpc_client::RpcClient};
 use solana_sdk::{
     address_lookup_table_account::AddressLookupTableAccount,
     commitment_config::{CommitmentConfig, CommitmentLevel},
@@ -48,6 +48,7 @@ use solana_sdk::{
     signature::Signature,
     transaction::VersionedTransaction,
 };
+use solana_transaction_status::{option_serializer::OptionSerializer, UiTransactionEncoding};
 
 use crate::{
     bundle_sender::BundleSender,
@@ -80,6 +81,8 @@ const MAX_ACCOUNTS_PER_TX: usize = 64; // solana limit, track https://github.com
 
 const SIM_CU_ESTIMATE_MULTIPLIER: f64 = 1.15;
 const SLOTS_UNTIL_JITO_LEADER_TO_SEND: u64 = 4;
+const TX_CONFIRMATION_BATCH_SIZE: usize = 100;
+const TX_TIMEOUT_THRESHOLD_MS: u128 = 60_000; // tx considered stale after this time and give up confirming
 const CONFIRM_TX_RATE_LIMIT_BACKOFF_MS: u64 = 5_000; // wait this long until trying to confirm tx again if rate limited
 
 const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
@@ -97,7 +100,7 @@ where
     // user_stats_map_subscription_config: &'a UserSubscriptionConfig<U>,
     drift_client: Arc<DriftClient<T>>,
     /// Connection to use specifically for confirming transactions
-    // tx_confirmation_connection: RpcClient,
+    tx_confirmation_connection: Arc<RpcClient>,
     polling_interval_ms: u16,
     revert_on_failure: Option<bool>,
     simulate_tx_for_cu_estimate: Option<bool>,
@@ -184,6 +187,7 @@ where
         blockhash_subscriber: BlockhashSubscriber,
         bundle_sender: Option<BundleSender>,
     ) -> Self {
+        let drift_client = drift_client.clone();
         // let tx_confirmation_connection = match global_config.tx_confirmation_endpoint {
         //     Some(ref endpoint) => RpcClient::new(endpoint.to_string()),
         //     None => drift_client.backend.rpc_client,
@@ -200,6 +204,12 @@ where
         //         .user_account_subscription_config
         //         .unwrap(),
         // };
+        let tx_confirmation_connection =
+            if let Some(ref endpoint) = global_config.tx_confirmation_endpoint {
+                Arc::new(RpcClient::new(endpoint.to_string()))
+            } else {
+                drift_client.backend.rpc_client.clone()
+            };
 
         info!(
             "{}: revert_on_failure: {}, simulate_tx_for_cu_estimate: {}",
@@ -271,6 +281,8 @@ where
             name: filler_config.base_config.bot_id,
             dry_run: filler_config.base_config.dry_run,
             slot_subscriber,
+            drift_client,
+            tx_confirmation_connection,
             clock_subscriber: ClockSubscriber::new(Arc::new(pubsub_client), None),
             // tx_confirmation_connection,
             bulk_account_loader,
@@ -296,7 +308,6 @@ where
             confirm_loop_running: false,
             confirm_loop_rate_limit_ts: Instant::now() - Duration::from_secs(5_000),
             dlob_subscriber: None,
-            drift_client,
             fill_tx_id: 0,
             fill_tx_since_burst_cu: 0,
             filling_nodes: HashMap::new(),
@@ -310,6 +321,14 @@ where
             use_burst_cu_limit: false,
             watchdog_timer_last_pat_time: Instant::now(),
         }
+    }
+
+    fn record_evicted_tx_sig(&self) {
+        todo!()
+    }
+
+    fn initialize_metrics(&self) {
+        todo!()
     }
 
     pub async fn base_init(&mut self) {
@@ -388,7 +407,7 @@ where
     pub async fn start_interval_loop(&mut self) {
         self.try_fill().await;
         self.settle_pnls().await;
-        // self.try
+        self.confirm_pending_tx_sigs().await;
 
         log::info!(
             "{} Bot started! (websocket: {})",
@@ -410,6 +429,73 @@ where
                 "Skipping confirm loop due to rate limit, next run in {} ms",
                 (next_time_can_run - now).as_millis()
             );
+            return;
+        }
+        if self.confirm_loop_running {
+            return;
+        }
+        self.confirm_loop_running = true;
+
+        log::info!(
+            "Confirming tx sigs: {}",
+            self.pending_tx_sigs_toconfirm.len()
+        );
+        let start = Instant::now();
+        let pending_tx_sigs_toconfirm = self.pending_tx_sigs_toconfirm.clone();
+        let tx_entries: Vec<(&Signature, &PendingTxSigsToconfirm)> =
+            pending_tx_sigs_toconfirm.iter().collect();
+        for i in (0..tx_entries.len()).step_by(TX_CONFIRMATION_BATCH_SIZE) {
+            let tx_sigs_batch = &tx_entries[i..i + TX_CONFIRMATION_BATCH_SIZE];
+            let sigs: Vec<Signature> = tx_sigs_batch
+                .into_iter()
+                .map(|(sig, _pending_tx)| **sig)
+                .collect();
+            //let response = self
+            //    .tx_confirmation_connection
+            //    .get_signature_statuses(&sigs)
+            //    .await
+            //    .expect("get signature statuses");
+            //let txs = response.value;
+
+            let fetches = sigs.iter().map(|sig| {
+                self.tx_confirmation_connection
+                    .get_transaction(sig, UiTransactionEncoding::Json)
+            });
+            let txs = futures_util::future::join_all(fetches).await;
+
+            for j in 0..txs.len() {
+                let tx_resp = &txs[j];
+                let tx_confirmation_info = tx_sigs_batch[j];
+                let tx_sig = tx_confirmation_info.0;
+                let tx_age = tx_confirmation_info.1.ts - Instant::now();
+                let node_filled = &tx_confirmation_info.1.node_filled;
+                let tx_type = &tx_confirmation_info.1.tx_type;
+                let fill_tx_id = tx_confirmation_info.1.fill_tx_id;
+
+                match tx_resp {
+                    Ok(tx) => {
+                        log::info!("Tx landed (fill_tx_id: {fill_tx_id}) (tx_type: {tx_type:?}): {tx_sig}, tx age: {} s", tx_age.as_secs());
+                        self.pending_tx_sigs_toconfirm.pop(tx_sig);
+
+                        if matches!(tx_type, TxType::Fill) {
+                            if let Some(meta) = &tx.transaction.meta {
+                                if let OptionSerializer::Some(msgs) = &meta.log_messages {
+                                    let _result =
+                                        self.handle_transaction_logs(&node_filled, msgs).await;
+                                }
+                            }
+                        }
+                    }
+                    Err(_e) => {
+                        log::info!("Tx not found, (fill_tx_id: {fill_tx_id}) (tx_type: {tx_type:?}: {tx_sig}, tx age: {} s", tx_age.as_secs());
+                        if tx_age.as_millis() > TX_TIMEOUT_THRESHOLD_MS {
+                            self.pending_tx_sigs_toconfirm.pop(tx_sig);
+                        }
+                    }
+                }
+            }
+
+            log::info!("Confirming tx sigs took: {} ms", start.elapsed().as_millis());
         }
     }
 
@@ -925,6 +1011,13 @@ where
         }
 
         sum
+    }
+
+    /// Iterates through a tx's logs and handles it appropriately (e.g. throttling users, updating metrics, etc.)
+    ///
+    /// Returns `filled_nodes`, `exceeded_cus`
+    async fn handle_transaction_logs(&self, nodes_filled: &[NodeToFill], logs: &[String]) {
+        todo!()
     }
 
     /// Queues up the tx_sig to be confirmed in a slower loop, and have tx logs handled

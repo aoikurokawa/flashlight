@@ -20,6 +20,7 @@ sdk = { path = "../sdk" }
 serde = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
+solana-transaction-status = "1.14"
 thiserror = { workspace = true }
 tokio = { workspace = true }
 
