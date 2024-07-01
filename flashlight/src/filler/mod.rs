@@ -450,12 +450,6 @@ where
                 .into_iter()
                 .map(|(sig, _pending_tx)| **sig)
                 .collect();
-            //let response = self
-            //    .tx_confirmation_connection
-            //    .get_signature_statuses(&sigs)
-            //    .await
-            //    .expect("get signature statuses");
-            //let txs = response.value;
 
             let fetches = sigs.iter().map(|sig| {
                 self.tx_confirmation_connection
@@ -495,7 +489,10 @@ where
                 }
             }
 
-            log::info!("Confirming tx sigs took: {} ms", start.elapsed().as_millis());
+            log::info!(
+                "Confirming tx sigs took: {} ms",
+                start.elapsed().as_millis()
+            );
         }
     }
 
