@@ -101,8 +101,8 @@ async fn main() {
         Commands::Jit {} => {}
         Commands::Filler {} => {
             let drift_client = Arc::new(drift_client);
-            let _config = BaseBotConfig {
-                bot_id: "trigger".to_string(),
+            let base_config = BaseBotConfig {
+                bot_id: "filler".to_string(),
                 dry_run: true,
                 metrics_port: Some(9465),
                 run_once: Some(true),
@@ -122,7 +122,10 @@ async fn main() {
                 user_map,
                 RuntimeSpec::default(),
                 GlobalConfig::default(),
-                FillerConfig::default(),
+                FillerConfig {
+                    base_config,
+                    ..FillerConfig::default()
+                },
                 priority_fee_subscriber,
                 BlockhashSubscriber::new(60, endpoint),
                 None,

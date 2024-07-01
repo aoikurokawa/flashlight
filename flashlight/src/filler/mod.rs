@@ -479,8 +479,18 @@ where
                                 }
                             }
                         }
+
+                        log::info!(
+                            "Confirming tx sigs took: {} ms",
+                            start.elapsed().as_millis()
+                        );
                     }
-                    Err(_e) => {
+                    Err(e) => {
+                        if e.to_string().contains("429") {
+                            log::info!("Confirming tx loop rate limited: {}", e.to_string());
+                            self.confirm_loop_rate_limit_ts = Instant::now();
+                        }
+
                         log::info!("Tx not found, (fill_tx_id: {fill_tx_id}) (tx_type: {tx_type:?}: {tx_sig}, tx age: {} s", tx_age.as_secs());
                         if tx_age.as_millis() > TX_TIMEOUT_THRESHOLD_MS {
                             self.pending_tx_sigs_toconfirm.pop(tx_sig);
@@ -489,11 +499,14 @@ where
                 }
             }
 
-            log::info!(
-                "Confirming tx sigs took: {} ms",
-                start.elapsed().as_millis()
-            );
+            self.confirm_loop_running = false;
         }
+    }
+
+    pub fn health_check(&self) -> bool {
+        let healthy = false;
+
+        healthy
     }
 
     async fn get_user_account_and_slot_from_map(&self, key: Pubkey) -> Option<(User, u64)> {
