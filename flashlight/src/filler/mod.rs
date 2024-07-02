@@ -1026,7 +1026,36 @@ where
     /// Iterates through a tx's logs and handles it appropriately (e.g. throttling users, updating metrics, etc.)
     ///
     /// Returns `filled_nodes`, `exceeded_cus`
-    async fn handle_transaction_logs(&self, nodes_filled: &[NodeToFill], logs: &[String]) {
+    async fn handle_transaction_logs(
+        &mut self,
+        nodes_filled: &[NodeToFill],
+        logs: &[String],
+    ) -> (usize, bool) {
+        if logs.is_empty() {
+            return (0, false);
+        }
+
+        let in_fill_ix = false;
+        let error_this_fill_ix = false;
+        let ix_idx = -1; // skip ComputeBudgeProgram
+        let success_count = 0;
+        let mut bursted_cu = false;
+        for log in logs {
+            if log.is_empty() {
+                log::error!("log is null");
+                continue;
+            }
+
+            if log.contains("exceeded maximum number of instructions allowed") {
+                // temporary burst CU limit
+                log::warn!("Using bursted CU limit");
+                self.use_burst_cu_limit = true;
+                self.fill_tx_since_burst_cu = 0;
+                bursted_cu = true;
+                continue;
+            }
+        }
+
         todo!()
     }
 
