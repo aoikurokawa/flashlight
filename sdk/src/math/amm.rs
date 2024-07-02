@@ -550,34 +550,33 @@ pub fn calculate_spread_reserves(
     oracle_price_data: &OraclePriceData,
     now: Option<i64>,
 ) -> SdkResult<((u128, u128), (u128, u128))> {
-    // fn calculate_spread_reserve(
-    //     spread: i128,
-    //     direction: PositionDirection,
-    //     amm: &AMM,
-    // ) -> (u128, u128) {
-    //     if spread == 0 {
-    //         return (amm.base_asset_reserve, amm.quote_asset_reserve);
-    //     }
-    //     let mut spread_fraction = spread / 2;
+    fn calculate_spread_reserve(
+        spread: i128,
+        _direction: PositionDirection,
+        amm: &AMM,
+    ) -> (u128, u128) {
+        if spread == 0 {
+            return (amm.base_asset_reserve, amm.quote_asset_reserve);
+        }
+        let mut spread_fraction = spread / 2;
 
-    //     if spread_fraction == 0 {
-    //         spread_fraction = if spread >= 0 { 1 } else { -1 };
-    //     }
+        if spread_fraction == 0 {
+            spread_fraction = if spread >= 0 { 1 } else { -1 };
+        }
 
-    //     let quote_asset_reserve_delta = amm
-    //         .quote_asset_reserve
-    //         .div((BID_ASK_SPREAD_PRECISION as i128 / spread_fraction) as u128);
+        let quote_asset_reserve_delta =
+            amm.quote_asset_reserve as i128 / (BID_ASK_SPREAD_PRECISION as i128 / spread_fraction);
 
-    //     let quote_asset_reserve = if quote_asset_reserve_delta >= 0 {
-    //         amm.quote_asset_reserve + quote_asset_reserve_delta
-    //     } else {
-    //         amm.quote_asset_reserve - quote_asset_reserve_delta
-    //     };
+        let quote_asset_reserve = if quote_asset_reserve_delta >= 0 {
+            amm.quote_asset_reserve + quote_asset_reserve_delta as u128
+        } else {
+            amm.quote_asset_reserve - quote_asset_reserve_delta as u128
+        };
 
-    //     let base_asset_reserve = amm.sqrt_k.mul(amm.sqrt_k).div(quote_asset_reserve);
+        let base_asset_reserve = amm.sqrt_k.mul(amm.sqrt_k).div(quote_asset_reserve);
 
-    //     (base_asset_reserve, quote_asset_reserve)
-    // }
+        (base_asset_reserve, quote_asset_reserve)
+    }
 
     let reserve_price = calculate_price(
         amm.base_asset_reserve,
@@ -619,10 +618,16 @@ pub fn calculate_spread_reserves(
     let (long_spread, short_spread) =
         calculate_spread(amm, Some(oracle_price_data), now, Some(reserve_price))?;
 
-    let ask_reserves =
-        drift::math::amm_spread::calculate_spread_reserves(amm, PositionDirection::Long)?;
-    let bid_reserves =
-        drift::math::amm_spread::calculate_spread_reserves(amm, PositionDirection::Short)?;
+    let ask_reserves = calculate_spread_reserve(
+        (long_spread as i32 + reference_price_offset) as i128,
+        PositionDirection::Long,
+        amm,
+    );
+    let bid_reserves = calculate_spread_reserve(
+        (-short_spread + reference_price_offset as i32) as i128,
+        PositionDirection::Short,
+        amm,
+    );
 
     Ok((bid_reserves, ask_reserves))
 }

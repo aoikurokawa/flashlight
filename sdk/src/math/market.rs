@@ -25,6 +25,7 @@ pub fn calculate_bid_price(
     Ok(price)
 }
 
+/// Calculates market ask price
 pub fn calculate_ask_price(
     market: &PerpMarket,
     oracle_price_data: &OraclePriceData,
