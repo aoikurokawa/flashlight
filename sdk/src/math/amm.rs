@@ -624,7 +624,7 @@ pub fn calculate_spread_reserves(
         amm,
     );
     let bid_reserves = calculate_spread_reserve(
-        (-short_spread + reference_price_offset as i32) as i128,
+        (-(short_spread as i32) + reference_price_offset) as i128,
         PositionDirection::Short,
         amm,
     );
