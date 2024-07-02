@@ -1,4 +1,5 @@
 use regex::Regex;
+use solana_sdk::pubkey::Pubkey;
 
 pub fn is_ix_log(log: &str) -> bool {
     let re = Regex::new(r"Program log: Instruction:").unwrap();
@@ -6,7 +7,7 @@ pub fn is_ix_log(log: &str) -> bool {
     re.is_match(log)
 }
 
-pub fn is_end_ix_log(program_id: &str, log: &str) -> bool {
+pub fn is_end_ix_log(program_id: Pubkey, log: &str) -> bool {
     let regex_pattern = format!(
         r"Program {} consumed ([0-9]+) of ([0-9]+) compute units",
         program_id

@@ -18,6 +18,7 @@ use sdk::{
     accounts::BulkAccountLoader,
     blockhash_subscriber::BlockhashSubscriber,
     clock::clock_subscriber::ClockSubscriber,
+    constants,
     dlob::{
         dlob::{MarketAccount, NodeToFill, DLOB},
         dlob_node::{DLOBNode, Node, NodeType},
@@ -52,6 +53,10 @@ use solana_transaction_status::{option_serializer::OptionSerializer, UiTransacti
 
 use crate::{
     bundle_sender::BundleSender,
+    common::tx_log_parse::{
+        is_end_ix_log, is_fill_ix_log, is_ix_log, is_maker_breached_maintainance_margin_log,
+        is_order_does_not_exist_log,
+    },
     config::{FillerConfig, GlobalConfig},
     maker_selection::select_makers,
     metrics::RuntimeSpec,
@@ -651,6 +656,10 @@ where
         self.throttled_nodes.remove(&sig);
     }
 
+    fn set_throttled_node(&mut self, sig: String) {
+        self.throttled_nodes.insert(sig, Instant::now());
+    }
+
     fn prune_throttled_node(&mut self) {
         if self.throttled_nodes.len() > THROTTLED_NODE_SIZE_TO_PRUNE {
             let now = Instant::now();
@@ -1035,10 +1044,10 @@ where
             return (0, false);
         }
 
-        let in_fill_ix = false;
-        let error_this_fill_ix = false;
-        let ix_idx = -1; // skip ComputeBudgeProgram
-        let success_count = 0;
+        let mut in_fill_ix = false;
+        let mut error_this_fill_ix = false;
+        let mut ix_idx: usize = 0; // skip ComputeBudgeProgram
+        let mut success_count = 0;
         let mut bursted_cu = false;
         for log in logs {
             if log.is_empty() {
@@ -1053,6 +1062,66 @@ where
                 self.fill_tx_since_burst_cu = 0;
                 bursted_cu = true;
                 continue;
+            }
+
+            if is_end_ix_log(constants::PROGRAM_ID, log) {
+                if in_fill_ix && !error_this_fill_ix {
+                    success_count += 1;
+                }
+
+                in_fill_ix = false;
+                error_this_fill_ix = false;
+                continue;
+            }
+
+            if is_ix_log(log) {
+                if is_fill_ix_log(log) {
+                    in_fill_ix = true;
+                    error_this_fill_ix = false;
+                    ix_idx += 1;
+                } else {
+                    in_fill_ix = false;
+                }
+
+                continue;
+            }
+
+            if !in_fill_ix {
+                // this is not a log for a fill instruction
+                continue;
+            }
+
+            // try to handle the log line
+            if let Some(_order_id) = is_order_does_not_exist_log(log) {
+                if let Some(filled_node) = nodes_filled.get(ix_idx) {
+                    let now = SystemTime::now();
+                    let since_the_epoch =
+                        now.duration_since(UNIX_EPOCH).expect("Time went backwards");
+                    let is_expired = is_order_expired(
+                        filled_node.get_node().get_order(),
+                        since_the_epoch.as_secs() as i64,
+                        Some(true),
+                        None,
+                    );
+
+                    log::error!("assoc node (ix_idx: {ix_idx}): {}, {}; does not exist (filled by someone else); {log}, expired: {is_expired}, order_ts: {}, now: {}", filled_node.get_node().get_user_account(), filled_node.get_node().get_order().order_id, filled_node.get_node().get_order().max_ts, since_the_epoch.as_secs());
+
+                    if is_expired {
+                        let sig = get_node_to_fill_signature(filled_node);
+                        self.expired_nodes_set.put(sig, true);
+                    }
+                }
+
+                error_this_fill_ix = true;
+                continue;
+            }
+
+            let maker_breached_maintainance_margin = is_maker_breached_maintainance_margin_log(log);
+            if let Some(margin) = maker_breached_maintainance_margin {
+                log::error!("Throttling maker breached maintainance margin: {margin}");
+                self.set_throttled_node(margin);
+                // TODO: force cancel order
+                // self.drift_client.init_tx(account, delegated).unwrap().cancel_orders(Pubkey, direction)
             }
         }
 

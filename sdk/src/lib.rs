@@ -7,6 +7,7 @@ use constants::{derive_perp_market_account, derive_spot_market_account, ProgramD
 use drift::{
     controller::position::PositionDirection,
     instructions::SpotFulfillmentType,
+    math::constants::QUOTE_SPOT_MARKET_INDEX,
     state::{
         order_params::{ModifyOrderParams, OrderParams},
         perp_market::PerpMarket,
@@ -624,6 +625,35 @@ impl<'a> TransactionBuilder<'a> {
         self
     }
 
+    pub fn force_cancel_orders(
+        mut self,
+        filler: Pubkey,
+        user_account_pubkey: Pubkey,
+        user_account: &User,
+    ) -> Self {
+        let accounts = build_accounts(
+            self.program_data,
+            drift::accounts::ForceCancelOrder {
+                state: *state_account(),
+                filler,
+                user: user_account_pubkey,
+                authority: self.authority,
+            },
+            &[user_account],
+            &[],
+            &[MarketId::spot(QUOTE_SPOT_MARKET_INDEX)],
+        );
+
+        let ix = Instruction {
+            program_id: constants::PROGRAM_ID,
+            accounts,
+            data: InstructionData::data(&drift::instruction::ForceCancelOrders {}),
+        };
+        self.ixs.push(ix);
+
+        self
+    }
+
     /// Modify existing order(s) by order id
     pub fn modify_orders(mut self, orders: &[(u32, ModifyOrderParams)]) -> Self {
         for (order_id, params) in orders {
@@ -863,10 +893,10 @@ impl<'a> TransactionBuilder<'a> {
         user_account: &User,
         order: &Order,
         filler: Option<&Pubkey>,
-        remaining_accounts: Vec<AccountMeta>,
+        _remaining_accounts: Vec<AccountMeta>,
     ) -> Self {
         let filler = filler.unwrap_or(&self.authority);
-        let mut accounts = build_accounts(
+        let accounts = build_accounts(
             self.program_data,
             drift::accounts::TriggerOrder {
                 state: *state_account(),
@@ -926,7 +956,7 @@ impl<'a> TransactionBuilder<'a> {
         user_account: &User,
         order: &Order,
         maker_info: &[MakerInfo],
-        referre_info: &Option<ReferrerInfo>,
+        _referre_info: &Option<ReferrerInfo>,
     ) -> Self {
         let user_stats_pubkey =
             get_user_stats_account_pubkey(&constants::PROGRAM_ID, user_account.authority);
@@ -942,7 +972,7 @@ impl<'a> TransactionBuilder<'a> {
             user_accounts.push(&maker.maker_user_account);
         }
 
-        let mut accounts = build_accounts(
+        let accounts = build_accounts(
             self.program_data,
             drift::accounts::FillOrder {
                 state: *state_account(),
@@ -971,7 +1001,7 @@ impl<'a> TransactionBuilder<'a> {
         self
     }
 
-    pub fn tx_params(mut self, tx_params: TxParams) -> Self {
+    pub fn tx_params(self, _tx_params: TxParams) -> Self {
         self
     }
 
