@@ -12,6 +12,7 @@ use solana_sdk::account_info::{AccountInfo, IntoAccountInfo};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use tokio::sync::RwLock;
 
+use crate::types::SdkError;
 use crate::utils::get_ws_url;
 use crate::websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber};
 use crate::{event_emitter::EventEmitter, SdkResult};
@@ -53,18 +54,9 @@ impl OracleMap {
 
         let event_emitter = EventEmitter::new();
 
-        let rpc = RpcClient::new_with_commitment(endpoint.clone(), commitment);
+        let rpc = RpcClient::new_with_commitment(endpoint, commitment);
 
         let sync_lock = if sync { Some(Mutex::new(())) } else { None };
-
-        let mut all_oracles = vec![];
-        all_oracles.extend(perp_oracles.clone());
-        all_oracles.extend(spot_oracles.clone());
-
-        let oracle_infos_map: DashMap<_, _> = all_oracles
-            .iter()
-            .map(|(_, pubkey, oracle_source)| (*pubkey, *oracle_source))
-            .collect();
 
         let perp_oracles_map: DashMap<_, _> = perp_oracles
             .iter()
@@ -74,6 +66,15 @@ impl OracleMap {
         let spot_oracles_map: DashMap<_, _> = spot_oracles
             .iter()
             .map(|(market_index, pubkey, _)| (*market_index, *pubkey))
+            .collect();
+
+        let mut all_oracles = vec![];
+        all_oracles.extend(perp_oracles);
+        all_oracles.extend(spot_oracles);
+
+        let oracle_infos_map: DashMap<_, _> = all_oracles
+            .iter()
+            .map(|(_, pubkey, oracle_source)| (*pubkey, *oracle_source))
             .collect();
 
         Self {
@@ -97,14 +98,15 @@ impl OracleMap {
         }
 
         if !self.subscribed.load(Ordering::Relaxed) {
-            let url = get_ws_url(&self.rpc.url()).expect("valid url");
+            let url = get_ws_url(&self.rpc.url())
+                .map_err(|e| SdkError::Generic(format!("valid url: {e}")))?;
 
             let mut oracle_subscribers = vec![];
             for oracle_info in self.oracle_infos.iter() {
                 let oracle_pubkey = oracle_info.key();
                 let oracle_subscriber = WebsocketAccountSubscriber::new(
                     OracleMap::SUBSCRIPTION_ID,
-                    url.clone(),
+                    &url,
                     *oracle_pubkey,
                     self.commitment,
                     self.event_emitter.clone(),
@@ -317,7 +319,7 @@ impl OracleMap {
 
         let mut new_oracle_subscriber = WebsocketAccountSubscriber::new(
             OracleMap::SUBSCRIPTION_ID,
-            get_ws_url(&self.rpc.url()).expect("valid url"),
+            &get_ws_url(&self.rpc.url()).expect("valid url"),
             oracle,
             self.commitment,
             self.event_emitter.clone(),

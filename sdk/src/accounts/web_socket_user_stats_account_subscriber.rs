@@ -30,7 +30,7 @@ impl WebSocketUserStatsAccountSubscriber {
     ) -> Self {
         let user_stats_account_subscriber = WebsocketAccountSubscriber::<UserStatsAccount>::new(
             "userStats",
-            program.rpc().url(),
+            &program.rpc().url(),
             user_stats_account_pubkey,
             commitment.unwrap(),
             EventEmitter::new(),

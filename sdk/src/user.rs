@@ -6,6 +6,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::{
     drift_client::DriftClient,
     event_emitter::EventEmitter,
+    types::SdkError,
     utils::{decode, get_ws_url},
     websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber},
     AccountProvider, DataAndSlot, SdkResult,
@@ -27,9 +28,11 @@ impl DriftUser {
         drift_client: &DriftClient<A>,
         sub_account: Option<u16>,
     ) -> SdkResult<Self> {
+        let url = get_ws_url(&drift_client.inner().url())
+            .map_err(|e| SdkError::Generic(format!("valid url: {e}")))?;
         let subscription = WebsocketAccountSubscriber::new(
             DriftUser::SUBSCRIPTION_ID,
-            get_ws_url(&drift_client.inner().url()).expect("valid url"),
+            &url,
             pubkey,
             drift_client.inner().commitment(),
             EventEmitter::new(),

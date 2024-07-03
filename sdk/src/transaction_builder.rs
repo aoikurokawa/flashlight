@@ -362,10 +362,11 @@ impl<'a> TransactionBuilder<'a> {
 
     pub fn force_cancel_orders(
         mut self,
-        filler: Pubkey,
+        filler: Option<Pubkey>,
         user_account_pubkey: Pubkey,
         user_account: &User,
     ) -> Self {
+        let filler = filler.unwrap_or(self.authority);
         let accounts = build_accounts(
             self.program_data,
             drift::accounts::ForceCancelOrder {

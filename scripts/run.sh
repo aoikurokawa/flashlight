@@ -1,2 +1,2 @@
 ##! /bin/bash
-RUST_LOG=info cargo r -- filler
+RUST_LOG="info,flashlight::filler=debug" cargo r -- filler

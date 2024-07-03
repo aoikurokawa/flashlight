@@ -46,14 +46,14 @@ pub struct WebsocketAccountSubscriber<T> {
 impl<T> WebsocketAccountSubscriber<T> {
     pub fn new(
         subscription_name: &'static str,
-        url: String,
+        url: &str,
         pubkey: Pubkey,
         commitment: CommitmentConfig,
         event_emitter: EventEmitter,
     ) -> Self {
         WebsocketAccountSubscriber {
             subscription_name,
-            url,
+            url: url.to_string(),
             pubkey,
             commitment,
             subscribed: false,

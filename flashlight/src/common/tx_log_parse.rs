@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use regex::Regex;
 use solana_sdk::pubkey::Pubkey;
 
@@ -74,7 +76,7 @@ pub fn is_taker_breached_maintainance_margin_log(log: &str) -> bool {
     re.is_match(log)
 }
 
-pub fn is_err_filling_log(log: &str) -> (Option<u32>, Option<&str>) {
+pub fn is_err_filling_log(log: &str) -> (Option<u32>, Option<Pubkey>) {
     let re = Regex::new(r".*Err filling order id ([0-9]+) for user ([a-zA-Z0-9]+)").unwrap();
 
     if let Some(captures) = re.captures(log) {
@@ -82,7 +84,7 @@ pub fn is_err_filling_log(log: &str) -> (Option<u32>, Option<&str>) {
             (Some(order_id), Some(user)) => {
                 let order_id = order_id.as_str().parse().ok();
 
-                return (order_id, Some(user.as_str()));
+                return (order_id, Pubkey::from_str(user.as_str()).ok());
             }
             _ => return (None, None),
         }

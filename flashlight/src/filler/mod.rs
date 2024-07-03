@@ -54,8 +54,9 @@ use solana_transaction_status::{option_serializer::OptionSerializer, UiTransacti
 use crate::{
     bundle_sender::BundleSender,
     common::tx_log_parse::{
-        is_end_ix_log, is_fill_ix_log, is_ix_log, is_maker_breached_maintainance_margin_log,
-        is_order_does_not_exist_log,
+        is_end_ix_log, is_err_filling_log, is_err_stale_oracle, is_fill_ix_log, is_ix_log,
+        is_maker_breached_maintainance_margin_log, is_order_does_not_exist_log,
+        is_taker_breached_maintainance_margin_log,
     },
     config::{FillerConfig, GlobalConfig},
     maker_selection::select_makers,
@@ -77,6 +78,7 @@ const MAX_TX_PACK_SIZE: usize = 1230; //1232;
 const CU_PER_FILL: usize = 260_000; // CU cost for a successful fill
 const BURST_CU_PER_FILL: usize = 350_000; // CU cost for a successful fill
 const MAX_CU_PER_TX: usize = 1_400_000; // seems like this is all budget program gives us...on devnet
+const TX_COUNT_COOLDOWN_ON_BURST: u16 = 10; // send this many tx before resetting burst mode
 const DEFAULT_INTERVAL_MS: u16 = 6000;
 const FILL_ORDER_THROTTLE_BACKOFF: u64 = 1000; // the time to wait before trying to fill a throttled (error filling) node again
 const THROTTLED_NODE_SIZE_TO_PRUNE: usize = 10; // Size of throttled nodes to get to before pruning the map
@@ -567,6 +569,7 @@ where
         let oracle = self
             .drift_client
             .get_oracle_price_data_and_slot_for_perp_market(market_index);
+        log::debug!("Oracle: {oracle:?}");
         if let Some(oracle) = oracle {
             let v_ask = calculate_ask_price(&market, &oracle.data).expect("calculate ask price");
             let v_bid = calculate_bid_price(&market, &oracle.data).expect("calculate bid price");
@@ -656,8 +659,8 @@ where
         self.throttled_nodes.remove(&sig);
     }
 
-    fn set_throttled_node(&mut self, sig: String) {
-        self.throttled_nodes.insert(sig, Instant::now());
+    fn set_throttled_node(&mut self, sig: &str) {
+        self.throttled_nodes.insert(sig.to_string(), Instant::now());
     }
 
     fn prune_throttled_node(&mut self) {
@@ -1116,16 +1119,106 @@ where
                 continue;
             }
 
-            let maker_breached_maintainance_margin = is_maker_breached_maintainance_margin_log(log);
-            if let Some(margin) = maker_breached_maintainance_margin {
+            if let Some(margin) = is_maker_breached_maintainance_margin_log(log) {
                 log::error!("Throttling maker breached maintainance margin: {margin}");
-                self.set_throttled_node(margin);
-                // TODO: force cancel order
-                // self.drift_client.init_tx(account, delegated).unwrap().cancel_orders(Pubkey, direction)
+                self.set_throttled_node(&margin);
+                let user_pub = Pubkey::from_str(&margin).unwrap();
+                if let Some((user_account, _slot)) =
+                    self.get_user_account_and_slot_from_map(user_pub).await
+                {
+                    let msg = self
+                        .drift_client
+                        .init_tx(self.drift_client.wallet().authority(), false)
+                        .unwrap()
+                        .force_cancel_orders(None, user_pub, &user_account)
+                        .legacy()
+                        .build();
+
+                    match self.drift_client.sign_and_send(msg, false).await {
+                        Ok(sig) => {
+                            log::info!("force_cancel_orders for makers due to breach of maintainance margin. Tx: {sig}");
+                        }
+                        Err(e) => {
+                            log::error!("{e}");
+                            log::error!("Failed to send force_calcel_order Tx for maker ({margin}) breach margin (error above)");
+                        }
+                    }
+                }
+
+                // error_this_fill_ix = true;
+                break;
+            }
+
+            if let Some(filled_node) = nodes_filled.get(ix_idx) {
+                if is_taker_breached_maintainance_margin_log(log) {
+                    let taker_node_sig = filled_node.get_node().get_user_account();
+                    log::error!("taker breach maint. margin, assoc node (ix_idx: {ix_idx}): {}, {}; (throttling {taker_node_sig} and force cancelling orders); {log}", filled_node.get_node().get_user_account(), filled_node.get_node().get_order().order_id);
+                    self.set_throttled_node(&taker_node_sig.to_string());
+                    error_this_fill_ix = true;
+
+                    let user_pub = filled_node.get_node().get_user_account();
+                    if let Some((user_account, _slot)) =
+                        self.get_user_account_and_slot_from_map(user_pub).await
+                    {
+                        let msg = self
+                            .drift_client
+                            .init_tx(self.drift_client.wallet().authority(), false)
+                            .unwrap()
+                            .force_cancel_orders(None, user_pub, &user_account)
+                            .legacy()
+                            .build();
+
+                        match self.drift_client.sign_and_send(msg, false).await {
+                            Ok(sig) => {
+                                log::info!("force_cancel_orders for user {user_pub} due to breach of maintainance margin. Tx: {sig}");
+                            }
+                            Err(e) => {
+                                log::error!("{e}");
+                                log::error!("Failed to send force_calcel_order Tx for taker ({user_pub} - {}) breach maint. margin (error above)", filled_node.get_node().get_order().order_id);
+                            }
+                        }
+                    }
+
+                    continue;
+                }
+            }
+
+            if let (Some(order_id), Some(user_account)) = is_err_filling_log(log) {
+                let extract_sig =
+                    get_fill_signature_from_user_account_and_orader_id(user_account, order_id);
+                self.set_throttled_node(&extract_sig);
+
+                if let Some(filled_node) = nodes_filled.get(ix_idx) {
+                    let assoc_node_sig = get_node_to_fill_signature(filled_node);
+                    log::warn!("Throttling node due to fill error. extracted_sig: {extract_sig}, assoc_node_sig: {assoc_node_sig}, assoc_node_idx: {ix_idx}");
+                    error_this_fill_ix = true;
+                    continue;
+                }
+            }
+
+            if is_err_stale_oracle(log) {
+                log::error!("Stale oracle error: {log}");
+                error_this_fill_ix = true;
+                continue;
             }
         }
 
-        todo!()
+        if !bursted_cu {
+            if self.fill_tx_since_burst_cu > TX_COUNT_COOLDOWN_ON_BURST {
+                self.use_burst_cu_limit = false;
+            }
+            self.fill_tx_since_burst_cu += 1;
+        }
+
+        if !logs.is_empty() {
+            if let Some(last) = logs.last() {
+                if last.contains("exceeded CUs meter at BPF instruction") {
+                    return (success_count, true);
+                }
+            }
+        }
+
+        (success_count, false)
     }
 
     /// Queues up the tx_sig to be confirmed in a slower loop, and have tx logs handled
