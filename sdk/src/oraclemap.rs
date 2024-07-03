@@ -1,6 +1,8 @@
-use crate::utils::get_ws_url;
-use crate::websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber};
-use crate::{event_emitter::EventEmitter, SdkResult};
+use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+
+use base64::Engine;
 use dashmap::DashMap;
 use drift::state::oracle::{get_oracle_price, OraclePriceData, OracleSource};
 use solana_account_decoder::{UiAccountData, UiAccountEncoding};
@@ -8,10 +10,11 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcAccountInfoConfig;
 use solana_sdk::account_info::{AccountInfo, IntoAccountInfo};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
-use std::str::FromStr;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
+
+use crate::utils::get_ws_url;
+use crate::websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber};
+use crate::{event_emitter::EventEmitter, SdkResult};
 
 #[derive(Clone, Debug)]
 pub struct Oracle {
@@ -123,7 +126,9 @@ impl OracleMap {
                             if let UiAccountData::Binary(blob, UiAccountEncoding::Base64) =
                                 &update.data.data
                             {
-                                let mut data = base64::decode(blob).expect("valid data");
+                                let mut data = base64::engine::general_purpose::STANDARD
+                                    .decode(blob)
+                                    .expect("valid data");
                                 let owner =
                                     Pubkey::from_str(&update.data.owner).expect("valid pubkey");
                                 let mut lamports = update.data.lamports;

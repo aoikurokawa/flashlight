@@ -10,9 +10,9 @@ pub struct UserConfig<T>
 where
     T: AccountProvider,
 {
-    account_subscription: Option<UserSubscriptionConfig>,
-    drift_client: DriftClient<T>,
-    user_account_public_key: Pubkey,
+    pub account_subscription: Option<UserSubscriptionConfig>,
+    pub drift_client: DriftClient<T>,
+    pub user_account_public_key: Pubkey,
 }
 
 #[derive(Clone)]

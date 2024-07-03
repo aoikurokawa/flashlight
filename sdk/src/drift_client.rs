@@ -41,12 +41,13 @@ use crate::{
     event_emitter::EventEmitter,
     marketmap::MarketMap,
     oraclemap::{Oracle, OracleMap},
+    transaction_builder::TransactionBuilder,
     types::{Context, DataAndSlot, MarketId, SdkError, SdkResult, TxParams},
     user::DriftUser,
     user_config::UserSubscriptionConfig,
     utils::{self, decode, get_ws_url},
     websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber},
-    AccountProvider, TransactionBuilder, Wallet,
+    AccountProvider, Wallet,
 };
 
 struct RemainingAccountParams {
@@ -728,7 +729,7 @@ where
         user_account_pubkey: &Pubkey,
         user_account: User,
         order: &Order,
-        trigger_order: Option<TxParams>,
+        _trigger_order: Option<TxParams>,
         filler_pubkey: Option<&Pubkey>,
     ) -> SdkResult<Signature> {
         let ix = self

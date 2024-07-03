@@ -1,6 +1,7 @@
 //! SDK utility functions
 
 use anchor_lang::AccountDeserialize;
+use base64::Engine;
 use drift::state::user::MarketType;
 use serde_json::json;
 use solana_account_decoder::UiAccountData;
@@ -36,7 +37,7 @@ pub fn read_keypair_str_multi_format(key: &str) -> SdkResult<Keypair> {
     }
 
     // try to decode as base64 string
-    if let Ok(bytes) = base64::decode(key.as_bytes()) {
+    if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(key.as_bytes()) {
         return Keypair::from_bytes(&bytes).map_err(|_| SdkError::InvalidSeed);
     }
 
@@ -124,7 +125,7 @@ where
         _ => return Err(SdkError::UnsupportedAccountData),
     };
 
-    let decoded_data = base64::decode(data_str)?;
+    let decoded_data = base64::engine::general_purpose::STANDARD.decode(data_str)?;
     let mut decoded_data_slice = decoded_data.as_slice();
 
     T::try_deserialize(&mut decoded_data_slice).map_err(|err| SdkError::Anchor(Box::new(err)))
