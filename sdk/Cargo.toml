@@ -8,12 +8,12 @@ edition = "2021"
 [dependencies]
 anchor-client = "0.27.0"
 anchor-lang = { workspace = true }
-async-trait = "0.1.80"
 base64 = { workspace = true }
 bincode = "1.3.3"
 borsh = { version = "1.5.0", features = ["derive"] }
 bytemuck = "1.15.0"
 dashmap = "5.5.3"
+drift = { workspace = true }
 fnv = "1.0.7"
 futures-util = { workspace = true }
 log = { workspace = true }
@@ -29,11 +29,6 @@ solana-sdk = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
-
-[dependencies.drift]
-git = "https://github.com/drift-labs/protocol-v2.git"
-rev = "2bbe28c"
-features = [ "mainnet-beta", "drift-rs" ] 
 
 [dependencies.uuid]
 version = "1.8.0"

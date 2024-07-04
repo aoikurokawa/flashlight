@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use drift::state::user::User as UserAccount;
 
 use crate::{
@@ -11,13 +10,13 @@ use super::{
     web_socket_user_stats_account_subscriber::WebSocketUserStatsAccountSubscriber,
 };
 
-#[async_trait]
-pub trait AccountSubscriber<T> {
-    async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, on_change: F);
-    async fn fetch(&mut self) -> SdkResult<()>;
-    async fn unsubscribe(&self);
-    fn set_data(&mut self, user_account: T, slot: Option<u64>);
-}
+// #[async_trait]
+// pub trait AccountSubscriber<T> {
+//     async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, on_change: F);
+//     async fn fetch(&mut self) -> SdkResult<()>;
+//     async fn unsubscribe(&self);
+//     fn set_data(&mut self, user_account: T, slot: Option<u64>);
+// }
 
 enum UserAccountEvents {
     UserAccountUpdate { payload: Box<UserAccount> },

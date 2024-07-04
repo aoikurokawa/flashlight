@@ -3,18 +3,23 @@ members = [ "sdk", "flashlight", "examples" ]
 resolver = "2"
 
 [workspace.dependencies]
-anchor-client = "0.27.0"
-anchor-lang = "0.27.0"
+anchor-client = "0.29.0"
+anchor-lang = "0.29.0"
 base64 = "0.22.1"
 futures-util = "0.3.30"
 log = "0.4.21"
 reqwest = { version = "0.12.4", features = ["json"] }
 serde = { version = "1.0.202", features = ["derive"] }
-solana-client = "1.14"
-solana-metrics = "1.14"
-solana-perf = "1.14"
-solana-sdk = "1.14"
+solana-client = "1.16"
+solana-metrics = "1.16"
+solana-perf = "1.16"
+solana-sdk = "1.16"
 thiserror = "1.0.60"
 tokio = { version = "1.34.0", features = ["full"] }
 tokio-tungstenite = { version = "0.21.0", features = ["native-tls"] }
+
+[workspace.dependencies.drift]
+git = "https://github.com/drift-labs/protocol-v2.git"
+rev = "4c99015"
+features = [ "mainnet-beta", "drift-rs" ] 
 

@@ -9,7 +9,7 @@ use crate::{
     WebsocketAccountSubscriber,
 };
 
-use super::{AccountSubscriber, ResubOpts};
+use super::ResubOpts;
 
 pub struct WebSocketUserStatsAccountSubscriber {
     is_subscribed: bool,

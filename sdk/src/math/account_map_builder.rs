@@ -3,12 +3,8 @@ use drift::{
     ids::{pyth_program, switchboard_program},
     instructions::optional_accounts::AccountMaps,
     state::{
-        oracle::OracleSource,
-        oracle_map::OracleMap,
-        perp_market::PerpMarket,
-        perp_market_map::{MarketSet, PerpMarketMap},
-        spot_market::SpotMarket,
-        spot_market_map::SpotMarketMap,
+        oracle::OracleSource, oracle_map::OracleMap, perp_market::PerpMarket,
+        perp_market_map::PerpMarketMap, spot_market::SpotMarket, spot_market_map::SpotMarketMap,
         user::User,
     },
 };
@@ -113,7 +109,11 @@ impl AccountMapBuilder {
                 OracleSource::Pyth
                 | OracleSource::Pyth1K
                 | OracleSource::Pyth1M
-                | OracleSource::PythStableCoin => &pyth_program::ID,
+                | OracleSource::PythStableCoin
+                | OracleSource::PythPull
+                | OracleSource::Pyth1KPull
+                | OracleSource::Pyth1MPull
+                | OracleSource::PythStableCoinPull => &pyth_program::ID,
                 OracleSource::Switchboard => &switchboard_program::ID,
                 OracleSource::QuoteAsset => &constants::DEFAULT_PUBKEY,
                 OracleSource::Prelaunch => &drift::ID,
