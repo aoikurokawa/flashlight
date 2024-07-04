@@ -150,16 +150,12 @@ impl<T> WebsocketAccountSubscriber<T> {
                     }
 
                     if attempt >= max_reconnection_attempts {
-                        log::error!("{}: Max reconnection attempts reached", subscription_name);
+                        log::error!("{subscription_name}: Max reconnection attempts reached");
                         return Err(crate::SdkError::MaxReconnectionAttemptsReached);
                     }
 
                     let delay_duration = base_delay * 2_u32.pow(attempt);
-                    log::debug!(
-                        "{}: Reconnecting in {:?}",
-                        subscription_name,
-                        delay_duration
-                    );
+                    log::debug!("{subscription_name}: Reconnecting in {delay_duration:?}");
                     tokio::time::sleep(delay_duration).await;
                     attempt += 1;
                 }
@@ -171,7 +167,7 @@ impl<T> WebsocketAccountSubscriber<T> {
     pub async fn unsubscribe(&mut self) -> SdkResult<()> {
         if self.subscribed && self.unsubscriber.is_some() {
             if let Err(e) = self.unsubscriber.as_ref().unwrap().send(()).await {
-                log::error!("Failed to send unsubscribe signal: {:?}", e);
+                log::error!("Failed to send unsubscribe signal: {e:?}");
                 return Err(crate::SdkError::CouldntUnsubscribe(e));
             }
             self.subscribed = false;

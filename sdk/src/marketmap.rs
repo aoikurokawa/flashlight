@@ -125,16 +125,16 @@ where
                 MarketMap::<T>::SUBSCRIPTION_ID,
                 move |event| {
                     if let Some(update) = event.as_any().downcast_ref::<ProgramAccountUpdate<T>>() {
-                        let market_data_and_slot = update.data_and_slot.clone();
-                        if update.data_and_slot.slot > latest_slot.load(Ordering::Relaxed) {
-                            latest_slot.store(update.data_and_slot.slot, Ordering::Relaxed);
+                        let slot = update.data_and_slot.slot;
+                        if slot > latest_slot.load(Ordering::Relaxed) {
+                            latest_slot.store(slot, Ordering::Relaxed);
                         }
                         let index = update.data_and_slot.clone().data.market_index();
                         marketmap.insert(
                             index,
                             DataAndSlot {
-                                data: market_data_and_slot.data,
-                                slot: update.data_and_slot.slot,
+                                data: update.data_and_slot.data,
+                                slot,
                             },
                         );
                     }

@@ -68,19 +68,17 @@ impl OracleMap {
             .map(|(market_index, pubkey, _)| (*market_index, *pubkey))
             .collect();
 
-        let mut all_oracles = vec![];
-        all_oracles.extend(perp_oracles);
-        all_oracles.extend(spot_oracles);
-
-        let oracle_infos_map: DashMap<_, _> = all_oracles
-            .iter()
-            .map(|(_, pubkey, oracle_source)| (*pubkey, *oracle_source))
-            .collect();
+        let oracle_infos = DashMap::new();
+        perp_oracles.iter().chain(spot_oracles.iter()).for_each(
+            |(_market_index, pubkey, oracle_source)| {
+                oracle_infos.insert(*pubkey, *oracle_source);
+            },
+        );
 
         Self {
             subscribed: AtomicBool::new(false),
             oraclemap,
-            oracle_infos: oracle_infos_map,
+            oracle_infos,
             sync_lock,
             latest_slot: Arc::new(AtomicU64::new(0)),
             commitment,
@@ -128,7 +126,9 @@ impl OracleMap {
             let results = futures_util::future::join_all(subscribe_futures).await;
             for result in results {
                 match result {
-                    Ok(()) => {}
+                    Ok(()) => {
+                        log::error!("Successfully subscribing oracles");
+                    }
                     Err(e) => {
                         log::error!("Error subscribing oraclemap: {e}");
                     }
@@ -364,6 +364,8 @@ impl OracleMap {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
     use crate::marketmap::MarketMap;
     use drift::state::perp_market::PerpMarket;
@@ -383,14 +385,16 @@ mod tests {
         let perp_oracles = perp_market_map.oracles();
         let spot_oracles = spot_market_map.oracles();
 
-        let mut oracles = vec![];
+        let mut oracles = Vec::new();
         oracles.extend(perp_oracles.clone());
         oracles.extend(spot_oracles.clone());
 
-        let mut oracle_infos = vec![];
-        for oracle_info in oracles {
-            if !oracle_infos.contains(&oracle_info) {
-                oracle_infos.push(oracle_info)
+        let mut oracle_infos = Vec::new();
+        let mut seen_pubkeys = HashSet::new();
+
+        for (market_index, pubkey, oracle_source) in oracles {
+            if seen_pubkeys.insert(pubkey) {
+                oracle_infos.push((market_index, pubkey, oracle_source));
             }
         }
 
