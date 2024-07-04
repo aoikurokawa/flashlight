@@ -905,8 +905,8 @@ impl<T: AccountProvider> DriftClientBackend<T> {
             account_provider.commitment_config(),
             account_provider.endpoint(),
             true,
-            perp_oracles,
-            spot_oracles,
+            &perp_oracles,
+            &spot_oracles,
         );
 
         let blockhash_subscriber = Arc::new(RwLock::new(BlockhashSubscriber::new(

@@ -47,8 +47,8 @@ impl OracleMap {
         commitment: CommitmentConfig,
         endpoint: String,
         sync: bool,
-        perp_oracles: Vec<(u16, Pubkey, OracleSource)>,
-        spot_oracles: Vec<(u16, Pubkey, OracleSource)>,
+        perp_oracles: &[(u16, Pubkey, OracleSource)],
+        spot_oracles: &[(u16, Pubkey, OracleSource)],
     ) -> Self {
         let oraclemap = Arc::new(DashMap::new());
 
@@ -119,6 +119,22 @@ impl OracleMap {
             let oracle_source_by_oracle_key = self.oracle_infos.clone();
             let oracle_map = self.oraclemap.clone();
 
+            let mut subscribers_clone = oracle_subscribers.clone();
+
+            let subscribe_futures = subscribers_clone
+                .iter_mut()
+                .map(|subscriber| subscriber.subscribe())
+                .collect::<Vec<_>>();
+            let results = futures_util::future::join_all(subscribe_futures).await;
+            for result in results {
+                match result {
+                    Ok(()) => {}
+                    Err(e) => {
+                        log::error!("Error subscribing oraclemap: {e}");
+                    }
+                }
+            }
+
             self.event_emitter
                 .subscribe(OracleMap::SUBSCRIPTION_ID, move |event| {
                     if let Some(update) = event.as_any().downcast_ref::<AccountUpdate>() {
@@ -128,6 +144,7 @@ impl OracleMap {
                             if let UiAccountData::Binary(blob, UiAccountEncoding::Base64) =
                                 &update.data.data
                             {
+                                log::error!("Got oracle");
                                 let mut data = base64::engine::general_purpose::STANDARD
                                     .decode(blob)
                                     .expect("valid data");
@@ -170,21 +187,21 @@ impl OracleMap {
                     }
                 });
 
-            let mut subscribers_clone = oracle_subscribers.clone();
+            // let mut subscribers_clone = oracle_subscribers.clone();
 
-            let subscribe_futures = subscribers_clone
-                .iter_mut()
-                .map(|subscriber| subscriber.subscribe())
-                .collect::<Vec<_>>();
-            let results = futures_util::future::join_all(subscribe_futures).await;
-            for result in results {
-                match result {
-                    Ok(()) => {}
-                    Err(e) => {
-                        log::error!("Error subscribing oraclemap: {e}");
-                    }
-                }
-            }
+            // let subscribe_futures = subscribers_clone
+            //     .iter_mut()
+            //     .map(|subscriber| subscriber.subscribe())
+            //     .collect::<Vec<_>>();
+            // let results = futures_util::future::join_all(subscribe_futures).await;
+            // for result in results {
+            //     match result {
+            //         Ok(()) => {}
+            //         Err(e) => {
+            //             log::error!("Error subscribing oraclemap: {e}");
+            //         }
+            //     }
+            // }
             // let vecs = results.into_iter().collect::<Result<Vec<_>, _>>()?;
 
             let mut oracle_subscribers_mut = self.oracle_subscribers.write().await;
@@ -380,7 +397,7 @@ mod tests {
         let oracle_infos_len = oracle_infos.len();
         dbg!(oracle_infos_len);
 
-        let oracle_map = OracleMap::new(commitment, endpoint, true, perp_oracles, spot_oracles);
+        let oracle_map = OracleMap::new(commitment, endpoint, true, &perp_oracles, &spot_oracles);
 
         let _ = oracle_map.subscribe().await;
 

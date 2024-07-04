@@ -109,6 +109,7 @@ impl<T> WebsocketAccountSubscriber<T> {
                                 message = account_updates.next() => {
                                     match message {
                                         Some(message) => {
+                                            log::error!("Got message");
                                             let slot = message.context.slot;
                                             if slot >= latest_slot {
                                                 latest_slot = slot;
@@ -121,7 +122,7 @@ impl<T> WebsocketAccountSubscriber<T> {
                                             }
                                         }
                                         None => {
-                                            log::warn!("{}: Account stream interrupted", subscription_name);
+                                            log::warn!("{subscription_name}: Account stream interrupted");
                                             account_unsubscribe().await;
                                             break;
                                         }
@@ -129,7 +130,7 @@ impl<T> WebsocketAccountSubscriber<T> {
                                 }
                                 unsub = unsub_rx.recv() => {
                                     if unsub.is_some() {
-                                        log::debug!("{}: Unsubscribing from account stream", subscription_name);
+                                        log::debug!("{subscription_name}: Unsubscribing from account stream");
                                         account_unsubscribe().await;
                                         return Ok(());
 
