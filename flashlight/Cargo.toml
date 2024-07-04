@@ -6,11 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1.79"
 base64 = { workspace = true }
 bs58 = "0.5.1"
 clap = { version = "4.5.4", features = ["derive"] }
 dotenv = "0.15.0"
+drift = { workspace = true }
 env_logger = "0.11.3"
 futures-util = { workspace = true }
 log = { workspace = true }
@@ -24,8 +24,3 @@ solana-sdk = { workspace = true }
 solana-transaction-status = "1.14"
 thiserror = { workspace = true }
 tokio = { workspace = true }
-
-[dependencies.drift]
-git = "https://github.com/drift-labs/protocol-v2.git"
-rev = "2bbe28c"
-features = [ "mainnet-beta", "drift-rs" ] 

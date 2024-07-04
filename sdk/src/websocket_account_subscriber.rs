@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use async_trait::async_trait;
 use futures_util::StreamExt;
 use log::info;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
@@ -8,7 +7,6 @@ use solana_client::{nonblocking::pubsub_client::PubsubClient, rpc_config::RpcAcc
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use crate::{
-    accounts::AccountSubscriber,
     event_emitter::{Event, EventEmitter},
     types::SdkError,
     SdkResult,
@@ -174,24 +172,28 @@ impl<T> WebsocketAccountSubscriber<T> {
         }
         Ok(())
     }
-}
 
-#[async_trait]
-impl<T> AccountSubscriber<T> for WebsocketAccountSubscriber<T>
-where
-    T: Send + Sync,
-{
-    async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, _on_change: F) {}
-
-    async fn fetch(&mut self) -> SdkResult<()> {
+    pub async fn fetch(&mut self) -> SdkResult<()> {
         Ok(())
     }
-
-    async fn unsubscribe(&self) {}
-
-    fn set_data(&mut self, _user_account: T, slot: Option<u64>) {
-        let _new_slot = slot.unwrap_or(0);
-
-        // if self
-    }
 }
+
+// #[async_trait]
+// impl<T> AccountSubscriber<T> for WebsocketAccountSubscriber<T>
+// where
+//     T: Send + Sync,
+// {
+//     async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, _on_change: F) {}
+//
+//     async fn fetch(&mut self) -> SdkResult<()> {
+//         Ok(())
+//     }
+//
+//     async fn unsubscribe(&self) {}
+//
+//     fn set_data(&mut self, _user_account: T, slot: Option<u64>) {
+//         let _new_slot = slot.unwrap_or(0);
+//
+//         // if self
+//     }
+// }
