@@ -137,26 +137,28 @@ impl AccountMapBuilder {
         let oracle_slot = client.backend.oracle_map.get_latest_slot();
         let slot = std::cmp::max(oracle_slot, std::cmp::max(perp_slot, spot_slot));
 
-        let perp_market_map =
-            PerpMarketMap::load(&MarketSet::default(), &mut perp_accounts.iter().peekable())
-                .map_err(|err| SdkError::Anchor(Box::new(err.into())))?;
+        todo!()
 
-        let spot_market_map =
-            SpotMarketMap::load(&MarketSet::default(), &mut spot_accounts.iter().peekable())
-                .map_err(|err| SdkError::Anchor(Box::new(err.into())))?;
+        // let perp_market_map =
+        //     PerpMarketMap::load(&MarketSet::default(), &mut perp_accounts.iter().peekable())
+        //         .map_err(|err| SdkError::Anchor(Box::new(err.into())))?;
 
-        let state_account = client.backend.state_account.read().unwrap();
-        let oracle_map = OracleMap::load(
-            &mut oracle_accounts.iter().peekable(),
-            slot,
-            Some(state_account.oracle_guard_rails),
-        )
-        .map_err(|err| SdkError::Anchor(Box::new(err.into())))?;
+        // let spot_market_map =
+        //     SpotMarketMap::load(&MarketSet::default(), &mut spot_accounts.iter().peekable())
+        //         .map_err(|err| SdkError::Anchor(Box::new(err.into())))?;
 
-        Ok(AccountMaps {
-            spot_market_map,
-            perp_market_map,
-            oracle_map,
-        })
+        // let state_account = client.backend.state_account.read().unwrap();
+        // let oracle_map = OracleMap::load(
+        //     &mut oracle_accounts.iter().peekable(),
+        //     slot,
+        //     Some(state_account.oracle_guard_rails),
+        // )
+        // .map_err(|err| SdkError::Anchor(Box::new(err.into())))?;
+
+        // Ok(AccountMaps {
+        //     spot_market_map,
+        //     perp_market_map,
+        //     oracle_map,
+        // })
     }
 }

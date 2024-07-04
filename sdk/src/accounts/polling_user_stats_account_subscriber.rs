@@ -70,14 +70,15 @@ impl PollingUserStatsAccountSubscriber {
                         // let pubkey = Pubkey::new_from_array(&buffer[..]);
                         let mut array = [0u8; 32];
                         array.copy_from_slice(&buffer);
-                        let account: UserStatsAccount =
-                            program.account(Pubkey::new_from_array(array)).unwrap();
+                        todo!()
+                        // let account: UserStatsAccount =
+                        //     program.account(Pubkey::new_from_array(array)).unwrap();
 
-                        *user_stats = Some(DataAndSlot {
-                            slot,
-                            data: account,
-                        });
-                        event_emitter.emit("user_stats_account_update", Box::new(account));
+                        // *user_stats = Some(DataAndSlot {
+                        //     slot,
+                        //     data: account,
+                        // });
+                        // event_emitter.emit("user_stats_account_update", Box::new(account));
                     })),
                 )
                 .await,
@@ -130,27 +131,28 @@ impl PollingUserStatsAccountSubscriber {
 
     pub(crate) async fn fetch(&mut self) -> SdkResult<()> {
         let slot = self.program.rpc().get_slot()?;
-        match self
-            .program
-            .account::<UserStatsAccount>(self.user_stats_account_pubkey)
-        {
-            Ok(account) => {
-                if let Some(user_stats) = &self.user_stats {
-                    if slot > user_stats.slot {
-                        self.user_stats = Some(DataAndSlot {
-                            slot,
-                            data: account,
-                        });
-                    }
-                }
-            }
-            Err(e) => {
-                warn!(
-                    "PollingUserStatsAccountSubscriber.fetch() UserStatsAccount does not exist: {}",
-                    e
-                );
-            }
-        }
+        todo!();
+        // match self
+        //     .program
+        //     .account::<UserStatsAccount>(self.user_stats_account_pubkey)
+        // {
+        //     Ok(account) => {
+        //         if let Some(user_stats) = &self.user_stats {
+        //             if slot > user_stats.slot {
+        //                 self.user_stats = Some(DataAndSlot {
+        //                     slot,
+        //                     data: account,
+        //                 });
+        //             }
+        //         }
+        //     }
+        //     Err(e) => {
+        //         warn!(
+        //             "PollingUserStatsAccountSubscriber.fetch() UserStatsAccount does not exist: {}",
+        //             e
+        //         );
+        //     }
+        // }
 
         Ok(())
     }
