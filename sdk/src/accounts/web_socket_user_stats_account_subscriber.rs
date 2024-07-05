@@ -79,14 +79,16 @@ impl WebSocketUserStatsAccountSubscriber {
         Ok(())
     }
 
-    pub(crate) async fn unsubscribe(&mut self) {
+    pub(crate) async fn unsubscribe(&mut self) -> SdkResult<()> {
         if !self.is_subscribed {
-            return;
+            return Ok(());
         }
 
-        self.user_stats_account_subscriber.unsubscribe().await;
+        self.user_stats_account_subscriber.unsubscribe().await?;
 
         self.is_subscribed = false;
+
+        Ok(())
     }
 
     pub(crate) fn get_user_stats_account_and_slot(

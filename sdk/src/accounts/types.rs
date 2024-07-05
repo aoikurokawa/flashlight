@@ -69,11 +69,13 @@ impl UserStatsAccountSubscriber {
         }
     }
 
-    pub(crate) async fn unsubscribe(&mut self) {
+    pub(crate) async fn unsubscribe(&mut self) -> SdkResult<()> {
         match self {
             UserStatsAccountSubscriber::Polling(polling) => polling.unsubscribe().await,
-            UserStatsAccountSubscriber::WebSocket(websocket) => websocket.unsubscribe().await,
+            UserStatsAccountSubscriber::WebSocket(websocket) => websocket.unsubscribe().await?,
         }
+
+        Ok(())
     }
 
     pub(crate) fn get_user_stats_account_and_slot(
