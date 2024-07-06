@@ -10,7 +10,7 @@ use super::{
     solana_priority_fee_method::SolanaPriorityFeeResponse,
 };
 
-pub(crate) enum PriorityFeeResponse<'a> {
+pub enum PriorityFeeResponse<'a> {
     Solana(&'a [SolanaPriorityFeeResponse]),
     Helius(HeliusPriorityFeeResponse),
     Drift(DriftPriorityFeeResponse),
@@ -56,7 +56,7 @@ pub struct PriorityFeeSubscriberConfig<T: AccountProvider> {
     pub drift_markets: Option<Vec<DriftMarketInfo>>,
 
     /// custom strategy to calculate priority fees, defaults to AVERAGE
-    pub custom_strategy: Option<Box<dyn PriorityFeeStrategy>>,
+    pub(crate) custom_strategy: Option<Box<dyn PriorityFeeStrategy>>,
 
     /// method for fetching priority fee samples
     pub priority_fee_method: Option<PriorityFeeMethod>,

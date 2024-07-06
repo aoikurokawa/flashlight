@@ -10,10 +10,7 @@ use drift::{
 use num_bigint::BigUint;
 use num_traits::{FromPrimitive, ToPrimitive};
 
-use crate::{
-    constants::PRICE_DIV_PEG,
-    types::{SdkError, SdkResult},
-};
+use crate::{constants::PRICE_DIV_PEG, error::SdkError, types::SdkResult};
 
 /// Helper function calculating adjust k cost
 pub fn calculate_adjust_k_cost(amm: &AMM, numerator: u128, denomenator: u128) -> SdkResult<i128> {

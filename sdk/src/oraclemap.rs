@@ -12,10 +12,13 @@ use solana_sdk::account_info::{AccountInfo, IntoAccountInfo};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use tokio::sync::RwLock;
 
-use crate::types::SdkError;
-use crate::utils::get_ws_url;
-use crate::websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber};
-use crate::{event_emitter::EventEmitter, SdkResult};
+use crate::{
+    error::SdkError,
+    event_emitter::EventEmitter,
+    utils::get_ws_url,
+    websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber},
+    SdkResult,
+};
 
 #[derive(Clone, Debug)]
 pub struct Oracle {
@@ -263,7 +266,7 @@ impl OracleMap {
             .await?;
 
         if response.value.len() != pubkeys.len() {
-            return Err(crate::SdkError::Generic(format!(
+            return Err(SdkError::Generic(format!(
                 "failed to get all oracle accounts, expected: {}, got: {}",
                 pubkeys.len(),
                 response.value.len()
@@ -278,7 +281,7 @@ impl OracleMap {
                 let mut oracle_components = (oracle_pubkey, oracle_account.clone());
                 let account_info = oracle_components.into_account_info();
                 let price_data = get_oracle_price(&oracle_info.1, &account_info, slot)
-                    .map_err(|err| crate::SdkError::Anchor(Box::new(err.into())))?;
+                    .map_err(|err| SdkError::Anchor(Box::new(err.into())))?;
                 self.oraclemap.insert(
                     oracle_pubkey,
                     Oracle {

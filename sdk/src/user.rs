@@ -5,8 +5,8 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::{
     drift_client::DriftClient,
+    error::SdkError,
     event_emitter::EventEmitter,
-    types::SdkError,
     utils::{decode, get_ws_url},
     websocket_account_subscriber::{AccountUpdate, WebsocketAccountSubscriber},
     AccountProvider, DataAndSlot, SdkResult,

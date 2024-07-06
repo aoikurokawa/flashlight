@@ -1,14 +1,13 @@
 use std::marker::PhantomData;
 
 use futures_util::StreamExt;
-use log::info;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{nonblocking::pubsub_client::PubsubClient, rpc_config::RpcAccountInfoConfig};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use crate::{
+    error::SdkError,
     event_emitter::{Event, EventEmitter},
-    types::SdkError,
     SdkResult,
 };
 
@@ -147,7 +146,7 @@ impl<T> WebsocketAccountSubscriber<T> {
 
                     if attempt >= max_reconnection_attempts {
                         log::error!("{subscription_name}: Max reconnection attempts reached");
-                        return Err(crate::SdkError::MaxReconnectionAttemptsReached);
+                        return Err(SdkError::MaxReconnectionAttemptsReached);
                     }
 
                     let delay_duration = base_delay * 2_u32.pow(attempt);
@@ -164,7 +163,7 @@ impl<T> WebsocketAccountSubscriber<T> {
         if self.subscribed && self.unsubscriber.is_some() {
             if let Err(e) = self.unsubscriber.as_ref().unwrap().send(()).await {
                 log::error!("Failed to send unsubscribe signal: {e:?}");
-                return Err(crate::SdkError::CouldntUnsubscribe(e));
+                return Err(SdkError::CouldntUnsubscribe(e));
             }
             self.subscribed = false;
         }

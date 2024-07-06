@@ -94,6 +94,7 @@ const CONFIRM_TX_RATE_LIMIT_BACKOFF_MS: u64 = 5_000; // wait this long until try
 
 const EXPIRE_ORDER_BUFFER_SEC: i64 = 60; // add extra time before trying to expire orders (want to avoid 6252 error due to clock drift)
 
+#[allow(dead_code)]
 pub struct FillerBot<'a, T>
 where
     T: AccountProvider,
@@ -177,6 +178,7 @@ where
     rebalance_settled_pnl_threshold: f64,
 }
 
+#[allow(dead_code)]
 impl<'a, T> FillerBot<'a, T>
 where
     T: AccountProvider + Clone,
@@ -1276,7 +1278,7 @@ where
         build_for_bundle: bool,
     ) {
         if let Some(look_up_table_account) = &self.lookup_table_account {
-            let (est_tx_size, account_metas, write_accs, tx_accounts) =
+            let (_est_tx_size, _account_metas, write_accs, tx_accounts) =
                 get_transaction_account_metas(&tx, &[look_up_table_account]);
 
             let tx_start = Instant::now();
@@ -1325,7 +1327,7 @@ where
 
         if let Some((
             maker_infos,
-            taker_user_pubkey,
+            _taker_user_pubkey,
             taker_user,
             taker_user_slot,
             referrer_info,
@@ -1336,7 +1338,7 @@ where
                 return Err(String::from("expected perp market type"));
             }
 
-            let user = self.drift_client.get_user(None);
+            let _user = self.drift_client.get_user(None);
             let mut maker_infos_to_use: Vec<MakerInfo> = maker_infos
                 .into_iter()
                 .map(|(_slot, maker_info)| maker_info)
@@ -1906,15 +1908,15 @@ where
     }
 
     async fn try_fill(&mut self) {
-        let start_time = Instant::now();
-        let mut ran = false;
+        let _start_time = Instant::now();
+        // let mut ran = false;
 
         if !self.has_enough_sol_to_fill {
             log::info!("Not enough SOL to fill, skipping fill");
             return;
         }
 
-        let user = self.drift_client.get_user(None);
+        let _user = self.drift_client.get_user(None);
 
         let mut dlob = self.get_dlob().await;
         self.prune_throttled_node();
@@ -1960,6 +1962,6 @@ where
         self.execute_triggerable_perp_nodes_for_market(&filtered_triggerable_nodes, build_bundle)
             .await;
 
-        ran = true;
+        // ran = true;
     }
 }

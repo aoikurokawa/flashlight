@@ -12,8 +12,9 @@ use solana_client::{
 use solana_sdk::commitment_config::CommitmentConfig;
 
 use crate::{
+    error::SdkError,
     event_emitter::{Event, EventEmitter},
-    types::{DataAndSlot, SdkError, SdkResult},
+    types::{DataAndSlot, SdkResult},
     utils::decode,
 };
 

@@ -5,8 +5,9 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 use tokio::sync::Mutex as TokioMutex;
 
 use crate::{
+    error::SdkError,
     event_emitter::EventEmitter,
-    types::{DataAndSlot, SdkError, SdkResult, UserStatsAccount},
+    types::{DataAndSlot, SdkResult, UserStatsAccount},
 };
 
 use super::BulkAccountLoader;

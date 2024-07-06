@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use reqwest::StatusCode;
 use serde::Deserialize;
 
-use crate::types::{SdkError, SdkResult};
+use crate::{error::SdkError, types::SdkResult};
 
 use super::helius_priority_fee_method::HeliusPriorityLevel;
 

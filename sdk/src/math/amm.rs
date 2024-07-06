@@ -24,7 +24,8 @@ use num_traits::ToPrimitive;
 
 use crate::{
     math::{repeg::calculate_budget_peg, util::sig_num},
-    types::{SdkError, SdkResult},
+    types::SdkResult,
+    SdkError,
 };
 
 use super::{

@@ -1,7 +1,8 @@
 use drift::state::user::User as UserAccount;
 
 use crate::{
-    types::{DataAndSlot, SdkError, UserStatsAccount},
+    error::SdkError,
+    types::{DataAndSlot, UserStatsAccount},
     SdkResult,
 };
 

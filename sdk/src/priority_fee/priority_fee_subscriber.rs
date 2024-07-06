@@ -3,10 +3,8 @@ use std::sync::Arc;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::{
-    drift_client::DriftClient,
-    priority_fee::types::DEFAULT_PRIORITY_FEE_MAP_FREQUENCY_MS,
-    types::{SdkError, SdkResult},
-    AccountProvider,
+    drift_client::DriftClient, error::SdkError,
+    priority_fee::types::DEFAULT_PRIORITY_FEE_MAP_FREQUENCY_MS, types::SdkResult, AccountProvider,
 };
 
 use super::{
@@ -22,6 +20,7 @@ use super::{
     },
 };
 
+#[allow(dead_code)]
 pub struct PriorityFeeSubscriber<T: AccountProvider> {
     // connection: Connection,
     drift_client: Option<Arc<DriftClient<T>>>,

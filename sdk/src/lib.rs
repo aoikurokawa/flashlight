@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use async_utils::{retry_policy, spawn_retry_task};
+use error::SdkError;
 use fnv::FnvHashMap;
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
 use log::{debug, warn};

@@ -14,10 +14,7 @@ use solana_sdk::{
     transaction::VersionedTransaction,
 };
 
-use crate::{
-    jupiter::serde_helpers::field_as_string,
-    types::{SdkError, SdkResult},
-};
+use crate::{jupiter::serde_helpers::field_as_string, types::SdkResult, SdkError};
 
 use self::{
     swap::{SwapInstructionsResponse, SwapInstructionsResponseInternal, SwapRequest, SwapResponse},

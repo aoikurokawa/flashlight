@@ -10,6 +10,7 @@ use solana_sdk::{
 
 use crate::types::JitoStrategy;
 
+#[allow(dead_code)]
 struct TipStream {
     time: String,
     ts: u16,
@@ -21,23 +22,27 @@ struct TipStream {
     ema_landed_tips_50th_percentile: u16, // in SOL
 }
 
+#[allow(dead_code)]
 enum DropReason {
     Pruned,
     BlockhashExpired,
     BlockhashNotFound,
 }
 
+#[allow(dead_code)]
 struct JitoLeader {
     current_slot: u64,
     next_leader_slot: u64,
     next_leader_identity: String,
 }
 
+#[allow(dead_code)]
 struct Bundle {
     tx: String,
     ts: u16,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub(crate) struct BundleStats {
     accepted: u16,
@@ -53,6 +58,7 @@ pub(crate) struct BundleStats {
     dropped_blockhash_bot_found: u16,
 }
 
+#[allow(dead_code)]
 pub struct BundleSender {
     // ws: Option<WebSocket>,
     // searcher_client: SearcherClient,
@@ -148,9 +154,9 @@ impl BundleSender {
     /// tip.
     pub(crate) async fn send_transaction(
         &self,
-        signed_tx: &VersionedTransaction,
-        metadata: Option<String>,
-        tx_sig: Option<Signature>,
+        _signed_tx: &VersionedTransaction,
+        _metadata: Option<String>,
+        _tx_sig: Option<Signature>,
     ) {
         if !self.is_subscribed {
             log::warn!("You should call bundle_sender.subscribe() before send_transaction()");

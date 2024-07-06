@@ -10,7 +10,7 @@ use solana_sdk::{
     pubkey::Pubkey, signature::Keypair,
 };
 
-use crate::types::{SdkError, SdkResult};
+use crate::{error::SdkError, types::SdkResult};
 
 // kudos @wphan
 /// Try to parse secret `key` string

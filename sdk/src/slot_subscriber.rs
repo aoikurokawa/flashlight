@@ -5,8 +5,9 @@ use log::{debug, error, warn};
 use solana_client::nonblocking::pubsub_client::PubsubClient;
 
 use crate::{
+    error::SdkError,
     event_emitter::{Event, EventEmitter},
-    types::{SdkError, SdkResult},
+    types::SdkResult,
 };
 
 /// To subscribe to slot updates, subscribe to the event_emitter's "slot" event type.

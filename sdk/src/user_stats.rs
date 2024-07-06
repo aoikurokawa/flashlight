@@ -12,7 +12,8 @@ use crate::{
     },
     addresses::pda::{get_user_account_pubkey, get_user_stats_account_pubkey},
     drift_client::DriftClient,
-    types::{DataAndSlot, ReferrerInfo, SdkError, SdkResult, UserStatsAccount},
+    error::SdkError,
+    types::{DataAndSlot, ReferrerInfo, SdkResult, UserStatsAccount},
     user_stats_config::{UserStatsConfig, UserStatsSubscriptionConfig},
     AccountProvider,
 };
@@ -92,7 +93,7 @@ impl<T: AccountProvider> UserStats<T> {
     }
 
     pub async fn unsubscribe(&mut self) {
-        self.account_subscriber.unsubscribe().await;
+        self.account_subscriber.unsubscribe().await.unwrap();
         self.is_subscribed = false;
     }
 

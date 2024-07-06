@@ -2,6 +2,7 @@ use std::time::Instant;
 
 use sdk::dlob::dlob::NodeToFill;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum TxType {
     Fill,

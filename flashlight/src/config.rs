@@ -3,8 +3,9 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::types::JitoStrategy;
 
+#[allow(dead_code)]
 #[derive(Debug)]
-enum TxSenderType {
+pub enum TxSenderType {
     Fast,
     Retry,
     WhileValid,

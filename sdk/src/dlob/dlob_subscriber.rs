@@ -8,9 +8,7 @@ use tokio::{
 };
 
 use crate::{
-    drift_client::DriftClient,
-    event_emitter::EventEmitter,
-    types::{SdkError, SdkResult},
+    drift_client::DriftClient, error::SdkError, event_emitter::EventEmitter, types::SdkResult,
     AccountProvider,
 };
 

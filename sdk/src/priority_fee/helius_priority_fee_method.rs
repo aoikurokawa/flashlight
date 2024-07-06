@@ -4,7 +4,7 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::types::{SdkError, SdkResult};
+use crate::{error::SdkError, types::SdkResult};
 
 #[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
 pub enum HeliusPriorityLevel {
@@ -39,6 +39,7 @@ impl From<&str> for HeliusPriorityLevel {
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct HeliusPriorityFeeLevels(pub(crate) HashMap<HeliusPriorityLevel, u64>);
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub(crate) struct HeliusPriorityFeeResult {
     pub(crate) priority_fee_estimate: Option<u64>,
@@ -69,10 +70,11 @@ pub(crate) struct GetPriorityFeeEstimateRequest {
     params: Vec<HeliusPriorityFeeParams>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-pub(crate) struct HeliusPriorityFeeResponse {
-    jsonrpc: String,
-    id: String,
+pub struct HeliusPriorityFeeResponse {
+    pub(crate) jsonrpc: String,
+    pub(crate) id: String,
     pub(crate) result: HeliusPriorityFeeResult,
 }
 

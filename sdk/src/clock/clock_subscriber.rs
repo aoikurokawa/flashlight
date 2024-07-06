@@ -11,10 +11,7 @@ use solana_sdk::{
 };
 use tokio::{sync::Mutex, time::Duration};
 
-use crate::{
-    event_emitter::EventEmitter,
-    types::{SdkError, SdkResult},
-};
+use crate::{error::SdkError, event_emitter::EventEmitter, types::SdkResult};
 
 use super::clock_subscriber_event::ClockSubscriberEvent;
 

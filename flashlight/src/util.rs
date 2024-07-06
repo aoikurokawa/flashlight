@@ -214,11 +214,11 @@ pub async fn simulate_and_get_tx_with_cus(
 /// Return `est_tx_size`, `account_metas`, write_accs`, `tx_accounts`
 pub fn get_transaction_account_metas(
     tx: &VersionedTransaction,
-    lut_accounts: &[&AddressLookupTableAccount],
+    _lut_accounts: &[&AddressLookupTableAccount],
 ) -> (usize, Vec<AccountMeta>, u32, usize) {
     let mut write_accs = 0_u32;
     let mut account_metas = Vec::new();
-    let est_tx_size = tx.message.serialize().len();
+    let _est_tx_size = tx.message.serialize().len();
     let acc = tx.message.static_account_keys();
     let tx_accounts = acc.len();
 
