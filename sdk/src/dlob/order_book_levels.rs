@@ -280,6 +280,7 @@ impl Iterator for L2Asks {
     }
 }
 
+#[allow(dead_code)]
 pub struct VammL2Generator {
     market_account: PerpMarket,
     oracle_price_data: OraclePriceData,

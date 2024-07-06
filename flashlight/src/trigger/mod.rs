@@ -5,7 +5,6 @@ use std::{
 };
 
 use drift::state::{perp_market::PerpMarket, spot_market::SpotMarket, user::MarketType};
-use futures_util::{FutureExt, TryFutureExt};
 use log::{error, info, warn};
 use sdk::{
     dlob::{
@@ -27,6 +26,7 @@ use crate::{config::BaseBotConfig, util::get_node_to_trigger_signature};
 // time to wait between triggering an order
 const TRIGGER_ORDER_COOLDOWN_MS: u64 = 10000;
 
+#[allow(dead_code)]
 pub struct TriggerBot {
     name: String,
     dry_run: bool,
@@ -101,12 +101,12 @@ impl TriggerBot {
     }
 
     async fn try_trigger(&mut self) {
-        let start = Instant::now();
-        let mut ran = false;
+        let _start = Instant::now();
+        let _ran = false;
 
         match self.periodic_task_mutex.clone().try_lock() {
             Ok(_guard) => {
-                let perp_markets = self.drift_client.get_perp_market_accounts();
+                let _perp_markets = self.drift_client.get_perp_market_accounts();
                 let spot_markets = self.drift_client.get_spot_market_accounts();
                 let user_map = self.user_map.clone();
 
@@ -166,6 +166,7 @@ impl TriggerBot {
     }
 }
 
+#[allow(dead_code)]
 async fn try_trigger_for_perp_market(
     drift_client: Arc<DriftClient<RpcAccountProvider>>,
     subscriber: Arc<DLOBSubscriber<RpcAccountProvider>>,
@@ -263,7 +264,7 @@ async fn try_trigger_for_perp_market(
 async fn try_trigger_trigger_fro_spot_market(
     drift_client: Arc<DriftClient<RpcAccountProvider>>,
     subscriber: Arc<DLOBSubscriber<RpcAccountProvider>>,
-    triggering_nodes: Arc<Mutex<HashMap<String, Instant>>>,
+    _triggering_nodes: Arc<Mutex<HashMap<String, Instant>>>,
     user_map: UserMap,
     priority_fee_calculator: Arc<Mutex<PriorityFeeCalculator>>,
     market: SpotMarket,

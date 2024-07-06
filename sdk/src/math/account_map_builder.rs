@@ -2,18 +2,14 @@ use anchor_lang::prelude::AccountInfo;
 use drift::{
     ids::{pyth_program, switchboard_program},
     instructions::optional_accounts::AccountMaps,
-    state::{
-        oracle::OracleSource, oracle_map::OracleMap, perp_market::PerpMarket,
-        perp_market_map::PerpMarketMap, spot_market::SpotMarket, spot_market_map::SpotMarketMap,
-        user::User,
-    },
+    state::{oracle::OracleSource, perp_market::PerpMarket, spot_market::SpotMarket, user::User},
 };
 use fnv::FnvHashSet;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
 use crate::{
     constants, drift_client::DriftClient, utils::zero_account_to_bytes, AccountProvider, MarketId,
-    SdkError, SdkResult,
+    SdkResult,
 };
 
 /// Builds an AccountMap of relevant spot, perp, and oracle accounts from rpc
@@ -135,7 +131,7 @@ impl AccountMapBuilder {
         let perp_slot = client.backend.perp_market_map.get_latest_slot();
         let spot_slot = client.backend.spot_market_map.get_latest_slot();
         let oracle_slot = client.backend.oracle_map.get_latest_slot();
-        let slot = std::cmp::max(oracle_slot, std::cmp::max(perp_slot, spot_slot));
+        let _slot = std::cmp::max(oracle_slot, std::cmp::max(perp_slot, spot_slot));
 
         todo!()
 

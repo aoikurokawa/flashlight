@@ -41,12 +41,13 @@ const ERROR_CODES_TO_SUPPRESS: &[u32] = &[
     6096, // AMMNotUpdatedInSameSlot
 ];
 
-const ERROR_CODES_CAN_RETRY: &[u32] = &[
-    6096, // AMMNotUpdatedInSameSlot
-];
+// const ERROR_CODES_CAN_RETRY: &[u32] = &[
+//     6096, // AMMNotUpdatedInSameSlot
+// ];
 
 pub const CU_EST_MULTIPLIER: f64 = 1.4;
 
+#[allow(dead_code)]
 pub struct FundingRateUpdaterBot<T: AccountProvider> {
     name: String,
     dry_run: bool,

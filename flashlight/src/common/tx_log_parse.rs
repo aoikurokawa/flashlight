@@ -25,6 +25,7 @@ pub fn is_fill_ix_log(log: &str) -> bool {
     re.is_match(log)
 }
 
+#[allow(dead_code)]
 pub fn is_arb_ix_log(log: &str) -> bool {
     let re = Regex::new(r"Program log: Instruction: ArbPerp").unwrap();
 
@@ -43,6 +44,7 @@ pub fn is_order_does_not_exist_log(log: &str) -> Option<u32> {
     None
 }
 
+#[allow(dead_code)]
 pub fn is_maker_order_does_not_exist_log(log: &str) -> Option<u32> {
     let re = Regex::new(r".*Maker has no order id ([0-9]+)").unwrap();
 
@@ -93,18 +95,21 @@ pub fn is_err_filling_log(log: &str) -> (Option<u32>, Option<Pubkey>) {
     (None, None)
 }
 
+#[allow(dead_code)]
 pub fn is_err_arb(log: &str) -> bool {
     let re = Regex::new(r".*NoArbOpportunity*").unwrap();
 
     re.is_match(log)
 }
 
+#[allow(dead_code)]
 pub fn is_err_arb_no_bid(log: &str) -> bool {
     let re = Regex::new(r".*NoBestBid*").unwrap();
 
     re.is_match(log)
 }
 
+#[allow(dead_code)]
 pub fn is_err_arb_no_ask(log: &str) -> bool {
     let re = Regex::new(r".*NoBestAsk*").unwrap();
 
