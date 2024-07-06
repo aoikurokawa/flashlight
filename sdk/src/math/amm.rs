@@ -8,7 +8,7 @@ use drift::{
     math::{
         amm::{calculate_price, calculate_swap_output},
         amm_spread::{calculate_inventory_liquidity_ratio, calculate_reference_price_offset},
-        bn::{U192, U256},
+        bn::U192,
         constants::{
             AMM_TIMES_PEG_TO_QUOTE_PRECISION_RATIO, BID_ASK_SPREAD_PRECISION, PEG_PRECISION,
             PERCENTAGE_PRECISION, PRICE_PRECISION,
@@ -19,6 +19,8 @@ use drift::{
     },
     state::{oracle::OraclePriceData, perp_market::AMM, user::AssetType},
 };
+use num_bigint::BigUint;
+use num_traits::ToPrimitive;
 
 use crate::{
     math::{repeg::calculate_budget_peg, util::sig_num},
@@ -140,13 +142,13 @@ pub fn calculate_new_amm(
         assert!(deficit_madeup <= 0);
 
         pre_peg_cost = budget + deficit_madeup.abs();
-        let mut new_amm = *amm;
+        let mut new_amm = amm.clone();
         new_amm.base_asset_reserve = new_amm.base_asset_reserve.mul(pk_number).div(pk_denom);
-        new_amm.sqrt_k = new_amm.sqrt_k.mul(new_amm.sqrt_k);
-        let invariant = U256::from(new_amm.sqrt_k).mul(U256::from(new_amm.sqrt_k));
-        new_amm.quote_asset_reserve = invariant
-            .div(U256::from(new_amm.base_asset_reserve))
-            .try_to_u128()?;
+        new_amm.sqrt_k = new_amm.sqrt_k.mul(pk_number).div(pk_denom);
+        let invariant = BigUint::from(new_amm.sqrt_k) * BigUint::from(new_amm.sqrt_k);
+        new_amm.quote_asset_reserve = (invariant / BigUint::from(new_amm.base_asset_reserve))
+            .to_u128()
+            .ok_or(SdkError::Generic("big uint error".to_string()))?;
         let direction_to_close = if amm.base_asset_amount_with_amm > 0 {
             PositionDirection::Short
         } else {
