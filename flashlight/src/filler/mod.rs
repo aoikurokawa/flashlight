@@ -569,7 +569,6 @@ where
         let oracle = self
             .drift_client
             .get_oracle_price_data_and_slot_for_perp_market(market_index);
-        log::debug!("Oracle: {oracle:?}");
         if let Some(oracle) = oracle {
             let v_ask = calculate_ask_price(&market, &oracle.data).expect("calculate ask price");
             let v_bid = calculate_bid_price(&market, &oracle.data).expect("calculate bid price");
@@ -1378,8 +1377,10 @@ where
                 Some(err) => {
                     log::error!("Error simulating multi maker perp node (fill_ix_id: {fill_tx_id}: {:?}\nTaker slot: {taker_user_slot}\n", err);
 
-                    if let Some(log) = sim_res.sim_tx_logs {
-                        // handle_transaction_logs()
+                    if let Some(logs) = sim_res.sim_tx_logs {
+                        let (_filled_nodes, _exceeded_cus) = self
+                            .handle_transaction_logs(&[node_to_fill.clone()], &logs)
+                            .await;
                     }
                 }
                 None => {

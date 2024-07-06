@@ -1019,7 +1019,6 @@ impl<T: AccountProvider> DriftClientBackend<T> {
     }
 
     fn get_oracle_price_data_and_slot(&self, oracle_pubkey: &Pubkey) -> Option<Oracle> {
-        log::info!("Oracle map: {:?}", self.oracle_map.oraclemap);
         self.oracle_map.get(oracle_pubkey)
     }
 
