@@ -1,40 +1,43 @@
 use std::ops::{Add, Div, Mul, Sub};
 
 use drift::{
-    math::{
-        bn::U192,
-        constants::{
-            AMM_RESERVE_PRECISION, AMM_TO_QUOTE_PRECISION_RATIO, PEG_PRECISION,
-            PERCENTAGE_PRECISION, PRICE_PRECISION,
-        },
-        safe_math::SafeMath,
+    math::constants::{
+        AMM_RESERVE_PRECISION, AMM_TO_QUOTE_PRECISION_RATIO, PEG_PRECISION, PERCENTAGE_PRECISION,
+        PRICE_PRECISION,
     },
     state::perp_market::AMM,
 };
+use num_bigint::BigUint;
+use num_traits::{FromPrimitive, ToPrimitive};
 
-use crate::{constants::PRICE_DIV_PEG, types::SdkResult};
+use crate::{
+    constants::PRICE_DIV_PEG,
+    types::{SdkError, SdkResult},
+};
 
 /// Helper function calculating adjust k cost
 pub fn calculate_adjust_k_cost(amm: &AMM, numerator: u128, denomenator: u128) -> SdkResult<i128> {
-    let x = U192::from(amm.base_asset_reserve);
-    let y = U192::from(amm.quote_asset_reserve);
+    let x = BigUint::from(amm.base_asset_reserve);
+    let y = BigUint::from(amm.quote_asset_reserve);
 
-    let d = U192::from(amm.base_asset_amount_with_amm);
-    let q = U192::from(amm.peg_multiplier);
+    let d = BigUint::from_i128(amm.base_asset_amount_with_amm)
+        .ok_or(SdkError::Generic("num_bigint error".to_string()))?;
+    let q = BigUint::from(amm.peg_multiplier);
 
-    let quote_scale = y * d * q;
+    let quote_scale = y * d.clone() * q;
 
-    let p = U192::from(numerator * PRICE_PRECISION / denomenator);
+    let p = BigUint::from(numerator * PRICE_PRECISION / denomenator);
 
     let cost = quote_scale
-        .mul(U192::from(PERCENTAGE_PRECISION))
-        .mul(U192::from(PERCENTAGE_PRECISION))
-        .div(x.add(d))
+        .clone()
+        .mul(BigUint::from(PERCENTAGE_PRECISION))
+        .mul(BigUint::from(PERCENTAGE_PRECISION))
+        .div(x.clone().add(d.clone()))
         .sub(
             quote_scale
-                .mul(p)
-                .mul(U192::from(PERCENTAGE_PRECISION))
-                .mul(U192::from(PERCENTAGE_PRECISION))
+                .mul(p.clone())
+                .mul(BigUint::from(PERCENTAGE_PRECISION))
+                .mul(BigUint::from(PERCENTAGE_PRECISION))
                 .div(PRICE_PRECISION)
                 .div(x.mul(p).div(PRICE_PRECISION).add(d)),
         )
@@ -43,7 +46,9 @@ pub fn calculate_adjust_k_cost(amm: &AMM, numerator: u128, denomenator: u128) ->
         .div(AMM_TO_QUOTE_PRECISION_RATIO)
         .div(PEG_PRECISION);
 
-    let cost = cost.try_to_u128()? as i128;
+    let cost = cost
+        .to_i128()
+        .ok_or(SdkError::Generic("num_bigint error".to_string()))?;
     Ok(cost.mul(-1))
 }
 

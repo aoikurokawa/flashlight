@@ -40,6 +40,7 @@ pub mod constants;
 pub mod dlob;
 pub mod drift_client;
 pub mod drift_client_config;
+pub mod error;
 pub mod event_emitter;
 pub mod events;
 pub mod jupiter;
