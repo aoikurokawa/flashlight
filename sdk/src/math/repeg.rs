@@ -1,45 +1,50 @@
 use std::ops::{Add, Div, Mul, Sub};
 
 use drift::{
-    math::constants::{
-        AMM_RESERVE_PRECISION, AMM_TO_QUOTE_PRECISION_RATIO, PEG_PRECISION, PERCENTAGE_PRECISION,
-        PRICE_PRECISION,
+    math::{
+        bn::U192,
+        constants::{
+            AMM_RESERVE_PRECISION, AMM_TO_QUOTE_PRECISION_RATIO, PEG_PRECISION,
+            PERCENTAGE_PRECISION, PRICE_PRECISION,
+        },
+        safe_math::SafeMath,
     },
     state::perp_market::AMM,
 };
 
-use crate::constants::PRICE_DIV_PEG;
+use crate::{constants::PRICE_DIV_PEG, types::SdkResult};
 
 /// Helper function calculating adjust k cost
-pub fn calculate_adjust_k_cost(amm: &AMM, numerator: u128, denomenator: u128) -> i128 {
-    let x = amm.base_asset_reserve;
-    let y = amm.quote_asset_reserve;
+pub fn calculate_adjust_k_cost(amm: &AMM, numerator: u128, denomenator: u128) -> SdkResult<i128> {
+    let x = U192::from(amm.base_asset_reserve);
+    let y = U192::from(amm.quote_asset_reserve);
 
-    let d = amm.base_asset_amount_with_amm as u128;
-    let q = amm.peg_multiplier;
+    let d = U192::from(amm.base_asset_amount_with_amm);
+    let q = U192::from(amm.peg_multiplier);
 
     let quote_scale = y * d * q;
 
-    let p = numerator * PRICE_PRECISION / denomenator;
+    let p = U192::from(numerator * PRICE_PRECISION / denomenator);
 
     let cost = quote_scale
-        .mul(PERCENTAGE_PRECISION)
-        .mul(PERCENTAGE_PRECISION)
+        .mul(U192::from(PERCENTAGE_PRECISION))
+        .mul(U192::from(PERCENTAGE_PRECISION))
         .div(x.add(d))
         .sub(
             quote_scale
                 .mul(p)
-                .mul(PERCENTAGE_PRECISION)
-                .mul(PERCENTAGE_PRECISION)
+                .mul(U192::from(PERCENTAGE_PRECISION))
+                .mul(U192::from(PERCENTAGE_PRECISION))
                 .div(PRICE_PRECISION)
                 .div(x.mul(p).div(PRICE_PRECISION).add(d)),
         )
         .div(PERCENTAGE_PRECISION)
         .div(PERCENTAGE_PRECISION)
         .div(AMM_TO_QUOTE_PRECISION_RATIO)
-        .div(PEG_PRECISION) as i128;
+        .div(PEG_PRECISION);
 
-    cost.mul(-1)
+    let cost = cost.try_to_u128()? as i128;
+    Ok(cost.mul(-1))
 }
 
 pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u128) -> u128 {

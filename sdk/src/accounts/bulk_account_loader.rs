@@ -22,6 +22,7 @@ pub struct AccountToLoad {
     callbacks: HashMap<String, Arc<Mutex<dyn AccountCallback>>>,
 }
 
+#[allow(dead_code)]
 pub struct BufferAndSlot {
     buffer: Vec<u8>,
     slot: u64,

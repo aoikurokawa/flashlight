@@ -18,6 +18,7 @@ use super::{
 //     fn set_data(&mut self, user_account: T, slot: Option<u64>);
 // }
 
+#[allow(dead_code)]
 enum UserAccountEvents {
     UserAccountUpdate { payload: Box<UserAccount> },
     Update,

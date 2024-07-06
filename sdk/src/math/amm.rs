@@ -103,14 +103,8 @@ pub fn calculate_optimal_peg_and_budget(
 
             new_budget = calculate_repeg_cost(amm, new_optimal_peg)
                 .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
-            check_lower_bound = false;
 
-            return Ok((
-                new_target_price,
-                new_optimal_peg,
-                new_budget,
-                check_lower_bound,
-            ));
+            return Ok((new_target_price, new_optimal_peg, new_budget, false));
         } else if amm.total_fee_minus_distributions < (amm.total_exchange_fee / 2) as i128 {
             check_lower_bound = false;
         }
@@ -133,13 +127,14 @@ pub fn calculate_new_amm(
 
     let (target_price, mut new_peg, budget, _check_lower_bound) =
         calculate_optimal_peg_and_budget(amm, oracle_price_data)?;
-    let mut pre_peg_cost = calculate_repeg_cost(amm, new_peg)?;
+    let mut pre_peg_cost = calculate_repeg_cost(amm, new_peg)
+        .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
 
     if pre_peg_cost >= budget && pre_peg_cost > 0 {
         pk_number = 999;
         pk_denom = 1000;
 
-        let deficit_madeup = calculate_adjust_k_cost(amm, pk_number, pk_denom);
+        let deficit_madeup = calculate_adjust_k_cost(amm, pk_number, pk_denom)?;
         assert!(deficit_madeup <= 0);
 
         pre_peg_cost = budget + deficit_madeup.abs();
@@ -175,7 +170,7 @@ pub fn calculate_updated_amm(amm: &AMM, oracle_price_data: &OraclePriceData) -> 
         return Ok(*amm);
     }
 
-    let mut new_amm = *amm;
+    let mut new_amm = amm.clone();
     let (prepeg_cost, pk_number, pk_denom, new_peg) =
         calculate_new_amm(&new_amm, oracle_price_data)?;
 
@@ -241,26 +236,32 @@ pub fn calculate_amm_reserves_after_swap(
     assert!(swap_amount >= 0, "swap_amount must be greater than 0");
 
     let mut swap_amount = swap_amount as u128;
-    match input_asset_type {
+    let (new_quote_asset_reserve, new_base_asset_reserve) = match input_asset_type {
         AssetType::Quote => {
             swap_amount = swap_amount
                 .mul(AMM_TIMES_PEG_TO_QUOTE_PRECISION_RATIO)
                 .div(amm.peg_multiplier);
 
-            Ok(calculate_swap_output(
+            let (output, input) = calculate_swap_output(
                 amm.quote_asset_reserve,
                 swap_amount,
                 swap_direction,
                 amm.sqrt_k.mul(amm.sqrt_k),
-            )?)
+            )?;
+            (input, output)
         }
-        AssetType::Base => Ok(calculate_swap_output(
-            amm.base_asset_reserve,
-            swap_amount,
-            swap_direction,
-            amm.sqrt_k.mul(amm.sqrt_k),
-        )?),
-    }
+        AssetType::Base => {
+            let (output, input) = calculate_swap_output(
+                amm.base_asset_reserve,
+                swap_amount,
+                swap_direction,
+                amm.sqrt_k.mul(amm.sqrt_k),
+            )?;
+            (output, input)
+        }
+    };
+
+    Ok((new_quote_asset_reserve, new_base_asset_reserve))
 }
 
 // pub fn calculate_market_open_bid_ask(
@@ -584,10 +585,10 @@ pub fn calculate_spread_reserves(
         amm.peg_multiplier,
     )?;
 
-    let mut max_offset = 0;
+    // let mut max_offset = 0;
     let mut reference_price_offset = 0;
     if amm.curve_update_intensity > 100 {
-        max_offset = std::cmp::max(
+        let max_offset = std::cmp::max(
             amm.max_spread as u128 / 5,
             (PERCENTAGE_PRECISION / 10000) * (amm.curve_update_intensity as u128 - 100),
         );

@@ -11,6 +11,7 @@ use crate::{
 
 use super::ResubOpts;
 
+#[allow(dead_code)]
 pub struct WebSocketUserStatsAccountSubscriber {
     is_subscribed: bool,
     resub_opts: Option<ResubOpts>,

@@ -126,9 +126,7 @@ impl OracleMap {
             let results = futures_util::future::join_all(subscribe_futures).await;
             for result in results {
                 match result {
-                    Ok(()) => {
-                        log::error!("Successfully subscribing oracles");
-                    }
+                    Ok(()) => {}
                     Err(e) => {
                         log::error!("Error subscribing oraclemap: {e}");
                     }

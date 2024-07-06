@@ -86,8 +86,6 @@ impl<T> WebsocketAccountSubscriber<T> {
 
         let url = self.url.clone();
 
-        info!("subscribing {}", self.subscription_name);
-
         tokio::spawn({
             let event_emitter = self.event_emitter.clone();
             let mut latest_slot = 0;

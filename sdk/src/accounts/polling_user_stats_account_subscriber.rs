@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use anchor_client::Program;
-use log::warn;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 use tokio::sync::Mutex as TokioMutex;
 
@@ -48,8 +47,8 @@ impl PollingUserStatsAccountSubscriber {
 
         let user_stats = Arc::new(Mutex::new(self.user_stats.clone()));
         let user_stats_account_pubkey = self.user_stats_account_pubkey;
-        let program = self.program.clone();
-        let event_emitter = self.event_emitter.clone();
+        let _program = self.program.clone();
+        let _event_emitter = self.event_emitter.clone();
 
         self.callback_id = Some(
             self.account_loader
@@ -60,7 +59,7 @@ impl PollingUserStatsAccountSubscriber {
                             return;
                         }
 
-                        let mut user_stats = user_stats.lock().unwrap();
+                        let user_stats = user_stats.lock().unwrap();
                         if let Some(user_stats) = &*user_stats {
                             if user_stats.slot > slot {
                                 return;
@@ -89,6 +88,7 @@ impl PollingUserStatsAccountSubscriber {
         // }).await;
     }
 
+    #[allow(dead_code)]
     async fn fetch_if_unloaded(&mut self) -> SdkResult<()> {
         if self.user_stats.is_none() {
             self.fetch().await?;
@@ -101,6 +101,7 @@ impl PollingUserStatsAccountSubscriber {
         self.user_stats.is_some()
     }
 
+    #[allow(dead_code)]
     fn assert_is_subscribed(&self) -> SdkResult<()> {
         if !self.is_subscribed {
             return Err(SdkError::Generic(
@@ -130,7 +131,7 @@ impl PollingUserStatsAccountSubscriber {
     }
 
     pub(crate) async fn fetch(&mut self) -> SdkResult<()> {
-        let slot = self.program.rpc().get_slot()?;
+        let _slot = self.program.rpc().get_slot()?;
         todo!();
         // match self
         //     .program
@@ -153,8 +154,7 @@ impl PollingUserStatsAccountSubscriber {
         //         );
         //     }
         // }
-
-        Ok(())
+        // Ok(())
     }
 
     pub(crate) async fn unsubscribe(&mut self) {
