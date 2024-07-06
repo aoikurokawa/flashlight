@@ -371,14 +371,11 @@ impl Wallet {
         message.set_recent_blockhash(recent_block_hash);
         let signer: &dyn Signer = self.signer.as_ref();
 
-        let tx = if additional_signers {
-            VersionedTransaction::try_new(message, &[signer, signer])
-                .map_err(|e| SdkError::Signing(e))
+        if additional_signers {
+            VersionedTransaction::try_new(message, &[signer, signer]).map_err(SdkError::Signing)
         } else {
-            VersionedTransaction::try_new(message, &[signer]).map_err(|e| SdkError::Signing(e))
-        };
-
-        tx
+            VersionedTransaction::try_new(message, &[signer]).map_err(SdkError::Signing)
+        }
     }
 
     /// Return the wallet authority address

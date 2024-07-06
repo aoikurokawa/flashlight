@@ -77,7 +77,7 @@ fn calculate_base_asset_amount_for_amm_to_fulfill(
     oracle_price_data: &OraclePriceData,
     slot: u64,
 ) -> SdkResult<u64> {
-    if must_be_triggered(order) && !is_triggered(order) {}
+    // if must_be_triggered(order) && !is_triggered(order) {}
 
     let limit_price = get_limit_price(order, oracle_price_data, slot, None);
 

@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     ops::{Add, Div, Mul, Sub},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -143,7 +144,7 @@ pub fn calculate_new_amm(
         assert!(deficit_madeup <= 0);
 
         pre_peg_cost = budget + deficit_madeup.abs();
-        let mut new_amm = amm.clone();
+        let mut new_amm = *amm;
         new_amm.base_asset_reserve = new_amm.base_asset_reserve.mul(pk_number).div(pk_denom);
         new_amm.sqrt_k = new_amm.sqrt_k.mul(pk_number).div(pk_denom);
         let invariant = BigUint::from(new_amm.sqrt_k) * BigUint::from(new_amm.sqrt_k);
@@ -177,7 +178,7 @@ pub fn calculate_updated_amm(amm: &AMM, oracle_price_data: &OraclePriceData) -> 
         return Ok(*amm);
     }
 
-    let mut new_amm = amm.clone();
+    let mut new_amm = *amm;
     let (prepeg_cost, pk_number, pk_denom, new_peg) =
         calculate_new_amm(&new_amm, oracle_price_data)?;
 
@@ -680,19 +681,19 @@ pub fn calculate_max_base_asset_amount_to_trade(
         short_spread_reserves.0
     };
 
-    if new_base_asset_reserve > base_asset_reserve_before {
-        return Ok((
+    match new_base_asset_reserve.cmp(&base_asset_reserve_before) {
+        Ordering::Greater => Ok((
             new_base_asset_reserve - base_asset_reserve_before,
             PositionDirection::Short,
-        ));
-    } else if new_base_asset_reserve < base_asset_reserve_before {
-        return Ok((
+        )),
+        Ordering::Less => Ok((
             base_asset_reserve_before - new_base_asset_reserve,
             PositionDirection::Long,
-        ));
-    } else {
-        log::info!("trade size too small");
-        return Ok((0, PositionDirection::Long));
+        )),
+        Ordering::Equal => {
+            log::info!("trade size too small");
+            Ok((0, PositionDirection::Long))
+        }
     }
 }
 
