@@ -594,7 +594,7 @@ where
                     MarketType::Perp,
                     &oracle.data,
                     &state,
-                    &MarketAccount::PerpMarket(perp_market),
+                    &MarketAccount::PerpMarket(Box::new(perp_market)),
                 )
                 .expect("find nodes to fill");
 

@@ -1,13 +1,6 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crate::event_emitter::EventEmitter;
-use crate::memcmp::get_market_filter;
-use crate::utils::{decode, get_ws_url};
-use crate::websocket_program_account_subscriber::{
-    ProgramAccountUpdate, WebsocketProgramAccountOptions, WebsocketProgramAccountSubscriber,
-};
-use crate::{DataAndSlot, SdkResult};
 use anchor_lang::AccountDeserialize;
 use dashmap::DashMap;
 use drift::state::oracle::OracleSource;
@@ -23,6 +16,16 @@ use solana_client::rpc_response::{OptionalContext, RpcKeyedAccount};
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 use tokio::sync::RwLock;
+
+use crate::{
+    event_emitter::EventEmitter,
+    memcmp::get_market_filter,
+    utils::{decode, get_ws_url},
+    websocket_program_account_subscriber::{
+        ProgramAccountUpdate, WebsocketProgramAccountOptions, WebsocketProgramAccountSubscriber,
+    },
+    DataAndSlot, SdkResult,
+};
 
 pub trait Market {
     const MARKET_TYPE: MarketType;
@@ -80,7 +83,7 @@ where
         };
         let event_emitter = EventEmitter::new();
 
-        let url = get_ws_url(&endpoint).unwrap();
+        let url = get_ws_url(endpoint).unwrap();
 
         let subscription = WebsocketProgramAccountSubscriber::new(
             MarketMap::<T>::SUBSCRIPTION_ID,

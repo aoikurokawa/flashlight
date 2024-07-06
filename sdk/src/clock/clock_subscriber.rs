@@ -95,10 +95,8 @@ impl ClockSubscriber {
                          let mut receiving_data = receiving_data.lock().await;
                          let mut current_ts = current_ts.lock().await;
 
-                         if  *latest_slot< res.context.slot {
-                             if !*is_unsubscribing {
+                         if  *latest_slot< res.context.slot && !*is_unsubscribing {
                                  *receiving_data = true;
-                             }
                          }
 
                         *latest_slot = res.context.slot;
@@ -170,11 +168,9 @@ fn deserialize_clock_data(data: &UiAccountData) -> SdkResult<Clock> {
                 bincode::deserialize(&bytes).map_err(|e| SdkError::Generic(e.to_string()))?;
             Ok(clock)
         }
-        format => {
-            return Err(SdkError::Generic(format!(
-                "Unsupported data format: {format:?}"
-            )));
-        }
+        format => Err(SdkError::Generic(format!(
+            "Unsupported data format: {format:?}"
+        ))),
     }
 }
 

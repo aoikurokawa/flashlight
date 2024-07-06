@@ -57,8 +57,8 @@ impl NodeToFill {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum MarketAccount {
-    PerpMarket(PerpMarket),
-    SpotMarket(SpotMarket),
+    PerpMarket(Box<PerpMarket>),
+    SpotMarket(Box<SpotMarket>),
 }
 
 #[derive(Clone)]
@@ -185,12 +185,10 @@ impl DLOB {
             } else {
                 SubType::Below
             }
+        } else if matches!(order.direction, PositionDirection::Long) {
+            SubType::Bid
         } else {
-            if matches!(order.direction, PositionDirection::Long) {
-                SubType::Bid
-            } else {
-                SubType::Ask
-            }
+            SubType::Ask
         };
 
         match order.market_type {
@@ -238,13 +236,13 @@ impl DLOB {
         let is_amm_paused = state_account.amm_paused()?;
 
         let min_auction_duration = if MarketType::Perp == market_type {
-            state_account.min_perp_auction_duration as u8
+            state_account.min_perp_auction_duration
         } else {
             0
         };
 
         let (maker_rebate_numerator, maker_rebate_denominator) =
-            self.get_maker_rebate(market_type, &state_account, market_account);
+            self.get_maker_rebate(market_type, state_account, market_account);
 
         let resting_limit_order_nodes_to_fill = self.find_resting_limit_order_nodes_to_fill(
             market_index,
@@ -350,7 +348,6 @@ impl DLOB {
 
         let array = merged_nodes_to_fill
             .values()
-            .into_iter()
             .map(|val| NodeToFill {
                 node: val.node,
                 maker_nodes: val.maker_nodes.to_vec(),
@@ -617,7 +614,7 @@ impl DLOB {
 
                 let base_filled = std::cmp::min(maker_base_remaining, taker_base_remaining);
 
-                let mut new_maker_order = maker_order.clone();
+                let mut new_maker_order = *maker_order;
                 new_maker_order.base_asset_amount_filled =
                     maker_order.base_asset_amount_filled + base_filled;
                 if let Some(mut orders) = self.get_list_for_order(&new_maker_order, slot) {
@@ -627,7 +624,7 @@ impl DLOB {
                     orders.update_bid(order_node);
                 }
 
-                let mut new_taker_order = taker_order.clone();
+                let mut new_taker_order = *taker_order;
                 new_taker_order.base_asset_amount_filled =
                     taker_order.base_asset_amount_filled + base_filled;
                 if let Some(mut orders) = self.get_list_for_order(&new_taker_order, slot) {
@@ -1004,7 +1001,7 @@ impl DLOB {
 
                     let base_filled = std::cmp::min(bid_base_remaining, ask_base_remaining);
 
-                    let mut new_bid_order = bid_order.clone();
+                    let mut new_bid_order = *bid_order;
                     new_bid_order.base_asset_amount_filled =
                         bid_order.base_asset_amount_filled + base_filled;
 
@@ -1017,7 +1014,7 @@ impl DLOB {
                     }
 
                     // ask completely filled
-                    let mut new_ask_order = ask_order.clone();
+                    let mut new_ask_order = *ask_order;
                     new_ask_order.base_asset_amount_filled =
                         ask_order.base_asset_amount_filled + base_filled;
 
@@ -1049,7 +1046,7 @@ impl DLOB {
         let bid_slot = bid_order.slot + bid_order.auction_duration as u64;
 
         if bid_order.post_only && ask_order.post_only {
-            return None;
+            None
         } else if bid_order.post_only {
             return Some((ask_node, bid_node));
         } else if ask_order.post_only {

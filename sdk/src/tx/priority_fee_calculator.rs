@@ -33,14 +33,12 @@ impl PriorityFeeCalculator {
             self.last_tx_timeout_count = tx_time_count;
             self.last_tx_timeout_count_triggered = current_time_ms;
             trigger_priority_fee = true;
-        } else {
-            if !self.priority_fee_triggered {
-                trigger_priority_fee = false;
-            } else if current_time_ms - self.last_tx_timeout_count_triggered
-                < self.priority_fee_latch_duration_ms
-            {
-                trigger_priority_fee = true;
-            }
+        } else if !self.priority_fee_triggered {
+            trigger_priority_fee = false;
+        } else if current_time_ms - self.last_tx_timeout_count_triggered
+            < self.priority_fee_latch_duration_ms
+        {
+            trigger_priority_fee = true;
         }
 
         self.priority_fee_triggered = trigger_priority_fee;
