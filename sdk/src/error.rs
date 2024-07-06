@@ -88,6 +88,8 @@ pub enum SdkError {
     JitOrderNotFound,
     #[error("Drift Program occured. Error Code: {0}")]
     DriftProgramError(drift::error::ErrorCode),
+    #[error("num-bigint error occured: {0}")]
+    NumBigintError(String),
 }
 
 impl SdkError {

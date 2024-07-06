@@ -9,7 +9,6 @@ use drift::{
     math::{
         amm::{calculate_price, calculate_swap_output},
         amm_spread::{calculate_inventory_liquidity_ratio, calculate_reference_price_offset},
-        bn::U192,
         constants::{
             AMM_TIMES_PEG_TO_QUOTE_PRECISION_RATIO, BID_ASK_SPREAD_PRECISION, PEG_PRECISION,
             PERCENTAGE_PRECISION, PRICE_PRECISION,
@@ -132,7 +131,8 @@ pub fn calculate_new_amm(
     let mut pk_denom = 1;
 
     let (target_price, mut new_peg, budget, _check_lower_bound) =
-        calculate_optimal_peg_and_budget(amm, oracle_price_data)?;
+        calculate_optimal_peg_and_budget(amm, oracle_price_data)
+            .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
     let mut pre_peg_cost = calculate_repeg_cost(amm, new_peg)
         .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
 
@@ -140,7 +140,8 @@ pub fn calculate_new_amm(
         pk_number = 999;
         pk_denom = 1000;
 
-        let deficit_madeup = calculate_adjust_k_cost(amm, pk_number, pk_denom)?;
+        let deficit_madeup = calculate_adjust_k_cost(amm, pk_number, pk_denom)
+            .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
         assert!(deficit_madeup <= 0);
 
         pre_peg_cost = budget + deficit_madeup.abs();
@@ -150,7 +151,9 @@ pub fn calculate_new_amm(
         let invariant = BigUint::from(new_amm.sqrt_k) * BigUint::from(new_amm.sqrt_k);
         new_amm.quote_asset_reserve = (invariant / BigUint::from(new_amm.base_asset_reserve))
             .to_u128()
-            .ok_or(SdkError::Generic("big uint error".to_string()))?;
+            .ok_or(SdkError::NumBigintError(String::from(
+                "quote_asset_reserve",
+            )))?;
         let direction_to_close = if amm.base_asset_amount_with_amm > 0 {
             PositionDirection::Short
         } else {
@@ -220,7 +223,7 @@ pub fn calculate_updated_amm_spread_reserves(
     let (short_reserves, long_reserves) =
         calculate_spread_reserves(&new_amm, oracle_price_data, None)?;
 
-    let dir_reserves = if PositionDirection::Long == direction {
+    let dir_reserves = if matches!(direction, PositionDirection::Long) {
         long_reserves
     } else {
         short_reserves
@@ -255,7 +258,9 @@ pub fn calculate_amm_reserves_after_swap(
                 swap_amount,
                 swap_direction,
                 amm.sqrt_k.mul(amm.sqrt_k),
-            )?;
+            )
+            .map_err(|e| SdkError::MathError(format!("Error: {e}")))?;
+
             (input, output)
         }
         AssetType::Base => {
@@ -264,7 +269,9 @@ pub fn calculate_amm_reserves_after_swap(
                 swap_amount,
                 swap_direction,
                 amm.sqrt_k.mul(amm.sqrt_k),
-            )?;
+            )
+            .map_err(|e| SdkError::MathError(format!("Error: {e}")))?;
+
             (output, input)
         }
     };
@@ -511,11 +518,16 @@ pub fn calculate_spread(
         Some(data) => data.price as u64,
         None => reserve_price,
     };
-    let target_mark_spread_pct = U192::from(reserve_price)
+    let target_mark_spread_pct = BigUint::from(reserve_price)
         .sub(target_price)
-        .mul(U192::from(BID_ASK_SPREAD_PRECISION))
+        .mul(BigUint::from(BID_ASK_SPREAD_PRECISION))
         .div(reserve_price);
-    let target_mark_spread_pct = target_mark_spread_pct.try_to_u64()? as i64;
+    let target_mark_spread_pct =
+        target_mark_spread_pct
+            .to_i64()
+            .ok_or(SdkError::NumBigintError(String::from(
+                "target_mark_spread_pct",
+            )))?;
 
     let now = match now {
         Some(time) => time,
