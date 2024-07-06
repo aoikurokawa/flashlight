@@ -49,7 +49,7 @@ pub fn calculate_adjust_k_cost(amm: &AMM, numerator: u128, denomenator: u128) ->
     Ok(cost.mul(-1))
 }
 
-pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u128) -> u128 {
+pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u64) -> u128 {
     let per_peg_cost = amm
         .quote_asset_reserve
         .sub(amm.terminal_quote_asset_reserve)
@@ -61,6 +61,7 @@ pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u128) -> u128
         per_peg_cost - 1
     };
 
+    let target_price = target_price as u128;
     let target_peg = target_price
         .mul(amm.base_asset_reserve)
         .div(amm.quote_asset_reserve)

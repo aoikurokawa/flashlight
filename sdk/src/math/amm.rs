@@ -60,7 +60,7 @@ pub struct SpreadTerms {
 pub fn calculate_optimal_peg_and_budget(
     amm: &AMM,
     oracle_price_data: &OraclePriceData,
-) -> SdkResult<(u128, u128, i128, bool)> {
+) -> SdkResult<(u64, u128, i128, bool)> {
     let reserve_price_before = calculate_price(
         amm.quote_asset_reserve,
         amm.base_asset_reserve,
@@ -94,15 +94,15 @@ pub fn calculate_optimal_peg_and_budget(
             let mark_adj = target_price_gap.abs() - half_max_price_spread;
 
             new_target_price = if target_price_gap < 0 {
-                reserve_price_before as u128 + mark_adj as u128
+                reserve_price_before + mark_adj as u64
             } else {
-                reserve_price_before as u128 - mark_adj as u128
+                reserve_price_before - mark_adj as u64
             };
 
             new_optimal_peg = calculate_peg_from_target_price(
-                new_target_price,
                 amm.base_asset_reserve,
-                amm.quote_asset_reserve as u64,
+                amm.quote_asset_reserve,
+                new_target_price,
             )
             .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
 
@@ -470,8 +470,8 @@ pub fn calculate_spread_reserves(
             amm.last_24h_avg_funding_rate,
             liquidity_fraction_signed,
             0,
-            amm.historical_oracle_data.last_oracle_price_twap_5min,
-            amm.last_mark_price_twap_5min,
+            amm.last_mark_price_twap_5min as i64,
+            amm.historical_oracle_data.last_oracle_price_twap_5min as u64,
             amm.historical_oracle_data.last_oracle_price_twap,
             amm.last_mark_price_twap,
             max_offset as i64,
