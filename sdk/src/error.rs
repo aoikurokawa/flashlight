@@ -1,25 +1,11 @@
-use std::{
-    cell::{BorrowError, BorrowMutError},
-    cmp::Ordering,
-};
+use std::cell::{BorrowError, BorrowMutError};
 
-use anchor_lang::AccountDeserialize;
-use drift::{
-    error::ErrorCode,
-    state::user::{MarketType, Order, User, UserStats},
-};
+use drift::error::ErrorCode;
 use futures_util::Sink;
-use serde::Deserialize;
-use solana_sdk::{
-    instruction::{AccountMeta, InstructionError},
-    pubkey::Pubkey,
-    transaction::TransactionError,
-};
+use solana_sdk::{instruction::InstructionError, transaction::TransactionError};
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
-
-use crate::event_emitter::Event;
 
 #[derive(Debug)]
 pub struct SinkError(
