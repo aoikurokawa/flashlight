@@ -254,8 +254,8 @@ pub fn calculate_amm_reserves_after_swap(
                 .div(amm.peg_multiplier);
 
             let (output, input) = calculate_swap_output(
-                amm.quote_asset_reserve,
                 swap_amount,
+                amm.quote_asset_reserve,
                 swap_direction,
                 amm.sqrt_k.mul(amm.sqrt_k),
             )
@@ -265,8 +265,8 @@ pub fn calculate_amm_reserves_after_swap(
         }
         AssetType::Base => {
             let (output, input) = calculate_swap_output(
-                amm.base_asset_reserve,
                 swap_amount,
+                amm.base_asset_reserve,
                 swap_direction,
                 amm.sqrt_k.mul(amm.sqrt_k),
             )
