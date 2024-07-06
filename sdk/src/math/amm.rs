@@ -8,12 +8,14 @@ use drift::{
     math::{
         amm::{calculate_price, calculate_swap_output},
         amm_spread::{calculate_inventory_liquidity_ratio, calculate_reference_price_offset},
+        bn::{U192, U256},
         constants::{
             AMM_TIMES_PEG_TO_QUOTE_PRECISION_RATIO, BID_ASK_SPREAD_PRECISION, PEG_PRECISION,
             PERCENTAGE_PRECISION, PRICE_PRECISION,
         },
         orders::standardize_base_asset_amount,
         repeg::{calculate_peg_from_target_price, calculate_repeg_cost},
+        safe_math::SafeMath,
     },
     state::{oracle::OraclePriceData, perp_market::AMM, user::AssetType},
 };
@@ -141,8 +143,10 @@ pub fn calculate_new_amm(
         let mut new_amm = *amm;
         new_amm.base_asset_reserve = new_amm.base_asset_reserve.mul(pk_number).div(pk_denom);
         new_amm.sqrt_k = new_amm.sqrt_k.mul(new_amm.sqrt_k);
-        let invariant = new_amm.sqrt_k.mul(new_amm.sqrt_k);
-        new_amm.quote_asset_reserve = invariant.div(new_amm.base_asset_reserve);
+        let invariant = U256::from(new_amm.sqrt_k).mul(U256::from(new_amm.sqrt_k));
+        new_amm.quote_asset_reserve = invariant
+            .div(U256::from(new_amm.base_asset_reserve))
+            .try_to_u128()?;
         let direction_to_close = if amm.base_asset_amount_with_amm > 0 {
             PositionDirection::Short
         } else {
@@ -503,10 +507,11 @@ pub fn calculate_spread(
         Some(data) => data.price as u64,
         None => reserve_price,
     };
-    let target_mark_spread_pct = reserve_price
+    let target_mark_spread_pct = U192::from(reserve_price)
         .sub(target_price)
-        .mul(BID_ASK_SPREAD_PRECISION)
+        .mul(U192::from(BID_ASK_SPREAD_PRECISION))
         .div(reserve_price);
+    let target_mark_spread_pct = target_mark_spread_pct.try_to_u64()? as i64;
 
     let now = match now {
         Some(time) => time,
@@ -522,7 +527,7 @@ pub fn calculate_spread(
 
     let spreads = drift::math::amm_spread::calculate_spread(
         amm.base_spread,
-        target_mark_spread_pct as i64,
+        target_mark_spread_pct,
         conf_interval_pct,
         amm.max_spread,
         amm.quote_asset_reserve,
@@ -555,9 +560,9 @@ pub fn calculate_spread_reserves(
         spread: i128,
         _direction: PositionDirection,
         amm: &AMM,
-    ) -> (u128, u128) {
+    ) -> SdkResult<(u128, u128)> {
         if spread == 0 {
-            return (amm.base_asset_reserve, amm.quote_asset_reserve);
+            return Ok((amm.base_asset_reserve, amm.quote_asset_reserve));
         }
         let mut spread_fraction = spread / 2;
 
@@ -569,14 +574,19 @@ pub fn calculate_spread_reserves(
             amm.quote_asset_reserve as i128 / (BID_ASK_SPREAD_PRECISION as i128 / spread_fraction);
 
         let quote_asset_reserve = if quote_asset_reserve_delta >= 0 {
-            amm.quote_asset_reserve + quote_asset_reserve_delta as u128
+            amm.quote_asset_reserve
+                .safe_add(quote_asset_reserve_delta as u128)?
         } else {
-            amm.quote_asset_reserve - quote_asset_reserve_delta as u128
+            amm.quote_asset_reserve
+                .safe_sub(quote_asset_reserve_delta as u128)?
         };
 
-        let base_asset_reserve = amm.sqrt_k.mul(amm.sqrt_k).div(quote_asset_reserve);
+        let base_asset_reserve = amm
+            .sqrt_k
+            .safe_mul(amm.sqrt_k)?
+            .safe_div(quote_asset_reserve)?;
 
-        (base_asset_reserve, quote_asset_reserve)
+        Ok((base_asset_reserve, quote_asset_reserve))
     }
 
     let reserve_price = calculate_price(
@@ -623,12 +633,12 @@ pub fn calculate_spread_reserves(
         (long_spread as i32 + reference_price_offset) as i128,
         PositionDirection::Long,
         amm,
-    );
+    )?;
     let bid_reserves = calculate_spread_reserve(
         (-(short_spread as i32) + reference_price_offset) as i128,
         PositionDirection::Short,
         amm,
-    );
+    )?;
 
     Ok((bid_reserves, ask_reserves))
 }
