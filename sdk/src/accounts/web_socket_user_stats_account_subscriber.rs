@@ -100,7 +100,6 @@ impl WebSocketUserStatsAccountSubscriber {
             "You must call subscribe before using this function"
         );
 
-        // TODO
-        Ok(None)
+        self.user_stats_account_subscriber.data
     }
 }

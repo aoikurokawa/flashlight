@@ -115,6 +115,7 @@ impl<T: AccountProvider> UserStats<T> {
     pub fn get_referrer_info(&self) -> SdkResult<Option<ReferrerInfo>> {
         let account = self.get_account()?;
 
+        log::debug!("get account: {:?}", account);
         match account {
             Some(account) => {
                 if account.referrer.eq(&Pubkey::default()) {

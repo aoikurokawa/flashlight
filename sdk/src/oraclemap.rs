@@ -2,6 +2,7 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use anchor_lang::AccountDeserialize;
 use base64::Engine;
 use dashmap::DashMap;
 use drift::state::oracle::{get_oracle_price, OraclePriceData, OracleSource};

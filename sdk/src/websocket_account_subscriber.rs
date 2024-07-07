@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use anchor_lang::AccountDeserialize;
 use futures_util::StreamExt;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{nonblocking::pubsub_client::PubsubClient, rpc_config::RpcAccountInfoConfig};
@@ -8,6 +9,7 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use crate::{
     error::SdkError,
     event_emitter::{Event, EventEmitter},
+    types::DataAndSlot,
     SdkResult,
 };
 
@@ -37,7 +39,7 @@ pub struct WebsocketAccountSubscriber<T> {
     pub subscribed: bool,
     pub event_emitter: EventEmitter,
     unsubscriber: Option<tokio::sync::mpsc::Sender<()>>,
-    _phantom: PhantomData<T>,
+    data_and_slot: DataAndSlot<T>,
 }
 
 impl<T> WebsocketAccountSubscriber<T> {
@@ -56,7 +58,7 @@ impl<T> WebsocketAccountSubscriber<T> {
             subscribed: false,
             event_emitter,
             unsubscriber: None,
-            _phantom: PhantomData,
+            data_and_slot: DataAndSlot::new(),
         }
     }
 
