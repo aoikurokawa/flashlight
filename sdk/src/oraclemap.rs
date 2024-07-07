@@ -30,6 +30,16 @@ pub struct Oracle {
     pub raw: Vec<u8>,
 }
 
+impl AccountDeserialize for Oracle {
+    fn try_deserialize(_buf: &mut &[u8]) -> Result<Self, anchor_lang::error::Error> {
+        todo!()
+    }
+
+    fn try_deserialize_unchecked(_buf: &mut &[u8]) -> Result<Self, anchor_lang::error::Error> {
+        todo!()
+    }
+}
+
 pub struct OracleMap {
     subscribed: AtomicBool,
     pub(crate) oraclemap: Arc<DashMap<Pubkey, Oracle>>,
@@ -39,7 +49,7 @@ pub struct OracleMap {
     latest_slot: Arc<AtomicU64>,
     commitment: CommitmentConfig,
     rpc: RpcClient,
-    oracle_subscribers: RwLock<Vec<WebsocketAccountSubscriber>>,
+    oracle_subscribers: RwLock<Vec<WebsocketAccountSubscriber<Oracle>>>,
     perp_oracles: DashMap<u16, Pubkey>,
     spot_oracles: DashMap<u16, Pubkey>,
 }

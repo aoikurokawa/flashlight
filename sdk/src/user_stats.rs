@@ -105,6 +105,7 @@ impl<T: AccountProvider> UserStats<T> {
     pub fn get_account(&self) -> SdkResult<Option<UserStatsAccount>> {
         let account_and_slot = self.account_subscriber.get_user_stats_account_and_slot()?;
 
+        log::debug!("get account and slot: {:?}", account_and_slot);
         if let Some(account) = account_and_slot {
             return Ok(Some(account.data));
         }

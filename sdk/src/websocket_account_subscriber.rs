@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::sync::{Arc, Mutex};
 
 use anchor_lang::AccountDeserialize;
 use futures_util::StreamExt;
@@ -10,6 +10,7 @@ use crate::{
     error::SdkError,
     event_emitter::{Event, EventEmitter},
     types::DataAndSlot,
+    utils::decode,
     SdkResult,
 };
 
@@ -31,17 +32,31 @@ impl Event for AccountUpdate {
 }
 
 #[derive(Clone)]
-pub struct WebsocketAccountSubscriber {
+pub struct WebsocketAccountSubscriber<T>
+where
+    T: AccountDeserialize,
+{
     subscription_name: &'static str,
+
     url: String,
+
     pubkey: Pubkey,
+
     pub(crate) commitment: CommitmentConfig,
+
     pub subscribed: bool,
+
     pub event_emitter: EventEmitter,
+
     unsubscriber: Option<tokio::sync::mpsc::Sender<()>>,
+
+    pub(crate) data_and_slot: Arc<Mutex<Option<DataAndSlot<T>>>>,
 }
 
-impl WebsocketAccountSubscriber {
+impl<T> WebsocketAccountSubscriber<T>
+where
+    T: AccountDeserialize + Send + 'static,
+{
     pub fn new(
         subscription_name: &'static str,
         url: &str,
@@ -57,6 +72,7 @@ impl WebsocketAccountSubscriber {
             subscribed: false,
             event_emitter,
             unsubscriber: None,
+            data_and_slot: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -84,6 +100,7 @@ impl WebsocketAccountSubscriber {
         let base_delay = tokio::time::Duration::from_secs(2);
 
         let url = self.url.clone();
+        let data_and_slot = self.data_and_slot.clone();
 
         tokio::spawn({
             let event_emitter = self.event_emitter.clone();
@@ -110,10 +127,14 @@ impl WebsocketAccountSubscriber {
                                                 latest_slot = slot;
                                                 let account_update = AccountUpdate {
                                                     pubkey: pubkey.to_string(),
-                                                    data: message.value,
+                                                    data: message.value.clone(),
                                                     slot,
                                                 };
                                                 event_emitter.emit(subscription_name, Box::new(account_update));
+                                                let new_data = decode::<T>(message.value.data.clone()).expect("valid state data");
+                                                let mut data_and_slot = data_and_slot.lock().unwrap();
+                                                *data_and_slot = Some(DataAndSlot {slot, data: new_data } );
+                                                drop(data_and_slot);
                                             }
                                         }
                                         None => {

@@ -964,7 +964,7 @@ impl<T: AccountProvider> DriftClientBackend<T> {
     async fn state_subscribe(&self) -> SdkResult<()> {
         let pubkey = *state_account();
 
-        let mut subscription: WebsocketAccountSubscriber = WebsocketAccountSubscriber::new(
+        let mut subscription: WebsocketAccountSubscriber<State> = WebsocketAccountSubscriber::new(
             "state",
             &get_ws_url(&self.rpc_client.url()).expect("valid url"),
             pubkey,
