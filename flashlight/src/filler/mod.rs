@@ -1441,7 +1441,7 @@ where
         }
     }
 
-    async fn try_bulk_fill_perp_nodes(
+    async fn try_fill_perp_nodes(
         &mut self,
         nodes_to_fill: &[NodeToFill],
         build_for_bundle: bool,
@@ -1451,9 +1451,6 @@ where
 
         for node_to_fill in nodes_to_fill {
             let market_index = node_to_fill.get_node().get_order().market_index;
-            // if !market_node_map.contains_key(&market_index) {
-            //     market_node_map.insert(market_index, Vec::new());
-            // }
             market_node_map
                 .entry(market_index)
                 .and_modify(|nodes: &mut Vec<NodeToFill>| nodes.push(node_to_fill.clone()))
@@ -1462,16 +1459,16 @@ where
 
         for nodes_to_fill_for_market in market_node_map.values() {
             let sent = self
-                .try_bulk_fill_perp_nodes_for_market(nodes_to_fill_for_market, build_for_bundle)
+                .try_fill_perp_nodes_for_market(nodes_to_fill_for_market, build_for_bundle)
                 .await
-                .expect("try bulk");
+                .expect("try fill");
             nodes_sent += sent;
         }
 
         nodes_sent
     }
 
-    async fn try_bulk_fill_perp_nodes_for_market(
+    async fn try_fill_perp_nodes_for_market(
         &mut self,
         nodes_to_fill: &[NodeToFill],
         build_for_bundle: bool,
@@ -1638,13 +1635,14 @@ where
             builder.revert_fill(*user_account_pubkey);
         }
 
-        let recent_blockhash = self
-            .drift_client
-            .backend
-            .rpc_client
-            .get_latest_blockhash()
-            .await
-            .expect("get recent blockhash");
+        // let recent_blockhash = self
+        //     .drift_client
+        //     .backend
+        //     .rpc_client
+        //     .get_latest_blockhash()
+        //     .await
+        //     .expect("get recent blockhash");
+        let recent_blockhash = self.blockhash_subscriber.get_latest_blockhash().await;
 
         let mut params = SimulateAndGetTxWithCUsParams {
             connection: self.drift_client.backend.rpc_client.clone(),
@@ -1665,6 +1663,7 @@ where
             .await
             .expect("simulate");
 
+        // ERROR:
         if self.simulate_tx_for_cu_estimate.is_some() && sim_res.sim_error.is_some() {
             log::error!(
                 "sim_error: {} (fill_tx_id: {fill_tx_id})",
@@ -1735,7 +1734,7 @@ where
         fillable_nodes: &[NodeToFill],
         build_for_bundle: bool,
     ) {
-        self.try_bulk_fill_perp_nodes(fillable_nodes, build_for_bundle)
+        self.try_fill_perp_nodes(fillable_nodes, build_for_bundle)
             .await;
     }
 
