@@ -95,7 +95,7 @@ pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u64) -> SdkRe
         BigInt::from(amm.peg_multiplier).add(budget_delta_peg),
     );
 
-    Ok(max.to_u128().ok_or(SdkError::NumBigintError(
+    max.to_u128().ok_or(SdkError::NumBigintError(
         "calculate_budget_peg.max".to_string(),
-    ))?)
+    ))
 }

@@ -438,10 +438,10 @@ pub fn calculate_spread_reserves(
 
         let quote_asset_reserve = if quote_asset_reserve_delta >= 0 {
             amm.quote_asset_reserve
-                .safe_add(quote_asset_reserve_delta.abs() as u128)?
+                .safe_add(quote_asset_reserve_delta.unsigned_abs())?
         } else {
             amm.quote_asset_reserve
-                .safe_sub(quote_asset_reserve_delta.abs() as u128)?
+                .safe_sub(quote_asset_reserve_delta.unsigned_abs())?
         };
 
         let base_asset_reserve = amm

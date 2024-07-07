@@ -198,14 +198,15 @@ where
         }
 
         let mut dlob = self.dlob.lock().await.dlob.clone();
-        Ok(dlob.get_l2::<VammL2Generator>(
+
+        dlob.get_l2::<VammL2Generator>(
             market_index,
             &market_type,
             self.slot_source.get_slot(),
             &oracle_price_data.data,
             depth,
             &mut fallback_l2_generators,
-        )?)
+        )
     }
 
     pub async fn get_l3(
@@ -252,12 +253,12 @@ where
         };
 
         let mut dlob = self.dlob.lock().await.dlob.clone();
-        Ok(dlob.get_l3(
+        dlob.get_l3(
             market_index,
             &market_type,
             self.slot_source.get_slot(),
             &oracle_price_data.data,
-        )?)
+        )
     }
 
     pub async fn unsubscribe(&mut self) {
