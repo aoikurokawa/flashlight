@@ -100,8 +100,8 @@ pub fn calculate_optimal_peg_and_budget(
             };
 
             new_optimal_peg = calculate_peg_from_target_price(
-                amm.base_asset_reserve,
                 amm.quote_asset_reserve,
+                amm.base_asset_reserve,
                 new_target_price,
             )
             .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
@@ -257,7 +257,7 @@ pub fn calculate_amm_reserves_after_swap(
                 swap_amount,
                 amm.quote_asset_reserve,
                 swap_direction,
-                amm.sqrt_k.mul(amm.sqrt_k),
+                amm.sqrt_k,
             )
             .map_err(|e| SdkError::MathError(format!("Error: {e}")))?;
 
@@ -268,7 +268,7 @@ pub fn calculate_amm_reserves_after_swap(
                 swap_amount,
                 amm.base_asset_reserve,
                 swap_direction,
-                amm.sqrt_k.mul(amm.sqrt_k),
+                amm.sqrt_k,
             )
             .map_err(|e| SdkError::MathError(format!("Error: {e}")))?;
 
@@ -427,10 +427,10 @@ pub fn calculate_spread_reserves(
 
         let quote_asset_reserve = if quote_asset_reserve_delta >= 0 {
             amm.quote_asset_reserve
-                .safe_add(quote_asset_reserve_delta as u128)?
+                .safe_add(quote_asset_reserve_delta.abs() as u128)?
         } else {
             amm.quote_asset_reserve
-                .safe_sub(quote_asset_reserve_delta as u128)?
+                .safe_sub(quote_asset_reserve_delta.abs() as u128)?
         };
 
         let base_asset_reserve = amm
