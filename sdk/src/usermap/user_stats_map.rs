@@ -16,6 +16,7 @@ use crate::{
 
 use super::UserMap;
 
+/// Map from authority pubkey to UserStats
 pub struct UserStatsMap<T>
 where
     T: AccountProvider,
@@ -29,6 +30,7 @@ impl<T> UserStatsMap<T>
 where
     T: AccountProvider,
 {
+    /// Creates a new UserStatsMap
     pub fn new(
         drift_client: Arc<DriftClient<T>>,
         bulk_account_loader: Option<BulkAccountLoader>,

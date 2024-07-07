@@ -358,12 +358,13 @@ where
         let start_init_user_stats_map = Instant::now();
         info!("Initializing user_stats_map");
 
+        // TODO: temp value Duration
         let user_stats_loader = BulkAccountLoader::new(
             self.drift_client.backend.rpc_client.clone(),
             CommitmentConfig {
                 commitment: CommitmentLevel::Confirmed,
             },
-            Duration::from_secs(0),
+            Duration::from_secs(60),
         );
         let user_stats_map = UserStatsMap::new(self.drift_client.clone(), Some(user_stats_loader));
 

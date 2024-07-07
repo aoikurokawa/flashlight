@@ -105,6 +105,7 @@ impl<T: AccountProvider> UserStats<T> {
     pub fn get_account(&self) -> SdkResult<Option<UserStatsAccount>> {
         let account_and_slot = self.account_subscriber.get_user_stats_account_and_slot()?;
 
+        log::debug!("get account and slot: {:?}", account_and_slot);
         if let Some(account) = account_and_slot {
             return Ok(Some(account.data));
         }
@@ -115,6 +116,7 @@ impl<T: AccountProvider> UserStats<T> {
     pub fn get_referrer_info(&self) -> SdkResult<Option<ReferrerInfo>> {
         let account = self.get_account()?;
 
+        log::debug!("get account: {:?}", account);
         match account {
             Some(account) => {
                 if account.referrer.eq(&Pubkey::default()) {

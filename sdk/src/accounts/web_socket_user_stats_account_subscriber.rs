@@ -29,8 +29,8 @@ impl WebSocketUserStatsAccountSubscriber {
         resub_opts: Option<ResubOpts>,
         commitment: Option<CommitmentConfig>,
     ) -> Self {
-        let user_stats_account_subscriber = WebsocketAccountSubscriber::<UserStatsAccount>::new(
-            "userStats",
+        let user_stats_account_subscriber = WebsocketAccountSubscriber::new(
+            "user_stats",
             &program.rpc().url(),
             user_stats_account_pubkey,
             commitment.unwrap(),
@@ -100,7 +100,14 @@ impl WebSocketUserStatsAccountSubscriber {
             "You must call subscribe before using this function"
         );
 
-        // TODO
-        Ok(None)
+        log::debug!("get_user_stats_account_and_slot");
+
+        let data_and_slot = self
+            .user_stats_account_subscriber
+            .data_and_slot
+            .lock()
+            .unwrap();
+
+        return Ok(data_and_slot.clone());
     }
 }

@@ -29,7 +29,7 @@ pub struct BufferAndSlot {
 }
 
 pub struct BulkAccountLoader {
-    client: Arc<RpcClient>,
+    pub client: Arc<RpcClient>,
     pub commitment: CommitmentConfig,
     polling_frequency: Duration,
     accounts_to_load: Arc<Mutex<HashMap<String, AccountToLoad>>>,

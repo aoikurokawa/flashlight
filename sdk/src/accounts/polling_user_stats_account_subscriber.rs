@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use anchor_client::Program;
+use anchor_lang::AccountDeserialize;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 use tokio::sync::Mutex as TokioMutex;
 
@@ -41,6 +42,30 @@ impl PollingUserStatsAccountSubscriber {
         }
     }
 
+    pub(crate) async fn subscribe(
+        &mut self,
+        user_stats_account: Option<UserStatsAccount>,
+    ) -> SdkResult<bool> {
+        if self.is_subscribed {
+            return Ok(true);
+        }
+
+        if let Some(user_stats_account) = user_stats_account {
+            self.user_stats = Some(DataAndSlot {
+                slot: 0,
+                data: user_stats_account,
+            });
+        }
+
+        self.add_to_account_loader().await;
+
+        self.fetch_if_unloaded().await?;
+
+        self.is_subscribed = true;
+
+        Ok(true)
+    }
+
     pub(crate) async fn add_to_account_loader(&mut self) {
         if self.callback_id.is_some() {
             return;
@@ -60,7 +85,7 @@ impl PollingUserStatsAccountSubscriber {
                             return;
                         }
 
-                        let user_stats = user_stats.lock().unwrap();
+                        let mut user_stats = user_stats.lock().unwrap();
                         if let Some(user_stats) = &*user_stats {
                             if user_stats.slot > slot {
                                 return;
@@ -68,16 +93,18 @@ impl PollingUserStatsAccountSubscriber {
                         }
 
                         // let pubkey = Pubkey::new_from_array(&buffer[..]);
-                        let mut array = [0u8; 32];
-                        array.copy_from_slice(&buffer);
-                        todo!()
-                        // let account: UserStatsAccount =
-                        //     program.account(Pubkey::new_from_array(array)).unwrap();
+                        // let mut array = [0u8; 32];
+                        // array.copy_from_slice(&buffer);
+                        // todo!()
+                        let account: UserStatsAccount =
+                            UserStatsAccount::try_deserialize(&mut buffer.as_slice())
+                                .map_err(|_e| SdkError::Deserializing)
+                                .expect("try to deserialize user_stats_account");
 
-                        // *user_stats = Some(DataAndSlot {
-                        //     slot,
-                        //     data: account,
-                        // });
+                        *user_stats = Some(DataAndSlot {
+                            slot,
+                            data: account,
+                        });
                         // event_emitter.emit("user_stats_account_update", Box::new(account));
                     })),
                 )
@@ -89,7 +116,6 @@ impl PollingUserStatsAccountSubscriber {
         // }).await;
     }
 
-    #[allow(dead_code)]
     async fn fetch_if_unloaded(&mut self) -> SdkResult<()> {
         if self.user_stats.is_none() {
             self.fetch().await?;
@@ -113,49 +139,40 @@ impl PollingUserStatsAccountSubscriber {
         Ok(())
     }
 
-    pub(crate) async fn subscribe(
-        &mut self,
-        user_stats_account: Option<UserStatsAccount>,
-    ) -> SdkResult<bool> {
-        if self.is_subscribed {
-            return Ok(true);
-        }
-
-        if let Some(user_stats_account) = user_stats_account {
-            self.user_stats = Some(DataAndSlot {
-                slot: 0,
-                data: user_stats_account,
-            });
-        }
-
-        Ok(false)
-    }
-
     pub(crate) async fn fetch(&mut self) -> SdkResult<()> {
-        let _slot = self.program.rpc().get_slot()?;
-        todo!();
-        // match self
-        //     .program
-        //     .account::<UserStatsAccount>(self.user_stats_account_pubkey)
-        // {
-        //     Ok(account) => {
-        //         if let Some(user_stats) = &self.user_stats {
-        //             if slot > user_stats.slot {
-        //                 self.user_stats = Some(DataAndSlot {
-        //                     slot,
-        //                     data: account,
-        //                 });
-        //             }
-        //         }
-        //     }
-        //     Err(e) => {
-        //         warn!(
-        //             "PollingUserStatsAccountSubscriber.fetch() UserStatsAccount does not exist: {}",
-        //             e
-        //         );
-        //     }
-        // }
-        // Ok(())
+        let slot = self.program.rpc().get_slot()?;
+
+        match self
+            .account_loader
+            .client
+            .get_account_data(&self.user_stats_account_pubkey)
+            .await
+        {
+            Ok(account_data) => {
+                let user_stats_account =
+                    UserStatsAccount::try_deserialize(&mut account_data.as_slice())
+                        .map_err(|_e| SdkError::Deserializing)?;
+                let user_stats_slot = if let Some(user_stats) = &self.user_stats {
+                    user_stats.slot
+                } else {
+                    0
+                };
+                if slot > user_stats_slot {
+                    self.user_stats = Some(DataAndSlot {
+                        slot,
+                        data: user_stats_account,
+                    });
+                }
+            }
+            Err(e) => {
+                log::warn!(
+                    "PollingUserStatsAccountSubscriber.fetch() UserStatsAccount does not exist: {}",
+                    e
+                );
+            }
+        }
+
+        Ok(())
     }
 
     pub(crate) async fn unsubscribe(&mut self) {

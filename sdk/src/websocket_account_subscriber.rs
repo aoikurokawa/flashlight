@@ -1,5 +1,6 @@
-use std::marker::PhantomData;
+use std::sync::{Arc, Mutex};
 
+use anchor_lang::AccountDeserialize;
 use futures_util::StreamExt;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{nonblocking::pubsub_client::PubsubClient, rpc_config::RpcAccountInfoConfig};
@@ -8,6 +9,8 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use crate::{
     error::SdkError,
     event_emitter::{Event, EventEmitter},
+    types::DataAndSlot,
+    utils::decode,
     SdkResult,
 };
 
@@ -29,18 +32,31 @@ impl Event for AccountUpdate {
 }
 
 #[derive(Clone)]
-pub struct WebsocketAccountSubscriber<T> {
+pub struct WebsocketAccountSubscriber<T>
+where
+    T: AccountDeserialize,
+{
     subscription_name: &'static str,
+
     url: String,
+
     pubkey: Pubkey,
+
     pub(crate) commitment: CommitmentConfig,
+
     pub subscribed: bool,
+
     pub event_emitter: EventEmitter,
+
     unsubscriber: Option<tokio::sync::mpsc::Sender<()>>,
-    _phantom: PhantomData<T>,
+
+    pub(crate) data_and_slot: Arc<Mutex<Option<DataAndSlot<T>>>>,
 }
 
-impl<T> WebsocketAccountSubscriber<T> {
+impl<T> WebsocketAccountSubscriber<T>
+where
+    T: AccountDeserialize + Send + 'static,
+{
     pub fn new(
         subscription_name: &'static str,
         url: &str,
@@ -56,7 +72,7 @@ impl<T> WebsocketAccountSubscriber<T> {
             subscribed: false,
             event_emitter,
             unsubscriber: None,
-            _phantom: PhantomData,
+            data_and_slot: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -84,6 +100,7 @@ impl<T> WebsocketAccountSubscriber<T> {
         let base_delay = tokio::time::Duration::from_secs(2);
 
         let url = self.url.clone();
+        let data_and_slot = self.data_and_slot.clone();
 
         tokio::spawn({
             let event_emitter = self.event_emitter.clone();
@@ -110,10 +127,14 @@ impl<T> WebsocketAccountSubscriber<T> {
                                                 latest_slot = slot;
                                                 let account_update = AccountUpdate {
                                                     pubkey: pubkey.to_string(),
-                                                    data: message.value,
+                                                    data: message.value.clone(),
                                                     slot,
                                                 };
                                                 event_emitter.emit(subscription_name, Box::new(account_update));
+                                                let new_data = decode::<T>(message.value.data.clone()).expect("valid state data");
+                                                let mut data_and_slot = data_and_slot.lock().unwrap();
+                                                *data_and_slot = Some(DataAndSlot {slot, data: new_data } );
+                                                drop(data_and_slot);
                                             }
                                         }
                                         None => {
@@ -174,23 +195,3 @@ impl<T> WebsocketAccountSubscriber<T> {
         Ok(())
     }
 }
-
-// #[async_trait]
-// impl<T> AccountSubscriber<T> for WebsocketAccountSubscriber<T>
-// where
-//     T: Send + Sync,
-// {
-//     async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, _on_change: F) {}
-//
-//     async fn fetch(&mut self) -> SdkResult<()> {
-//         Ok(())
-//     }
-//
-//     async fn unsubscribe(&self) {}
-//
-//     fn set_data(&mut self, _user_account: T, slot: Option<u64>) {
-//         let _new_slot = slot.unwrap_or(0);
-//
-//         // if self
-//     }
-// }

@@ -2,6 +2,7 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use anchor_lang::AccountDeserialize;
 use base64::Engine;
 use dashmap::DashMap;
 use drift::state::oracle::{get_oracle_price, OraclePriceData, OracleSource};
@@ -27,6 +28,16 @@ pub struct Oracle {
     pub source: OracleSource,
     pub slot: u64,
     pub raw: Vec<u8>,
+}
+
+impl AccountDeserialize for Oracle {
+    fn try_deserialize(_buf: &mut &[u8]) -> Result<Self, anchor_lang::error::Error> {
+        todo!()
+    }
+
+    fn try_deserialize_unchecked(_buf: &mut &[u8]) -> Result<Self, anchor_lang::error::Error> {
+        todo!()
+    }
 }
 
 pub struct OracleMap {

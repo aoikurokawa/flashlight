@@ -32,6 +32,15 @@ where
     pub data: T,
 }
 
+impl<T> DataAndSlot<T>
+where
+    T: AccountDeserialize,
+{
+    pub fn new(slot: u64, data: T) -> Self {
+        Self { slot, data }
+    }
+}
+
 /// Id of a Drift market
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct MarketId {
