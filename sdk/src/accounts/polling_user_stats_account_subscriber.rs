@@ -152,13 +152,16 @@ impl PollingUserStatsAccountSubscriber {
                 let user_stats_account =
                     UserStatsAccount::try_deserialize(&mut account_data.as_slice())
                         .map_err(|_e| SdkError::Deserializing)?;
-                if let Some(user_stats) = &self.user_stats {
-                    if slot > user_stats.slot {
-                        self.user_stats = Some(DataAndSlot {
-                            slot,
-                            data: user_stats_account,
-                        });
-                    }
+                let user_stats_slot = if let Some(user_stats) = &self.user_stats {
+                    user_stats.slot
+                } else {
+                    0
+                };
+                if slot > user_stats_slot {
+                    self.user_stats = Some(DataAndSlot {
+                        slot,
+                        data: user_stats_account,
+                    });
                 }
             }
             Err(e) => {
