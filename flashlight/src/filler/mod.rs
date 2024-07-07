@@ -595,7 +595,7 @@ where
                     &state,
                     &MarketAccount::PerpMarket(Box::new(perp_market)),
                 )
-                .expect("find nodes to fill");
+                .map_err(|e| e.to_string())?;
 
             let nodes_to_trigger = dlob.find_nodes_to_trigger(
                 market_index,

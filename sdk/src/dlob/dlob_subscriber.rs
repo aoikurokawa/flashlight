@@ -205,7 +205,7 @@ where
             &oracle_price_data.data,
             depth,
             &mut fallback_l2_generators,
-        ))
+        )?)
     }
 
     pub async fn get_l3(
@@ -257,7 +257,7 @@ where
             &market_type,
             self.slot_source.get_slot(),
             &oracle_price_data.data,
-        ))
+        )?)
     }
 
     pub async fn unsubscribe(&mut self) {

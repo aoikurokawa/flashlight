@@ -525,10 +525,26 @@ pub fn calculate_max_base_asset_amount_to_trade(
     oracle_price_data: &OraclePriceData,
     now: Option<i64>,
 ) -> SdkResult<(u128, PositionDirection)> {
-    let invariant = amm.sqrt_k * amm.sqrt_k;
+    let invariant = BigUint::from(amm.sqrt_k * amm.sqrt_k);
 
+    let new_base_asset_reserve_squared = invariant
+        .mul(PRICE_PRECISION)
+        .mul(amm.peg_multiplier)
+        .checked_div(&BigUint::from(limit_price))
+        .ok_or(SdkError::NumBigintError(
+            "calculate_max_base_asset_amount_to_trade.limit_price".to_string(),
+        ))?
+        .checked_div(&BigUint::from(PEG_PRECISION))
+        .ok_or(SdkError::NumBigintError(
+            "calculate_max_base_asset_amount_to_trade.PEG_PRECISION".to_string(),
+        ))?;
     let new_base_asset_reserve_squared =
-        invariant * PRICE_PRECISION * amm.peg_multiplier / limit_price as u128 / PEG_PRECISION;
+        new_base_asset_reserve_squared
+            .to_u128()
+            .ok_or(SdkError::NumBigintError(
+                "calculate_max_base_asset_amount_to_trade.new_base_asset_reserve_squared"
+                    .to_string(),
+            ))?;
 
     let new_base_asset_reserve = square_root_u128(new_base_asset_reserve_squared);
     let (short_spread_reserves, long_spread_reserves) =

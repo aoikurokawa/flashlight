@@ -70,18 +70,21 @@ pub fn calculate_budget_peg(amm: &AMM, budget: i128, target_price: u64) -> SdkRe
         per_peg_cost - BigInt::one()
     };
 
-    let target_price = target_price as u128;
+    let target_price = BigInt::from(target_price);
     let target_peg = target_price
         .mul(amm.base_asset_reserve)
         .div(amm.quote_asset_reserve)
         .div(PRICE_DIV_PEG);
 
-    let peg_change_direction = target_peg.sub(amm.peg_multiplier) as i128;
+    let peg_change_direction = target_peg.clone().sub(BigInt::from(amm.peg_multiplier));
 
-    let use_target_peg = (per_peg_cost < BigInt::ZERO && peg_change_direction > 0)
-        || (per_peg_cost > BigInt::ZERO && peg_change_direction < 0);
+    let use_target_peg = (per_peg_cost < BigInt::ZERO && peg_change_direction > BigInt::ZERO)
+        || (per_peg_cost > BigInt::ZERO && peg_change_direction < BigInt::ZERO);
 
     if per_peg_cost == BigInt::ZERO || use_target_peg {
+        let target_peg = target_peg.to_u128().ok_or(SdkError::NumBigintError(
+            "calculate_budget_peg.target_peg".to_string(),
+        ))?;
         return Ok(target_peg);
     }
 
