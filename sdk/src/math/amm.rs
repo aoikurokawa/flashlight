@@ -19,8 +19,8 @@ use drift::{
     },
     state::{oracle::OraclePriceData, perp_market::AMM, user::AssetType},
 };
-use num_bigint::BigUint;
-use num_traits::ToPrimitive;
+use num_bigint::{BigInt, BigUint};
+use num_traits::{CheckedDiv, ToPrimitive};
 
 use crate::{
     math::{repeg::calculate_budget_peg, util::sig_num},
@@ -69,9 +69,9 @@ pub fn calculate_optimal_peg_and_budget(
     .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
     let target_price = oracle_price_data.price;
     let new_peg = calculate_peg_from_target_price(
-        target_price as u128,
+        amm.quote_asset_reserve,
         amm.base_asset_reserve,
-        amm.quote_asset_reserve as u64,
+        target_price as u64,
     )
     .map_err(|e| SdkError::MathError(format!("Error Code: {e}")))?;
     let pre_peg_cost = calculate_repeg_cost(amm, new_peg)
@@ -149,11 +149,15 @@ pub fn calculate_new_amm(
         new_amm.base_asset_reserve = new_amm.base_asset_reserve.mul(pk_number).div(pk_denom);
         new_amm.sqrt_k = new_amm.sqrt_k.mul(pk_number).div(pk_denom);
         let invariant = BigUint::from(new_amm.sqrt_k) * BigUint::from(new_amm.sqrt_k);
-        new_amm.quote_asset_reserve = (invariant / BigUint::from(new_amm.base_asset_reserve))
-            .to_u128()
-            .ok_or(SdkError::NumBigintError(String::from(
-                "quote_asset_reserve",
-            )))?;
+        new_amm.quote_asset_reserve = (invariant
+            .checked_div(&BigUint::from(new_amm.base_asset_reserve))
+            .ok_or(SdkError::NumBigintError(
+                "calculate_new_amm.invatiant".to_string(),
+            ))?)
+        .to_u128()
+        .ok_or(SdkError::NumBigintError(String::from(
+            "calculate_new_amm.quote_asset_reserve",
+        )))?;
         let direction_to_close = if amm.base_asset_amount_with_amm > 0 {
             PositionDirection::Short
         } else {
@@ -169,7 +173,7 @@ pub fn calculate_new_amm(
         )?;
 
         new_amm.terminal_quote_asset_reserve = new_quote_asset_reserve;
-        new_peg = calculate_budget_peg(&new_amm, pre_peg_cost, target_price);
+        new_peg = calculate_budget_peg(&new_amm, pre_peg_cost, target_price)?;
         pre_peg_cost = calculate_repeg_cost(&new_amm, new_peg)?;
     }
 
@@ -341,11 +345,12 @@ pub fn calculate_spread(
     now: Option<i64>,
     reserve_price: Option<u64>,
 ) -> SdkResult<(u32, u32)> {
+    log::error!("Reserve Price: {reserve_price:?}");
     let reserve_price = match reserve_price {
         Some(price) => price,
         None => calculate_price(
-            amm.base_asset_reserve,
             amm.quote_asset_reserve,
+            amm.base_asset_reserve,
             amm.peg_multiplier,
         )?,
     };
@@ -354,10 +359,16 @@ pub fn calculate_spread(
         Some(data) => data.price as u64,
         None => reserve_price,
     };
-    let target_mark_spread_pct = BigUint::from(reserve_price)
-        .sub(target_price)
-        .mul(BigUint::from(BID_ASK_SPREAD_PRECISION))
-        .div(reserve_price);
+    let target_mark_spread_pct = BigInt::from(reserve_price)
+        .checked_sub(&BigInt::from(target_price))
+        .ok_or(SdkError::NumBigintError(
+            "calculate_spread.reserve_price".to_string(),
+        ))?
+        .mul(BigInt::from(BID_ASK_SPREAD_PRECISION))
+        .checked_div(&BigInt::from(reserve_price))
+        .ok_or(SdkError::NumBigintError(
+            "calculate_new_amm.invatiant".to_string(),
+        ))?;
     let target_mark_spread_pct =
         target_mark_spread_pct
             .to_i64()
@@ -442,8 +453,8 @@ pub fn calculate_spread_reserves(
     }
 
     let reserve_price = calculate_price(
-        amm.base_asset_reserve,
         amm.quote_asset_reserve,
+        amm.base_asset_reserve,
         amm.peg_multiplier,
     )?;
 

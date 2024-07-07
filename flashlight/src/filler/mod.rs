@@ -565,16 +565,15 @@ where
         &self,
         market: PerpMarket,
         dlob: &mut DLOB,
-    ) -> Option<(Vec<NodeToFill>, Vec<Node>)> {
+    ) -> Result<(Vec<NodeToFill>, Vec<Node>), String> {
         let market_index = market.market_index;
 
         let oracle = self
             .drift_client
             .get_oracle_price_data_and_slot_for_perp_market(market_index);
         if let Some(oracle) = oracle {
-            let v_ask = calculate_ask_price(&market, &oracle.data).expect("calculate ask price");
-            let v_bid = calculate_bid_price(&market, &oracle.data).expect("calculate bid price");
-
+            let v_ask = calculate_ask_price(&market, &oracle.data).map_err(|e| e.to_string())?;
+            let v_bid = calculate_bid_price(&market, &oracle.data).map_err(|e| e.to_string())?;
             let fill_slot = self.get_max_slot();
 
             let state_account = self.drift_client.get_state_account();
@@ -605,10 +604,10 @@ where
                 self.drift_client.get_state_account(),
             );
 
-            return Some((nodes_to_fill, nodes_to_trigger));
+            return Ok((nodes_to_fill, nodes_to_trigger));
         }
 
-        None
+        Err(String::from("Could not find oracle"))
     }
 
     /// Check if the node is still throttled, if not, clears it from the throttled_nodes map
@@ -1927,13 +1926,13 @@ where
         for market in self.drift_client.get_perp_market_accounts() {
             if let Some(ref mut dlob) = dlob {
                 match self.get_perp_nodes_for_market(market, dlob).await {
-                    Some((nodes_to_fill, nodes_to_trigger)) => {
+                    Ok((nodes_to_fill, nodes_to_trigger)) => {
                         fillable_nodes.extend(nodes_to_fill);
                         triggerable_nodes.extend(nodes_to_trigger);
                     }
-                    None => {
+                    Err(e) => {
                         log::warn!(
-                            "{}: :x: Failed to get fillable nodes for market {}",
+                            "{}: :x: Failed to get fillable nodes for market {}, Error: {e}",
                             self.name,
                             market.market_index
                         );
