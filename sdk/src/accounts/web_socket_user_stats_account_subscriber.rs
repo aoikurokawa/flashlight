@@ -108,6 +108,6 @@ impl WebSocketUserStatsAccountSubscriber {
             .lock()
             .unwrap();
 
-        return Ok(data_and_slot.clone());
+        Ok(data_and_slot.clone())
     }
 }
