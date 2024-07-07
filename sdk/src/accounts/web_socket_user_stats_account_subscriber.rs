@@ -6,6 +6,8 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature:
 use crate::{
     event_emitter::EventEmitter,
     types::{DataAndSlot, SdkResult, UserStatsAccount},
+    utils::decode,
+    websocket_account_subscriber::AccountUpdate,
     WebsocketAccountSubscriber,
 };
 
@@ -19,7 +21,7 @@ pub struct WebSocketUserStatsAccountSubscriber {
     program: Program<Arc<Keypair>>,
     event_emitter: EventEmitter,
     user_stats_account_pubkey: Pubkey,
-    user_stats_account_subscriber: WebsocketAccountSubscriber<UserStatsAccount>,
+    user_stats_account_subscriber: WebsocketAccountSubscriber,
 }
 
 impl WebSocketUserStatsAccountSubscriber {
@@ -29,8 +31,8 @@ impl WebSocketUserStatsAccountSubscriber {
         resub_opts: Option<ResubOpts>,
         commitment: Option<CommitmentConfig>,
     ) -> Self {
-        let user_stats_account_subscriber = WebsocketAccountSubscriber::<UserStatsAccount>::new(
-            "userStats",
+        let user_stats_account_subscriber = WebsocketAccountSubscriber::new(
+            "user_stats",
             &program.rpc().url(),
             user_stats_account_pubkey,
             commitment.unwrap(),
@@ -100,6 +102,6 @@ impl WebSocketUserStatsAccountSubscriber {
             "You must call subscribe before using this function"
         );
 
-        self.user_stats_account_subscriber.data
+        return Ok(None);
     }
 }

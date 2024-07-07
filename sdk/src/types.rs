@@ -24,14 +24,20 @@ pub enum Context {
 }
 
 #[derive(Debug, Clone)]
-pub struct DataAndSlot<T> {
+pub struct DataAndSlot<T>
+where
+    T: AccountDeserialize,
+{
     pub slot: u64,
     pub data: T,
 }
 
-impl<T> DataAndSlot<T> {
-    pub fn new(data: T) -> Self {
-        Self { slot: 0, data }
+impl<T> DataAndSlot<T>
+where
+    T: AccountDeserialize,
+{
+    pub fn new(slot: u64, data: T) -> Self {
+        Self { slot, data }
     }
 }
 

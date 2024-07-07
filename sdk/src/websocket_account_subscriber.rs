@@ -31,7 +31,7 @@ impl Event for AccountUpdate {
 }
 
 #[derive(Clone)]
-pub struct WebsocketAccountSubscriber<T> {
+pub struct WebsocketAccountSubscriber {
     subscription_name: &'static str,
     url: String,
     pubkey: Pubkey,
@@ -39,10 +39,9 @@ pub struct WebsocketAccountSubscriber<T> {
     pub subscribed: bool,
     pub event_emitter: EventEmitter,
     unsubscriber: Option<tokio::sync::mpsc::Sender<()>>,
-    data_and_slot: DataAndSlot<T>,
 }
 
-impl<T> WebsocketAccountSubscriber<T> {
+impl WebsocketAccountSubscriber {
     pub fn new(
         subscription_name: &'static str,
         url: &str,
@@ -58,7 +57,6 @@ impl<T> WebsocketAccountSubscriber<T> {
             subscribed: false,
             event_emitter,
             unsubscriber: None,
-            data_and_slot: DataAndSlot::new(),
         }
     }
 
@@ -176,23 +174,3 @@ impl<T> WebsocketAccountSubscriber<T> {
         Ok(())
     }
 }
-
-// #[async_trait]
-// impl<T> AccountSubscriber<T> for WebsocketAccountSubscriber<T>
-// where
-//     T: Send + Sync,
-// {
-//     async fn subscribe<F: FnMut(T) + std::marker::Send>(&mut self, _on_change: F) {}
-//
-//     async fn fetch(&mut self) -> SdkResult<()> {
-//         Ok(())
-//     }
-//
-//     async fn unsubscribe(&self) {}
-//
-//     fn set_data(&mut self, _user_account: T, slot: Option<u64>) {
-//         let _new_slot = slot.unwrap_or(0);
-//
-//         // if self
-//     }
-// }
